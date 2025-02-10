@@ -5,7 +5,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message'; 
 
-const API_URL = 'http://192.168.1.11:4000';
+const API_URL = 'https://calm-wildwood-76735-f655325d46d0.herokuapp.com/';
 
 export default function SignIn() {
   const [email, setEmail] = useState('');

@@ -22,12 +22,14 @@ app.use(cors());
 app.use(bodyParser.json());
 
 // Connect to MongoDB
+const mongoose = require('mongoose');
+
 mongoose
   .connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log('✅ Connected to MongoDB'))
   .catch((err) => {
     console.error('❌ MongoDB connection error:', err);
-    process.exit(1);
+    process.exit(1); // ออกจากโปรแกรมถ้าเชื่อมต่อไม่ได้
   });
 
 // Simulate Sensor Data

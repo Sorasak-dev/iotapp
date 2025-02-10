@@ -12,7 +12,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { BarChart } from "react-native-chart-kit";
 
-const API_URL = 'http://192.168.1.11:4000';
+const API_URL = 'https://calm-wildwood-76735-f655325d46d0.herokuapp.com/';
 
 export default function Statistics() {
   const [data, setData] = useState([]);
