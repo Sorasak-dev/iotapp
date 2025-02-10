@@ -1,0 +1,24 @@
+version: "3.9"
+services:
+  backend:
+    build:
+      context: .
+    ports:
+      - "4000:4000"
+    environment:
+      - MONGO_URI=mongodb+srv://surasak2546za:51s48QhUTKWlGMb2@mycluster.mongodb.net/test?retryWrites=true&w=majority
+      - PORT=4000
+      - SECRET_KEY=your_secret_key
+    depends_on:
+      - mongo
+
+  mongo:
+    image: mongo
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+volumes:
+  mongo-data:
