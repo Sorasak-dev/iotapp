@@ -1,2 +1,3 @@
-web: node auth-backend/server.js
+web: node ./auth-backend/server.js
+
 
