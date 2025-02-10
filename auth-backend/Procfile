@@ -1,1 +1,2 @@
-web: cd auth-backend && node server.js
+web: node auth-backend/server.js
+
