@@ -17,6 +17,11 @@ const app = express();
 const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/auth-demo';
 const PORT = process.env.PORT || 4000;
 
+server.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
+});
+
+
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
