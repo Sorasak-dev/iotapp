@@ -5,7 +5,11 @@ import NetInfo from '@react-native-community/netinfo';
 import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message'; 
 
-const API_URL = 'https://8e25-202-28-45-134.ngrok-free.app';
+const API_URL = 'http://192.168.1.12:3000'; 
+// ที่อยู่ipของแต่ละเครื่อง (ipconfig) แล้วดูตรง IPv4 Address 
+// ถ้าต่อผ่าน wifi ดูที่ Wireless LAN adapter Wi-Fi: IPv4 Address
+// ถ้าต่อผ่าน LAN ดูที่ Ethernet adapter Ethernet: IPv4 Address
+// http://<your-ip>:3000
 
 export default function SignIn() {
   const [email, setEmail] = useState('');

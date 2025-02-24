@@ -17,7 +17,7 @@ const app = express();
 // Environment variables
 const mongoURI = process.env.MONGO_URI || "mongodb://localhost:27017/auth-demo";
 const SECRET_KEY = process.env.SECRET_KEY || "your_secret_key";
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
@@ -25,7 +25,7 @@ app.use(bodyParser.json());
 
 // Connect to MongoDB
 mongoose
-  .connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .connect(mongoURI) 
   .then(() => console.log("✅ Connected to MongoDB"))
   .catch((err) => {
     console.error("❌ MongoDB connection error:", err);
