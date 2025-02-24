@@ -3,7 +3,7 @@ import { View, TextInput, Button, StyleSheet, ActivityIndicator, Text, Keyboard 
 import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message'; 
 
-const API_URL = 'https://81af-202-28-45-128.ngrok-free.app';
+const API_URL = 'https://8e25-202-28-45-134.ngrok-free.app';
 
 export default function SignUp() {
   const [email, setEmail] = useState('');

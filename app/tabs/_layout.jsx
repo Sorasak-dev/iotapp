@@ -14,15 +14,16 @@ function CustomTabBarIcon({ focused, iconName, label }) {
 
 export default function TabsLayout() {
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }} edges={["bottom", "left", "right"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }} edges={["left", "right"]}>
       <Tabs
         screenOptions={{
           tabBarShowLabel: false,
           headerShown: false,
+          tabBarSafeAreaInset: 'never',
           tabBarStyle: { 
             backgroundColor: "#fff",
             height: 70, 
-            paddingBottom: 30, 
+            paddingBottom: 40, 
             width: "100%",
             position: "absolute",
             bottom: 0,
@@ -78,7 +79,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: 24,
     flexDirection: "row",
-    paddingHorizontal: 10,
+    paddingHorizontal: 20,
     paddingVertical: 6,
   },
   iconWrapperFocused: {

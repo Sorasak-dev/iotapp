@@ -1,11 +1,14 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image, Modal, Alert } from "react-native";
+import { 
+  View, Text, StyleSheet, TouchableOpacity, FlatList, Image, Modal, Alert, Platform 
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const API_URL = 'https://81af-202-28-45-128.ngrok-free.app/api/devices';
+const API_URL = 'https://8e25-202-28-45-134.ngrok-free.app/api/devices';
 
 const devices = [
   { id: "1", name: "IBS-TH3", type: "Temperature & Humidity Sensor", image: require("./assets/sensor.png") },
@@ -47,7 +50,7 @@ export default function SelectDeviceScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
@@ -76,6 +79,7 @@ export default function SelectDeviceScreen() {
       <FlatList
         data={devices}
         keyExtractor={(item) => item.id}
+        contentContainerStyle={{ paddingBottom: 20 }} // ป้องกันชนขอบล่าง
         renderItem={({ item }) => (
           <View style={styles.deviceItem}>
             <Image source={item.image} style={styles.deviceImage} />
@@ -99,12 +103,17 @@ export default function SelectDeviceScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFF", padding: 20 },
+  container: { 
+    flex: 1, 
+    backgroundColor: "#FFF", 
+    paddingHorizontal: 20,
+    paddingTop: Platform.select({ ios: 20, android: 20 }), 
+  },
 
   header: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
   headerTitle: { fontSize: 22, fontWeight: "bold", marginLeft: 10 },
@@ -129,14 +138,20 @@ const styles = StyleSheet.create({
     backgroundColor: "#F9F9F9",
     padding: 15,
     borderRadius: 12,
-    marginBottom: 10,
+    marginBottom: 12, 
   },
   deviceImage: { width: 50, height: 50, marginRight: 10 },
   deviceInfo: { flex: 1 },
   deviceName: { fontSize: 16, fontWeight: "bold", color: "#333" },
   deviceType: { fontSize: 12, color: "#666" },
 
-  connectButton: { backgroundColor: "#007AFF", paddingVertical: 8, paddingHorizontal: 12, borderRadius: 6 },
+  connectButton: { 
+    backgroundColor: "#007AFF", 
+    paddingVertical: 6,
+    paddingHorizontal: 10, 
+    borderRadius: 6,
+    flexShrink: 1, 
+  },
   connectButtonText: { color: "#FFF", fontWeight: "bold" },
 
   modalContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0,0,0,0.5)" },
