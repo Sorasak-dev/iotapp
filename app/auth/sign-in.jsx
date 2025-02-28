@@ -1,15 +1,11 @@
 import React, { useState } from 'react';
-import { View, TextInput, Button, StyleSheet, ActivityIndicator, Text, Keyboard } from 'react-native';
+import { View, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Text, Keyboard } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message'; 
 
-const API_URL = 'http://172.16.22.133:3000'; 
-// ที่อยู่ipของแต่ละเครื่อง (ipconfig) แล้วดูตรง IPv4 Address 
-// ถ้าต่อผ่าน wifi ดูที่ Wireless LAN adapter Wi-Fi: IPv4 Address
-// ถ้าต่อผ่าน LAN ดูที่ Ethernet adapter Ethernet: IPv4 Address
-// http://<your-ip>:3000
+const API_URL = 'http://192.168.1.12:3000';
 
 export default function SignIn() {
   const [email, setEmail] = useState('');
@@ -18,6 +14,8 @@ export default function SignIn() {
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const router = useRouter();
+
+  
 
   // ฟังก์ชันแสดง Toast
   const showToast = (type, title, message) => {
@@ -92,7 +90,7 @@ export default function SignIn() {
       setLoading(false);
     }
   };
-
+  
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Sign In</Text>
@@ -105,6 +103,7 @@ export default function SignIn() {
         onChangeText={(value) => setEmail(value)}
         keyboardType="email-address"
         autoCapitalize="none"
+        autoFocus={emailError ? true : false}
       />
       {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
 
@@ -115,6 +114,7 @@ export default function SignIn() {
         secureTextEntry
         value={password}
         onChangeText={(value) => setPassword(value)}
+        autoFocus={passwordError ? true : false}
       />
       {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
 
@@ -125,12 +125,16 @@ export default function SignIn() {
           <Text style={styles.loadingText}>Signing in...</Text>
         </View>
       ) : (
-        <Button title="Sign In" onPress={handleSignIn} disabled={loading} />
+        <TouchableOpacity style={styles.button} onPress={handleSignIn} disabled={loading}>
+          <Text style={styles.buttonText}>Sign In</Text>
+        </TouchableOpacity>
       )}
 
       {/* Spacer and Navigation */}
       <View style={styles.spacer} />
-      <Button title="Go to Sign Up" onPress={() => router.push('/auth/sign-up')} />
+      <TouchableOpacity onPress={() => router.push('/auth/sign-up')} disabled={loading}>
+        <Text style={styles.linkText}>Go to Sign Up</Text>
+      </TouchableOpacity>
 
       {/* Toast Notification */}
       <Toast />
@@ -160,4 +164,19 @@ const styles = StyleSheet.create({
   spacer: { height: 10 },
   loadingContainer: { alignItems: 'center', marginVertical: 10 },
   loadingText: { marginTop: 10, color: '#555' },
+  button: {
+    backgroundColor: '#4CAF50',
+    padding: 12,
+    borderRadius: 5,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+  },
+  linkText: {
+    color: '#1E90FF',
+    textAlign: 'center',
+    fontSize: 16,
+  },
 });

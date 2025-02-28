@@ -20,6 +20,7 @@ const Setting = () => {
   const [language, setLanguage] = useState("EN");
   const PROFILE_IMAGE = require("../assets/profile.png");
 
+
   // ✅ ฟังก์ชันออกจากระบบ
   const handleLogout = async () => {
     Alert.alert("Logout", "Are you sure you want to log out?", [

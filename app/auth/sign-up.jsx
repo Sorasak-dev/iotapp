@@ -1,13 +1,9 @@
 import React, { useState } from 'react';
-import { View, TextInput, Button, StyleSheet, ActivityIndicator, Text, Keyboard } from 'react-native';
+import { View, TextInput, Button, StyleSheet, ActivityIndicator, Text, Keyboard, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message'; 
 
-const API_URL = 'http://172.16.22.133:3000';
-// ที่อยู่ipของแต่ละเครื่อง (ipconfig) แล้วดูตรง IPv4 Address 
-// ถ้าต่อผ่าน wifi ดูที่ Wireless LAN adapter Wi-Fi: IPv4 Address
-// ถ้าต่อผ่าน LAN ดูที่ Ethernet adapter Ethernet: IPv4 Address
-// http://<your-ip>:3000
+const API_URL = 'http://192.168.1.12:3000';
 
 export default function SignUp() {
   const [email, setEmail] = useState('');
@@ -124,11 +120,15 @@ export default function SignUp() {
           <Text style={styles.loadingText}>Signing up...</Text>
         </View>
       ) : (
-        <Button title="Sign Up" onPress={handleSignUp} disabled={loading} />
+        <TouchableOpacity style={styles.button} onPress={handleSignUp} disabled={loading}>
+          <Text style={styles.buttonText}>Sign Up</Text>
+        </TouchableOpacity>
       )}
 
       <View style={styles.spacer} />
-      <Button title="Back to Sign In" onPress={() => router.push('/auth/sign-in')} />
+      <TouchableOpacity onPress={() => router.push('/auth/sign-in')} disabled={loading}>
+        <Text style={styles.linkText}>Back to Sign In</Text>
+      </TouchableOpacity>
 
       {/* Toast Notification */}
       <Toast />
@@ -158,4 +158,19 @@ const styles = StyleSheet.create({
   },
   loadingContainer: { alignItems: 'center', marginVertical: 10 },
   loadingText: { marginTop: 10, color: '#555' },
+  button: {
+    backgroundColor: '#4CAF50',
+    padding: 12,
+    borderRadius: 5,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+  },
+  linkText: {
+    color: '#1E90FF',
+    textAlign: 'center',
+    fontSize: 16,
+  },
 });

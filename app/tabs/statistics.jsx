@@ -19,7 +19,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const screenWidth = Dimensions.get("window").width;
 
-const API_URL = "http://172.16.22.133/api/user/sensor-data";
+const API_URL = "http://192.168.1.12:3000/api/user/sensor-data";
 
 export default function Statistics() {
   const [selectedMetrics, setSelectedMetrics] = useState(["Temperature", "Humidity", "Dew Point"]);
@@ -34,7 +34,6 @@ export default function Statistics() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const router = useRouter();
 
   const sensors = [
     { label: "Sensor IBS-TH3", value: "Sensor IBS-TH3" },
