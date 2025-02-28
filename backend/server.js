@@ -10,7 +10,7 @@ const authenticateToken = require("./middleware/authMiddleware");
 const errorHandler = require("./middleware/errorHandler");
 const { userValidationSchema, userDataValidationSchema } = require("./validation/userValidation");
 const User = require("./models/User");
-const Device = require("./models/Device"); 
+const Device = require("./models/Device");
 
 const app = express();
 
@@ -25,7 +25,7 @@ app.use(bodyParser.json());
 
 // Connect to MongoDB
 mongoose
-  .connect(mongoURI) 
+  .connect(mongoURI)
   .then(() => console.log("✅ Connected to MongoDB"))
   .catch((err) => {
     console.error("❌ MongoDB connection error:", err);
@@ -34,43 +34,73 @@ mongoose
 
 // Simulate Sensor Data
 const generateMockSensorData = () => {
-  const shouldBeNull = Math.random() < 0.1; 
-  const randomValue = (min, max) => 
-    parseFloat((Math.random() * (max - min) + min).toFixed(2)); 
-  
+  const shouldBeNull = Math.random() < 0.1;
+
+  const temperature = shouldBeNull ? null : parseFloat((Math.random() * (40 - 20) + 20).toFixed(2));
+  let humidity, co2, ec, ph;
+
+  if (shouldBeNull) {
+    humidity = null;
+    co2 = null;
+    ec = null;
+    ph = null;
+  } else {
+    humidity = parseFloat((Math.random() * (80 - 30) + 30).toFixed(2));
+    co2 = parseInt(Math.random() * (1000 - 200) + 200, 10); // CO2 200-1000 ppm
+    ec = parseFloat((Math.random() * (2.0 - 0.5) + 0.5).toFixed(2)); // EC 0.5-2.0 mS/cm
+    ph = parseFloat((Math.random() * (9 - 4) + 4).toFixed(2)); // pH 4-9
+  }
+
+  // คำนวณ Dew Point และ VPO (ตามโค้ดก่อนหน้า)
+  let dewPoint = null, vpo = null;
+  if (temperature !== null && humidity !== null) {
+    const a = 17.27;
+    const b = 237.7; // หน่วย °C
+    const alpha = ((a * temperature) / (b + temperature)) + Math.log(humidity / 100);
+    dewPoint = (b * alpha) / (a - alpha); // หน่วย °C
+    dewPoint = parseFloat(dewPoint.toFixed(2));
+
+    const saturationVaporPressure = 0.6108 * Math.exp((17.27 * temperature) / (temperature + 237.3)); // kPa
+    const actualVaporPressure = saturationVaporPressure * (humidity / 100);
+    vpo = parseFloat((saturationVaporPressure - actualVaporPressure).toFixed(2));
+  }
+
   return {
     sensorId: 'AM2315',
-    temperature: shouldBeNull ? null : randomValue(20, 40), 
-    humidity: shouldBeNull ? null : randomValue(30, 70),    
-    timestamp: new Date().toISOString(),                  
+    temperature,
+    humidity,
+    co2,
+    ec,
+    ph,
+    dew_point: dewPoint,
+    vpo: vpo,
+    timestamp: new Date().toISOString(),
   };
 };
 
+// Simulate Sensor Data and Save to Database
 const simulateSensorData = async () => {
-  const users = await User.find();
-  if (users.length === 0) {
-    console.error('❌ No users found for adding sensor data.');
-    return;
-  }
+  const sensorData = generateMockSensorData();
+  console.log("Simulated Sensor Data:", sensorData);
 
-  for (const user of users) {
-    const mockData = generateMockSensorData();
-
-    const isDuplicate = user.data.some(
-      (item) => item.sensorId === mockData.sensorId && item.timestamp === mockData.timestamp
-    );
-
-    if (!isDuplicate) {
-      user.data.push(mockData);
-      await user.save();
-      console.log(`✅ Mock sensor data added for ${user.email}:`, mockData);
+  try {
+    const device = await Device.findOne({ sensorId: sensorData.sensorId });
+    if (device) {
+      device.data.push(sensorData);
+      await device.save();
+      console.log("Sensor data saved to database:", sensorData);
     } else {
-      console.log(`ℹ️ Duplicate sensor data detected for ${user.email}, skipping.`);
+      console.log("Device not found for sensorId:", sensorData.sensorId);
     }
+  } catch (err) {
+    console.error("Error saving sensor data:", err);
   }
 };
 
-// Run the simulation every 1 hr
+// Run the simulation immediately when the server starts
+simulateSensorData();
+
+// Run the simulation every 1 hour
 setInterval(simulateSensorData, 3600000);
 
 // Routes
@@ -169,7 +199,6 @@ app.get('/api/user/sensor-data', authenticateToken, async (req, res, next) => {
     next(err);
   }
 });
-
 
 // Global Error Handling Middleware
 app.use(errorHandler);

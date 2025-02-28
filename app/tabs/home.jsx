@@ -19,11 +19,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width, height } = Dimensions.get("window");
 
-const API_URL = 'http://192.168.1.12/api/devices';
+const API_URL = 'http://172.16.22.133:3000/api/devices';
 // ที่อยู่ipของแต่ละเครื่อง (ipconfig) แล้วดูตรง IPv4 Address 
 // ถ้าต่อผ่าน wifi ดูที่ Wireless LAN adapter Wi-Fi: IPv4 Address
 // ถ้าต่อผ่าน LAN ดูที่ Ethernet adapter Ethernet: IPv4 Address
-// http://<your-ip>:3000/api/devices
+// http://<172.16.22.111>:3000/api/devices
 
 const WEATHER_API_KEY = "137ea86a7cc8fd70e39b16ad03c010a4";
 const CITY_NAME = "Chiang Rai";
@@ -226,7 +226,7 @@ export default function HomeScreen() {
             <TouchableOpacity
               key={device._id}
               style={styles.deviceCard}
-              onPress={() => router.push("/devicemoni")}
+              onPress={() => router.push("/device-monitor")}
               activeOpacity={0.7} // ✅ เอฟเฟกต์เวลากด
             >
               {/* ปุ่มลบอุปกรณ์ */}

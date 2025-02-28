@@ -5,7 +5,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message'; 
 
-const API_URL = 'http://192.168.1.12:3000'; 
+const API_URL = 'http://172.16.22.133:3000'; 
 // ที่อยู่ipของแต่ละเครื่อง (ipconfig) แล้วดูตรง IPv4 Address 
 // ถ้าต่อผ่าน wifi ดูที่ Wireless LAN adapter Wi-Fi: IPv4 Address
 // ถ้าต่อผ่าน LAN ดูที่ Ethernet adapter Ethernet: IPv4 Address
