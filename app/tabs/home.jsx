@@ -153,12 +153,14 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Home</Text>
-          <Ionicons name="notifications-outline" size={26} color="black" />
-        </View>
+  <ScrollView contentContainerStyle={styles.scrollContainer}>
+    {/* Header */}
+    <View style={styles.header}>
+      <Text style={styles.headerTitle}>Home</Text>
+      <TouchableOpacity onPress={() => router.push("/notification")}>
+  <Ionicons name="notifications-outline" size={26} color="black" />
+</TouchableOpacity>
+    </View>
 
         {/* วันที่ */}
         <Text style={styles.dateText}>{date}</Text>
