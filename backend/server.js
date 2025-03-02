@@ -101,7 +101,7 @@ const simulateSensorData = async () => {
 simulateSensorData();
 
 // Run the simulation every 1 hour
-setInterval(simulateSensorData, 3600000);
+setInterval(simulateSensorData, 600000);
 
 // Routes
 app.get('/', (req, res) => {
@@ -120,10 +120,8 @@ app.post("/api/signup", async (req, res, next) => {
 
   try {
     const userExists = await User.findOne({ email });
-    if (userExists) return res.status(400).json({ message: "Email already exists" });
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({ email, password: hashedPassword });
+    if (userExists) return res.status(409).json({ message: "Email already exists" });
+    const newUser = new User({ email, password });
 
     await newUser.save();
     res.status(201).json({ message: "User created successfully!" });

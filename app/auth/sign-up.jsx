@@ -1,16 +1,21 @@
 import React, { useState } from 'react';
-import { View, TextInput, Button, StyleSheet, ActivityIndicator, Text, Keyboard, TouchableOpacity } from 'react-native';
+import { View, TextInput, Button, StyleSheet, ActivityIndicator, Text, Keyboard, TouchableOpacity, Switch } from 'react-native';
 import { useRouter } from 'expo-router';
-import Toast from 'react-native-toast-message'; 
+import Toast from 'react-native-toast-message';
+import { MaterialIcons, FontAwesome } from '@expo/vector-icons';
 
 const API_URL = 'http://192.168.1.12:3000';
 
 export default function SignUp() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  const [isChecked, setIsChecked] = useState(false);
+  const [termsError, setTermsError] = useState('');
   const router = useRouter();
 
   // ฟังก์ชันตรวจสอบ Email
@@ -41,6 +46,33 @@ export default function SignUp() {
     }
   };
 
+
+
+  // ฟังก์ชันตรวจสอบ Confirm Password
+  const validateConfirmPassword = (value) => {
+    if (!value) {
+      setConfirmPasswordError('Please confirm your password');
+      return false;
+    } else if (value !== password) {
+      setConfirmPasswordError('Passwords do not match');
+      return false;
+    } else {
+      setConfirmPasswordError('');
+      return true;
+    }
+  };
+
+  // ฟังก์ชันตรวจสอบ Terms
+  const validateTerms = () => {
+    if (!isChecked) {
+      setTermsError('You must agree to the Terms of Service and Privacy Policy');
+      return false;
+    } else {
+      setTermsError('');
+      return true;
+    }
+  };
+
   // ฟังก์ชันแสดง Toast
   const showToast = (type, title, message) => {
     Toast.show({
@@ -58,7 +90,10 @@ export default function SignUp() {
     // ตรวจสอบ Validation
     const isEmailValid = validateEmail(email);
     const isPasswordValid = validatePassword(password);
-    if (!isEmailValid || !isPasswordValid) return;
+    const isConfirmPasswordValid = validateConfirmPassword(confirmPassword);
+    const isTermsValid = validateTerms();
+    
+    if (!isEmailValid || !isPasswordValid || !isConfirmPasswordValid || !isTermsValid) return;
 
     setLoading(true);
     try {
@@ -89,46 +124,112 @@ export default function SignUp() {
 
   return (
     <View style={styles.container}>
-      <TextInput
-        style={[styles.input, emailError ? styles.inputError : null]}
-        placeholder="Email"
+      {/* ปุ่มย้อนกลับ */}
+      <TouchableOpacity style={styles.backButton} onPress={() => router.push('/auth/sign-in')}>
+        <MaterialIcons name="arrow-back" size={24} color="black" />
+      </TouchableOpacity>
+      <Text style={styles.title}>Create Account</Text>
+      <Text style={styles.welcomeText}>Welcome!</Text>
+      <Text style={styles.subtitle}>Please fill in your details to create an account</Text>
+      
+
+      
+      <Text style={styles.label}>Email</Text>
+      <TextInput 
+        style={[styles.input, emailError ? styles.inputError : null]} 
+        placeholder="Enter your email" 
+        keyboardType="email-address"
+        autoCapitalize="none" 
         value={email}
         onChangeText={(value) => {
           setEmail(value);
           validateEmail(value);
         }}
-        keyboardType="email-address"
-        autoCapitalize="none"
       />
       {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
-
-      <TextInput
-        style={[styles.input, passwordError ? styles.inputError : null]}
-        placeholder="Password"
+      
+      <Text style={styles.label}>Password</Text>
+      <TextInput 
+        style={[styles.input, passwordError ? styles.inputError : null]} 
+        placeholder="Create a password" 
         secureTextEntry
         value={password}
         onChangeText={(value) => {
           setPassword(value);
           validatePassword(value);
-        }}
+        }} 
       />
       {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
-
+      
+      <Text style={styles.label}>Confirm Password</Text>
+      <TextInput 
+        style={[styles.input, confirmPasswordError ? styles.inputError : null]} 
+        placeholder="Confirm your password" 
+        secureTextEntry
+        value={confirmPassword}
+        onChangeText={(value) => {
+          setConfirmPassword(value);
+          validateConfirmPassword(value);
+        }}
+      />
+      {confirmPasswordError ? <Text style={styles.errorText}>{confirmPasswordError}</Text> : null}
+      
+      {/* ข้อตกลงเงื่อนไข */}
+      <View style={styles.termsContainer}>
+        <Switch 
+          value={isChecked} 
+          onValueChange={(value) => {
+            setIsChecked(value);
+            if (value) setTermsError('');
+          }} 
+        />
+        <Text style={styles.termsText}>
+          I agree to the <Text style={styles.linkText}>Terms of Service</Text> and{" "}
+          <Text style={styles.linkText}>Privacy Policy</Text>
+        </Text>
+      </View>
+      {termsError ? <Text style={styles.errorText}>{termsError}</Text> : null}
+      
+      {/* ปุ่ม Sign Up */}
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#0000ff" />
+          <ActivityIndicator size="large" color="#007bff" />
           <Text style={styles.loadingText}>Signing up...</Text>
         </View>
       ) : (
-        <TouchableOpacity style={styles.button} onPress={handleSignUp} disabled={loading}>
-          <Text style={styles.buttonText}>Sign Up</Text>
+        <TouchableOpacity 
+          style={styles.signUpButton} 
+          onPress={handleSignUp} 
+          disabled={loading}
+        >
+          <Text style={styles.signUpText}>Sign Up</Text>
         </TouchableOpacity>
       )}
-
-      <View style={styles.spacer} />
-      <TouchableOpacity onPress={() => router.push('/auth/sign-in')} disabled={loading}>
-        <Text style={styles.linkText}>Back to Sign In</Text>
-      </TouchableOpacity>
+      
+      <Text style={styles.orText}>or continue with</Text>
+      
+      {/* ปุ่มล็อกอินผ่านโซเชียล */}
+      <View style={styles.socialButtonsContainer}>
+        <TouchableOpacity style={styles.socialButton}>
+          <FontAwesome name="google" size={20} color="black" />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.socialButton}>
+          <FontAwesome name="apple" size={20} color="black" />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.socialButton}>
+          <FontAwesome name="facebook" size={20} color="black" />
+        </TouchableOpacity>
+      </View>
+      
+      <Text style={styles.loginText}>
+        Already have an account?{" "}
+        <Text 
+          style={styles.loginLink}
+          onPress={() => router.push('/auth/sign-in')}
+        >
+          Sign In
+        </Text>
+      </Text>
 
       {/* Toast Notification */}
       <Toast />
@@ -137,13 +238,44 @@ export default function SignUp() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 20 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
+  container: {
+    flex: 1,
+    padding: 22,
+    backgroundColor: "#fff",
+  },
+  backButton: {
+    alignSelf: "flex-start",
     marginBottom: 10,
-    padding: 10,
-    borderRadius: 5,
+    marginTop: 50,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: "bold",
+    marginTop: 10,
+  },
+  welcomeText: {
+    fontSize: 28,
+    fontWeight: "bold",
+    marginBottom: 5,
+    marginTop: 20,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: "gray",
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginTop: 10,
+  },
+  input: {
+    width: "100%",
+    padding: 15,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 10,
+    marginTop: 5,
   },
   inputError: {
     borderColor: 'red',
@@ -151,26 +283,66 @@ const styles = StyleSheet.create({
   errorText: {
     color: 'red',
     fontSize: 12,
-    marginBottom: 10,
+    marginTop: 5,
   },
-  spacer: {
-    height: 10,
+  termsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 15,
   },
-  loadingContainer: { alignItems: 'center', marginVertical: 10 },
-  loadingText: { marginTop: 10, color: '#555' },
-  button: {
-    backgroundColor: '#4CAF50',
-    padding: 12,
-    borderRadius: 5,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
+  termsText: {
+    marginLeft: 10,
+    fontSize: 14,
+    flex: 1,
   },
   linkText: {
-    color: '#1E90FF',
-    textAlign: 'center',
+    color: "blue",
+  },
+  signUpButton: {
+    width: "100%",
+    backgroundColor: "#007bff",
+    padding: 15,
+    borderRadius: 10,
+    alignItems: "center",
+    marginVertical: 15,
+  },
+  signUpText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  orText: {
+    textAlign: "center",
+    marginVertical: 15,
+    color: "gray",
+  },
+  socialButtonsContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginVertical: 10,
+  },
+  socialButton: {
+    marginHorizontal: 10,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 10,
+  },
+  loginText: {
+    marginTop: 20,
     fontSize: 16,
+    textAlign: "center",
+  },
+  loginLink: {
+    color: "blue",
+    fontWeight: "bold",
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    marginVertical: 15,
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#555',
   },
 });

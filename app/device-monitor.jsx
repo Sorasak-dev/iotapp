@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView } from 'react-native';
-import { FontAwesome5, MaterialIcons } from '@expo/vector-icons';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, SafeAreaView, Dimensions, Platform, StatusBar } from 'react-native';
+import { FontAwesome5, MaterialIcons, Ionicons } from '@expo/vector-icons';
 import * as Battery from 'expo-battery';
 import { BarChart } from 'react-native-chart-kit';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_URL = 'http://192.168.1.12:3000';
+const screenWidth = Dimensions.get('window').width;
+const isIOS = Platform.OS === 'ios';
 
 const getAuthToken = async () => {
   try {
@@ -216,7 +218,7 @@ export default function DeviceMonitor() {
         <View style={styles.chartContainer}>
           <BarChart
             data={{ labels: latestLabels, datasets: [{ data: latestValues }] }}
-            width={300}
+            width={screenWidth - 50}
             height={220}
             yAxisLabel=""
             chartConfig={chartConfig}
@@ -233,117 +235,221 @@ export default function DeviceMonitor() {
     navigation.navigate('sensor-detail', { sensorData: JSON.stringify(sensorData), latestData: JSON.stringify(latestData) });
   };
 
+  const handleGoBack = () => {
+    navigation.goBack();
+  };
+
   return (
-    <ScrollView style={styles.scrollContainer}>
-      <View style={styles.container}>
-        <Text style={styles.header}>Device Monitor</Text>
-        <Text style={styles.subHeader}>Sensor Status Overview</Text>
-
-        {errorMessage && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{errorMessage}</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView style={styles.scrollContainer}>
+        <View style={styles.container}>
+          <View style={styles.headerContainer}>
+            <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color="black" />
+            </TouchableOpacity>
+            <Text style={styles.header}>Device Monitor</Text>
           </View>
-        )}
+          
+          <Text style={styles.subHeader}>Sensor Status Overview</Text>
 
-        <TouchableOpacity onPress={handleSensorPress}>
-          <View style={styles.sensorCard}>
-            <View style={styles.sensorHeader}>
-              <FontAwesome5 name="microchip" size={20} color="black" />
-              <Text style={styles.sensorTitle}>Sensor IBS-TH3</Text>
+          {errorMessage && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{errorMessage}</Text>
             </View>
-          </View>
-        </TouchableOpacity>
+          )}
 
-        {latestData ? (
-          <>
-            <TouchableOpacity onPress={() => setShowTempChart(!showTempChart)}>
-              <View style={styles.dataCard}>
-                <FontAwesome5 name="temperature-high" size={20} color="blue" />
-                <View style={styles.dataText}>
-                  <Text style={styles.dataTitle}>Temperature</Text>
-                  <Text style={styles.dataValue}>{latestData.temperature !== null ? `${latestData.temperature}°C` : 'N/A'}</Text>
-                  <Text style={styles.dataUpdate}>Updated {latestData.updatedAt}</Text>
-                </View>
-                <MaterialIcons name={showTempChart ? "keyboard-arrow-up" : "keyboard-arrow-down"} size={24} color="black" />
+          <TouchableOpacity onPress={handleSensorPress}>
+            <View style={styles.sensorCard}>
+              <View style={styles.sensorHeader}>
+                <FontAwesome5 name="microchip" size={20} color="black" />
+                <Text style={styles.sensorTitle}>Sensor IBS-TH3</Text>
               </View>
-            </TouchableOpacity>
-            {showTempChart && renderChart(sensorData?.temperature, '#3b82f6', 'temperature')}
+            </View>
+          </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => setShowHumidityChart(!showHumidityChart)}>
-              <View style={styles.dataCard}>
-                <FontAwesome5 name="tint" size={20} color="orange" />
-                <View style={styles.dataText}>
-                  <Text style={styles.dataTitle}>Humidity</Text>
-                  <Text style={styles.dataValue}>{latestData.humidity !== null ? `${latestData.humidity}%` : 'N/A'}</Text>
-                  <Text style={styles.dataUpdate}>Updated {latestData.updatedAt}</Text>
+          {latestData ? (
+            <>
+              <TouchableOpacity onPress={() => setShowTempChart(!showTempChart)}>
+                <View style={styles.dataCard}>
+                  <FontAwesome5 name="temperature-high" size={20} color="blue" />
+                  <View style={styles.dataText}>
+                    <Text style={styles.dataTitle}>Temperature</Text>
+                    <Text style={styles.dataValue}>{latestData.temperature !== null ? `${latestData.temperature}°C` : 'N/A'}</Text>
+                    <Text style={styles.dataUpdate}>Updated {latestData.updatedAt}</Text>
+                  </View>
+                  <MaterialIcons name={showTempChart ? "keyboard-arrow-up" : "keyboard-arrow-down"} size={24} color="black" />
                 </View>
-                <MaterialIcons name={showHumidityChart ? "keyboard-arrow-up" : "keyboard-arrow-down"} size={24} color="black" />
-              </View>
-            </TouchableOpacity>
-            {showHumidityChart && renderChart(sensorData?.humidity, '#f59e0b', 'humidity')}
+              </TouchableOpacity>
+              {showTempChart && renderChart(sensorData?.temperature, '#3b82f6', 'temperature')}
 
-            <TouchableOpacity onPress={() => setShowDewPointChart(!showDewPointChart)}>
-              <View style={styles.dataCard}>
-                <FontAwesome5 name="cloud-rain" size={20} color="cyan" />
-                <View style={styles.dataText}>
-                  <Text style={styles.dataTitle}>Dew Point</Text>
-                  <Text style={styles.dataValue}>{latestData.dewPoint !== null ? `${latestData.dewPoint}°C` : 'N/A'}</Text>
-                  <Text style={styles.dataUpdate}>Updated {latestData.updatedAt}</Text>
+              <TouchableOpacity onPress={() => setShowHumidityChart(!showHumidityChart)}>
+                <View style={styles.dataCard}>
+                  <FontAwesome5 name="tint" size={20} color="orange" />
+                  <View style={styles.dataText}>
+                    <Text style={styles.dataTitle}>Humidity</Text>
+                    <Text style={styles.dataValue}>{latestData.humidity !== null ? `${latestData.humidity}%` : 'N/A'}</Text>
+                    <Text style={styles.dataUpdate}>Updated {latestData.updatedAt}</Text>
+                  </View>
+                  <MaterialIcons name={showHumidityChart ? "keyboard-arrow-up" : "keyboard-arrow-down"} size={24} color="black" />
                 </View>
-                <MaterialIcons name={showDewPointChart ? "keyboard-arrow-up" : "keyboard-arrow-down"} size={24} color="black" />
-              </View>
-            </TouchableOpacity>
-            {showDewPointChart && renderChart(sensorData?.dewPoint, '#06b6d4', 'dewPoint')}
+              </TouchableOpacity>
+              {showHumidityChart && renderChart(sensorData?.humidity, '#f59e0b', 'humidity')}
 
-            <TouchableOpacity onPress={() => setShowVpoChart(!showVpoChart)}>
-              <View style={styles.dataCard}>
-                <FontAwesome5 name="wind" size={20} color="green" />
-                <View style={styles.dataText}>
-                  <Text style={styles.dataTitle}>Vapor Pressure Deficit (VPO)</Text>
-                  <Text style={styles.dataValue}>{latestData.vpo !== null ? `${latestData.vpo} kPa` : 'N/A'}</Text>
-                  <Text style={styles.dataUpdate}>Updated {latestData.updatedAt}</Text>
+              <TouchableOpacity onPress={() => setShowDewPointChart(!showDewPointChart)}>
+                <View style={styles.dataCard}>
+                  <FontAwesome5 name="cloud-rain" size={20} color="cyan" />
+                  <View style={styles.dataText}>
+                    <Text style={styles.dataTitle}>Dew Point</Text>
+                    <Text style={styles.dataValue}>{latestData.dewPoint !== null ? `${latestData.dewPoint}°C` : 'N/A'}</Text>
+                    <Text style={styles.dataUpdate}>Updated {latestData.updatedAt}</Text>
+                  </View>
+                  <MaterialIcons name={showDewPointChart ? "keyboard-arrow-up" : "keyboard-arrow-down"} size={24} color="black" />
                 </View>
-                <MaterialIcons name={showVpoChart ? "keyboard-arrow-up" : "keyboard-arrow-down"} size={24} color="black" />
-              </View>
-            </TouchableOpacity>
-            {showVpoChart && renderChart(sensorData?.vpo, '#22c55e', 'vpo')}
-          </>
-        ) : (
-          <Text style={styles.noDataText}>Loading sensor data...</Text>
-        )}
-      </View>
-    </ScrollView>
+              </TouchableOpacity>
+              {showDewPointChart && renderChart(sensorData?.dewPoint, '#06b6d4', 'dewPoint')}
+
+              <TouchableOpacity onPress={() => setShowVpoChart(!showVpoChart)}>
+                <View style={styles.dataCard}>
+                  <FontAwesome5 name="wind" size={20} color="green" />
+                  <View style={styles.dataText}>
+                    <Text style={styles.dataTitle}>Vapor Pressure Deficit (VPO)</Text>
+                    <Text style={styles.dataValue}>{latestData.vpo !== null ? `${latestData.vpo} kPa` : 'N/A'}</Text>
+                    <Text style={styles.dataUpdate}>Updated {latestData.updatedAt}</Text>
+                  </View>
+                  <MaterialIcons name={showVpoChart ? "keyboard-arrow-up" : "keyboard-arrow-down"} size={24} color="black" />
+                </View>
+              </TouchableOpacity>
+              {showVpoChart && renderChart(sensorData?.vpo, '#22c55e', 'vpo')}
+            </>
+          ) : (
+            <Text style={styles.noDataText}>Loading sensor data...</Text>
+          )}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 25, backgroundColor: '#F8FAFC' },
-  header: { fontSize: 26, fontWeight: 'bold', marginBottom: 10 },
-  subHeader: { fontSize: 16, color: 'gray', marginBottom: 25 },
-  sensorCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFF', padding: 18, borderRadius: 12, marginBottom: 25 },
-  sensorHeader: { flexDirection: 'row', alignItems: 'center' },
-  sensorTitle: { fontSize: 16, fontWeight: 'bold', marginLeft: 12 },
-  dataCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', padding: 18, borderRadius: 12, marginBottom: 15, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 },
-  dataText: { marginLeft: 12, flex: 1 },
-  dataTitle: { fontSize: 14, color: 'gray' },
-  dataValue: { fontSize: 20, fontWeight: 'bold' },
-  dataUpdate: { fontSize: 12, color: 'gray' },
-  noDataText: { textAlign: 'center', marginVertical: 16, color: 'gray' },
-  errorContainer: { backgroundColor: '#F8D7DA', padding: 10, borderRadius: 8, marginBottom: 20 },
-  errorText: { color: '#721C24', textAlign: 'center' },
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    paddingTop: isIOS ? 0 : StatusBar.currentHeight,
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  container: { 
+    flex: 1, 
+    padding: 16, 
+    backgroundColor: '#F8FAFC',
+    paddingBottom: 30,
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    marginBottom: 10,
+  },
+  backButton: {
+    padding: 10,
+  },
+  header: { 
+    fontSize: 24, 
+    fontWeight: 'bold', 
+    marginLeft: 10,
+  },
+  subHeader: { 
+    fontSize: 16, 
+    color: 'gray', 
+    marginBottom: 20,
+    marginLeft: 10,
+  },
+  sensorCard: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    backgroundColor: '#FFF', 
+    padding: 16, 
+    borderRadius: 12, 
+    marginBottom: 20,
+    marginHorizontal: 2,
+    shadowColor: '#000', 
+    shadowOffset: { width: 0, height: 2 }, 
+    shadowOpacity: 0.1, 
+    shadowRadius: 4, 
+    elevation: 2,
+  },
+  sensorHeader: { 
+    flexDirection: 'row', 
+    alignItems: 'center' 
+  },
+  sensorTitle: { 
+    fontSize: 16, 
+    fontWeight: 'bold', 
+    marginLeft: 12 
+  },
+  dataCard: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: '#FFF', 
+    padding: 16, 
+    borderRadius: 12, 
+    marginBottom: 15, 
+    marginHorizontal: 2,
+    shadowColor: '#000', 
+    shadowOffset: { width: 0, height: 2 }, 
+    shadowOpacity: 0.1, 
+    shadowRadius: 4, 
+    elevation: 2 
+  },
+  dataText: { 
+    marginLeft: 12, 
+    flex: 1 
+  },
+  dataTitle: { 
+    fontSize: 14, 
+    color: 'gray' 
+  },
+  dataValue: { 
+    fontSize: 20, 
+    fontWeight: 'bold' 
+  },
+  dataUpdate: { 
+    fontSize: 12, 
+    color: 'gray' 
+  },
+  noDataText: { 
+    textAlign: 'center', 
+    marginVertical: 16, 
+    color: 'gray' 
+  },
+  errorContainer: { 
+    backgroundColor: '#F8D7DA', 
+    padding: 10, 
+    borderRadius: 8, 
+    marginBottom: 20,
+    marginHorizontal: 2,
+  },
+  errorText: { 
+    color: '#721C24', 
+    textAlign: 'center' 
+  },
   chartContainer: {
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 10,
     marginVertical: 8,
+    marginHorizontal: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.1,
     shadowRadius: 6,
-    elevation: 5,
+    elevation: 3,
+    alignItems: 'center',
   },
   chartStyle: {
     borderRadius: 16,
-    paddingRight: 0, // ลด padding ด้านขวาให้แท่งไม่ติดขอบ
+    paddingRight: 0,
   },
 });

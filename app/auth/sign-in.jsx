@@ -3,7 +3,8 @@ import { View, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Text,
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { useRouter } from 'expo-router';
-import Toast from 'react-native-toast-message'; 
+import Toast from 'react-native-toast-message';
+import { MaterialIcons, FontAwesome } from '@expo/vector-icons';
 
 const API_URL = 'http://192.168.1.12:3000';
 
@@ -13,9 +14,8 @@ export default function SignIn() {
   const [loading, setLoading] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [secureText, setSecureText] = useState(true);
   const router = useRouter();
-
-  
 
   // ฟังก์ชันแสดง Toast
   const showToast = (type, title, message) => {
@@ -93,49 +93,73 @@ export default function SignIn() {
   
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Sign In</Text>
-
-      {/* Email Input */}
+      <Text style={styles.title}>Welcome Back</Text>
+      <Text style={styles.subtitle}>Sign in to continue</Text>
+      
+      <Text style={styles.label}>Email</Text>
       <TextInput
         style={[styles.input, emailError ? styles.inputError : null]}
-        placeholder="Email"
+        placeholder="Enter your email"
         value={email}
-        onChangeText={(value) => setEmail(value)}
+        onChangeText={setEmail}
         keyboardType="email-address"
         autoCapitalize="none"
-        autoFocus={emailError ? true : false}
       />
       {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
-
-      {/* Password Input */}
-      <TextInput
-        style={[styles.input, passwordError ? styles.inputError : null]}
-        placeholder="Password"
-        secureTextEntry
-        value={password}
-        onChangeText={(value) => setPassword(value)}
-        autoFocus={passwordError ? true : false}
-      />
+      
+      <Text style={styles.label}>Password</Text>
+      <View style={[styles.passwordContainer, passwordError ? styles.inputError : null]}>
+        <TextInput
+          style={styles.passwordInput}
+          placeholder="Enter your password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry={secureText}
+        />
+        <TouchableOpacity onPress={() => setSecureText(!secureText)} style={styles.icon}>
+          <MaterialIcons name={secureText ? "visibility-off" : "visibility"} size={24} color="gray" />
+        </TouchableOpacity>
+      </View>
       {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
-
-      {/* Loading or Sign In Button */}
+      
+      <TouchableOpacity onPress={() => router.push('/auth/forgot-password')} disabled={loading}>
+        <Text style={styles.forgotPassword}>Forgot Password?</Text>
+      </TouchableOpacity>
+      
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#0000ff" />
           <Text style={styles.loadingText}>Signing in...</Text>
         </View>
       ) : (
-        <TouchableOpacity style={styles.button} onPress={handleSignIn} disabled={loading}>
-          <Text style={styles.buttonText}>Sign In</Text>
+        <TouchableOpacity style={styles.signInButton} onPress={handleSignIn}>
+          <Text style={styles.signInText}>Sign In</Text>
         </TouchableOpacity>
       )}
-
-      {/* Spacer and Navigation */}
-      <View style={styles.spacer} />
-      <TouchableOpacity onPress={() => router.push('/auth/sign-up')} disabled={loading}>
-        <Text style={styles.linkText}>Go to Sign Up</Text>
+      
+      <Text style={styles.orText}>Or continue with</Text>
+      
+      <TouchableOpacity style={styles.socialButton}>
+        <FontAwesome name="google" size={20} color="black" />
+        <Text style={styles.socialText}>Continue with Google</Text>
       </TouchableOpacity>
-
+      
+      <TouchableOpacity style={styles.socialButton}>
+        <FontAwesome name="phone" size={20} color="black" />
+        <Text style={styles.socialText}>Continue with Phone Number</Text>
+      </TouchableOpacity>
+      
+      <TouchableOpacity style={styles.socialButton}>
+        <FontAwesome name="facebook" size={20} color="black" />
+        <Text style={styles.socialText}>Continue with Facebook</Text>
+      </TouchableOpacity>
+      
+      <TouchableOpacity onPress={() => router.push('/auth/sign-up')} disabled={loading}>
+        <Text style={styles.signUpText}>
+          Don't have an account? <Text style={styles.signUpLink}>Sign Up</Text>
+        </Text>
+      </TouchableOpacity>
+      
       {/* Toast Notification */}
       <Toast />
     </View>
@@ -143,15 +167,99 @@ export default function SignIn() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 20, backgroundColor: '#f9f9f9' },
-  title: { fontSize: 24, fontWeight: 'bold', textAlign: 'center', marginBottom: 20 },
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    padding: 20,
+    backgroundColor: "#fff",
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+    marginBottom: 5,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: "gray",
+    marginBottom: 20,
+  },
+  label: {
+    alignSelf: "flex-start",
+    fontSize: 16,
+    fontWeight: "bold",
+    marginTop: 10,
+  },
   input: {
+    width: "100%",
+    padding: 15,
     borderWidth: 1,
-    borderColor: '#ccc',
-    marginBottom: 10,
+    borderColor: "#ccc",
+    borderRadius: 10,
+    marginTop: 5,
+  },
+  passwordContainer: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 10,
+    marginTop: 5,
+    paddingRight: 10,
+  },
+  passwordInput: {
+    flex: 1,
+    padding: 15,
+  },
+  icon: {
     padding: 10,
-    borderRadius: 5,
-    backgroundColor: '#fff',
+  },
+  forgotPassword: {
+    alignSelf: "flex-end",
+    color: "blue",
+    marginVertical: 10,
+  },
+  signInButton: {
+    width: "100%",
+    backgroundColor: "#007bff",
+    padding: 15,
+    borderRadius: 10,
+    alignItems: "center",
+    marginVertical: 10,
+  },
+  signInText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  orText: {
+    marginVertical: 10,
+    color: "gray",
+    textAlign: "center",
+  },
+  socialButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+    padding: 15,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 10,
+    marginVertical: 5,
+  },
+  socialText: {
+    marginLeft: 10,
+    fontSize: 16,
+  },
+  signUpText: {
+    marginTop: 20,
+    fontSize: 16,
+    textAlign: "center",
+  },
+  signUpLink: {
+    color: "blue",
+    fontWeight: "bold",
   },
   inputError: {
     borderColor: 'red',
@@ -159,24 +267,15 @@ const styles = StyleSheet.create({
   errorText: {
     color: 'red',
     fontSize: 12,
-    marginBottom: 10,
+    marginBottom: 5,
+    alignSelf: "flex-start",
   },
-  spacer: { height: 10 },
-  loadingContainer: { alignItems: 'center', marginVertical: 10 },
-  loadingText: { marginTop: 10, color: '#555' },
-  button: {
-    backgroundColor: '#4CAF50',
-    padding: 12,
-    borderRadius: 5,
-    alignItems: 'center',
+  loadingContainer: { 
+    alignItems: 'center', 
+    marginVertical: 10 
   },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-  },
-  linkText: {
-    color: '#1E90FF',
-    textAlign: 'center',
-    fontSize: 16,
+  loadingText: { 
+    marginTop: 10, 
+    color: '#555' 
   },
 });
