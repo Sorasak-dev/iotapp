@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -17,20 +17,21 @@ import { LineChart } from "react-native-chart-kit";
 import { Dropdown } from "react-native-element-dropdown";
 import { FontAwesome5, Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { useNavigation } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import axios from "axios";
 
 const windowWidth = Dimensions.get("window").width;
 const windowHeight = Dimensions.get("window").height;
 const isIOS = Platform.OS === 'ios';
-const API_URL = "http://172.16.22.105:3000/api/user/sensor-data";
+const API_URL = "http://192.168.1.12:3000";
 
 export default function Statistics() {
-  const navigation = useNavigation();
+  const router = useRouter();
   const [selectedMetrics, setSelectedMetrics] = useState(["Temperature", "Humidity", "Dew Point", "VPO"]);
-  const [selectedSensor, setSelectedSensor] = useState("Sensor IBS-TH3");
+  const [selectedSensor, setSelectedSensor] = useState(null);
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
   const [tempStartDate, setTempStartDate] = useState(new Date());
@@ -41,27 +42,41 @@ export default function Statistics() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [chartWidth, setChartWidth] = useState(windowWidth * 0.9);
+  const [connectedDevices, setConnectedDevices] = useState([]);
+  const [loadingDevices, setLoadingDevices] = useState(true);
 
-  const sensors = [
-    { label: "Sensor IBS-TH3", value: "Sensor IBS-TH3" },
-    { label: "Sensor X-200", value: "Sensor X-200" },
-  ];
+  // ดึงข้อมูลอุปกรณ์ทุกครั้งที่เข้ามาที่หน้านี้
+  useFocusEffect(
+    useCallback(() => {
+      const today = new Date();
+      setStartDate(today);
+      setEndDate(today);
+      setTempStartDate(today);
+      setTempEndDate(today);
+      
+      fetchConnectedDevices();
+      
+      return () => {};
+    }, [])
+  );
 
   useEffect(() => {
-    const today = new Date();
-    setStartDate(today);
-    setEndDate(today);
-    setTempStartDate(today);
-    setTempEndDate(today);
-
     const interval = setInterval(() => {
       setCurrentDate(new Date());
     }, 1000);
 
-    fetchSensorData(today.toISOString().split("T")[0], today.toISOString().split("T")[0]);
-
     return () => clearInterval(interval);
   }, []);
+
+  // อัพเดตเมื่ออุปกรณ์เปลี่ยน
+  useEffect(() => {
+    if (selectedSensor) {
+      fetchSensorData(startDate.toISOString().split("T")[0], endDate.toISOString().split("T")[0]);
+    } else {
+      // ถ้าไม่มีอุปกรณ์ที่เลือก ให้ล้างข้อมูลกราฟ
+      setData([]);
+    }
+  }, [selectedSensor]);
 
   useEffect(() => {
     const updateChartWidth = () => {
@@ -73,6 +88,53 @@ export default function Statistics() {
     updateChartWidth();
   }, [data.length]);
 
+  // ฟังก์ชันดึงข้อมูลอุปกรณ์ที่เชื่อมต่อ
+  const fetchConnectedDevices = async () => {
+    try {
+      setLoadingDevices(true);
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        Alert.alert("Error", "Please log in again.");
+        setLoadingDevices(false);
+        return;
+      }
+
+      const response = await axios.get(`${API_URL}/api/devices`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (Array.isArray(response.data) && response.data.length > 0) {
+        const devices = response.data.map(device => ({
+          label: device.name,
+          value: device.name,
+          id: device._id
+        }));
+        
+        setConnectedDevices(devices);
+        
+        // เลือกอุปกรณ์แรกโดยอัตโนมัติ (หรือคงค่าเดิมถ้ามีอุปกรณ์ที่เลือกอยู่แล้ว)
+        if (devices.length > 0) {
+          if (!selectedSensor || !devices.some(d => d.value === selectedSensor)) {
+            setSelectedSensor(devices[0].value);
+          }
+        }
+      } else {
+        // รีเซ็ตข้อมูลเมื่อไม่พบอุปกรณ์
+        setConnectedDevices([]);
+        setSelectedSensor(null);
+        setData([]); // รีเซ็ตข้อมูลกราฟด้วย
+      }
+    } catch (err) {
+      console.error("Error fetching devices:", err);
+      Alert.alert("Error", "Failed to fetch connected devices.");
+      setConnectedDevices([]);
+      setSelectedSensor(null);
+      setData([]);
+    } finally {
+      setLoadingDevices(false);
+    }
+  };
+
   const fetchSensorData = async (start, end) => {
     try {
       setLoading(true);
@@ -83,14 +145,13 @@ export default function Statistics() {
         return;
       }
 
-      const response = await fetch(`${API_URL}?startDate=${start}&endDate=${end}`, {
+      const response = await fetch(`${API_URL}/api/user/sensor-data?startDate=${start}&endDate=${end}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       const result = await response.json();
       if (response.ok) {
         if (!result.data || !Array.isArray(result.data)) {
-          Alert.alert("Error", "No sensor data available for the selected date range.");
           setData([]);
         } else {
           const sortedData = result.data.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
@@ -102,7 +163,7 @@ export default function Statistics() {
         setData([]);
       }
     } catch (err) {
-      Alert.alert("Error", "Network error occurred: " + err.message);
+      console.error("Network error:", err);
       setData([]);
     } finally {
       setLoading(false);
@@ -196,7 +257,9 @@ export default function Statistics() {
 
   const confirmEndDate = () => {
     setEndDate(tempEndDate);
-    fetchSensorData(startDate.toISOString().split("T")[0], tempEndDate.toISOString().split("T")[0]);
+    if (selectedSensor) {
+      fetchSensorData(startDate.toISOString().split("T")[0], tempEndDate.toISOString().split("T")[0]);
+    }
     setShowEndPicker(false);
   };
 
@@ -235,10 +298,9 @@ export default function Statistics() {
         strokeWidth: 3,
       },
     ].filter(Boolean),
-    legend: selectedMetrics,
   };
 
-  const finalData = chartData.datasets.length > 0
+  const finalData = chartData.datasets.length > 0 && data.length > 0
     ? chartData
     : {
         ...chartData,
@@ -260,6 +322,9 @@ export default function Statistics() {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.container}>
         <View style={styles.headerContainer}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#000" />
+          </TouchableOpacity>
           <Text style={styles.headerTitle}>Statistics</Text>
           <View style={styles.placeholder} />
         </View>
@@ -269,211 +334,235 @@ export default function Statistics() {
         </Text>
 
         <View style={styles.dropdownContainer}>
-          <Dropdown
-            style={styles.dropdown}
-            placeholderStyle={styles.dropdownPlaceholder}
-            selectedTextStyle={styles.dropdownSelectedText}
-            inputSearchStyle={styles.dropdownInputSearch}
-            data={sensors}
-            search
-            maxHeight={300}
-            labelField="label"
-            valueField="value"
-            placeholder="Select Sensor"
-            searchPlaceholder="Search..."
-            value={selectedSensor}
-            onChange={(item) => setSelectedSensor(item.value)}
-          />
+          {loadingDevices ? (
+            <View style={styles.loadingSection}>
+              <ActivityIndicator size="small" color="#007AFF" />
+              <Text style={styles.loadingText}>Loading devices...</Text>
+            </View>
+          ) : connectedDevices.length === 0 ? (
+            <View style={styles.noDevicesWarning}>
+              <Text style={styles.noDeviceText}>No connected devices. Please add a device first.</Text>
+              <TouchableOpacity
+                style={styles.addDeviceButton}
+                onPress={() => router.push({
+                  pathname: "/selectdevice",
+                  params: { returnTo: "statistics" }
+                })}
+              >
+                <Text style={styles.addDeviceButtonText}>Add Device</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <Dropdown
+              style={styles.dropdown}
+              placeholderStyle={styles.dropdownPlaceholder}
+              selectedTextStyle={styles.dropdownSelectedText}
+              inputSearchStyle={styles.dropdownInputSearch}
+              data={connectedDevices}
+              search
+              maxHeight={300}
+              labelField="label"
+              valueField="value"
+              placeholder="Select Sensor"
+              searchPlaceholder="Search..."
+              value={selectedSensor}
+              onChange={(item) => setSelectedSensor(item.value)}
+            />
+          )}
         </View>
 
-        <View style={styles.dateExportContainer}>
-          <Text style={styles.dateRangeText}>SELECT DATE RANGE</Text>
-          <TouchableOpacity style={styles.exportButton} onPress={handleExportPress}>
-            <FontAwesome5 name="download" size={16} color="#fff" style={styles.exportIcon} />
-            <Text style={styles.exportText}>Export Data</Text>
-          </TouchableOpacity>
-        </View>
+        {connectedDevices.length > 0 && (
+          <>
+            <View style={styles.dateExportContainer}>
+              <Text style={styles.dateRangeText}>SELECT DATE RANGE</Text>
+              <TouchableOpacity style={styles.exportButton} onPress={handleExportPress} disabled={data.length === 0}>
+                <FontAwesome5 name="download" size={16} color="#fff" style={styles.exportIcon} />
+                <Text style={styles.exportText}>Export Data</Text>
+              </TouchableOpacity>
+            </View>
 
-        <View style={styles.datePickerContainer}>
-          <TouchableOpacity
-            style={styles.datePickerButton}
-            onPress={() => setShowStartPicker(true)}
-          >
-            <FontAwesome5 name="calendar" size={16} color="#1E90FF" style={styles.calendarIcon} />
-            <Text style={styles.dateText}>{formatDate(startDate)}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.datePickerButton}
-            onPress={() => setShowEndPicker(true)}
-          >
-            <FontAwesome5 name="calendar" size={16} color="#1E90FF" style={styles.calendarIcon} />
-            <Text style={styles.dateText}>{formatDate(endDate)}</Text>
-          </TouchableOpacity>
-        </View>
+            <View style={styles.datePickerContainer}>
+              <TouchableOpacity
+                style={styles.datePickerButton}
+                onPress={() => setShowStartPicker(true)}
+              >
+                <FontAwesome5 name="calendar" size={16} color="#1E90FF" style={styles.calendarIcon} />
+                <Text style={styles.dateText}>{formatDate(startDate)}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.datePickerButton}
+                onPress={() => setShowEndPicker(true)}
+              >
+                <FontAwesome5 name="calendar" size={16} color="#1E90FF" style={styles.calendarIcon} />
+                <Text style={styles.dateText}>{formatDate(endDate)}</Text>
+              </TouchableOpacity>
+            </View>
 
-        <Modal visible={showStartPicker} transparent animationType="slide">
-          <View style={styles.modalContainer}>
-            <View style={styles.pickerContainer}>
-              <Text style={styles.pickerTitle}>Select Start Date</Text>
-              <DateTimePicker
-                value={tempStartDate}
-                mode="date"
-                display="default"
-                onChange={onStartDateChange}
-              />
-              <View style={styles.buttonContainer}>
-                <TouchableOpacity style={styles.cancelButton} onPress={cancelPicker}>
-                  <Text style={styles.buttonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.confirmButton} onPress={confirmStartDate}>
-                  <Text style={styles.buttonText}>Confirm</Text>
-                </TouchableOpacity>
+            <Modal visible={showStartPicker} transparent animationType="slide">
+              <View style={styles.modalContainer}>
+                <View style={styles.pickerContainer}>
+                  <Text style={styles.pickerTitle}>Select Start Date</Text>
+                  <DateTimePicker
+                    value={tempStartDate}
+                    mode="date"
+                    display="default"
+                    onChange={onStartDateChange}
+                  />
+                  <View style={styles.buttonContainer}>
+                    <TouchableOpacity style={styles.cancelButton} onPress={cancelPicker}>
+                      <Text style={styles.buttonText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.confirmButton} onPress={confirmStartDate}>
+                      <Text style={styles.buttonText}>Confirm</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
               </View>
-            </View>
-          </View>
-        </Modal>
+            </Modal>
 
-        <Modal visible={showEndPicker} transparent animationType="slide">
-          <View style={styles.modalContainer}>
-            <View style={styles.pickerContainer}>
-              <Text style={styles.pickerTitle}>Select End Date</Text>
-              <DateTimePicker
-                value={tempEndDate}
-                mode="date"
-                display="default"
-                onChange={onEndDateChange}
-              />
-              <View style={styles.buttonContainer}>
-                <TouchableOpacity style={styles.cancelButton} onPress={cancelPicker}>
-                  <Text style={styles.buttonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.confirmButton} onPress={confirmEndDate}>
-                  <Text style={styles.buttonText}>Confirm</Text>
-                </TouchableOpacity>
+            <Modal visible={showEndPicker} transparent animationType="slide">
+              <View style={styles.modalContainer}>
+                <View style={styles.pickerContainer}>
+                  <Text style={styles.pickerTitle}>Select End Date</Text>
+                  <DateTimePicker
+                    value={tempEndDate}
+                    mode="date"
+                    display="default"
+                    onChange={onEndDateChange}
+                  />
+                  <View style={styles.buttonContainer}>
+                    <TouchableOpacity style={styles.cancelButton} onPress={cancelPicker}>
+                      <Text style={styles.buttonText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.confirmButton} onPress={confirmEndDate}>
+                      <Text style={styles.buttonText}>Confirm</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
               </View>
-            </View>
-          </View>
-        </Modal>
+            </Modal>
 
-        <View style={styles.metricContainer}>
-          {["Temperature", "Humidity", "Dew Point", "VPO"].map((metric) => (
-            <TouchableOpacity
-              key={metric}
-              onPress={() => toggleMetric(metric)}
-              style={[
-                styles.metricButton,
-                selectedMetrics.includes(metric) && {
-                  backgroundColor:
-                    metric === "Temperature"
-                      ? "#FF6384"
-                      : metric === "Humidity"
-                      ? "#36A2EB"
-                      : metric === "Dew Point"
-                      ? "#4BC0C0"
-                      : "#22C55E",
-                },
-              ]}
-            >
-              <FontAwesome5
-                name={
-                  metric === "Temperature"
-                    ? "thermometer-half"
-                    : metric === "Humidity"
-                    ? "tint"
-                    : metric === "Dew Point"
-                    ? "cloud"
-                    : "wind"
-                }
-                size={14}
-                color="#fff"
-                style={styles.metricIcon}
-              />
-              <Text style={styles.metricText}>{metric}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#007AFF" />
-            <Text style={styles.loadingText}>Loading data...</Text>
-          </View>
-        ) : data.length === 0 ? (
-          <Text style={styles.noDataText}>No data available for the selected date range.</Text>
-        ) : (
-          <View style={styles.chartOuterContainer}>
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.chartScrollContainer}
-            >
-              <LineChart
-                data={finalData}
-                width={Math.max(chartWidth, data.length * 80)}
-                height={220}
-                chartConfig={{
-                  backgroundColor: "#ffffff",
-                  backgroundGradientFrom: "#ffffff",
-                  backgroundGradientTo: "#f8f9fa",
-                  decimalPlaces: 1,
-                  color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                  labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                  style: { borderRadius: 16 },
-                  propsForDots: { r: "5", strokeWidth: "2", stroke: "#fff" },
-                  propsForBackgroundLines: { strokeDasharray: "5, 5", strokeWidth: 1, stroke: "#e0e0e0" },
-                  propsForLabels: { fontSize: 11, fontWeight: "bold" },
-                  formatYLabel: (value) => value,
-                }}
-                bezier
-                style={styles.chart}
-                withInnerLines={true}
-                withOuterLines={true}
-                withVerticalLabels={true}
-                withHorizontalLabels={true}
-                withDots={true}
-                withShadow={true}
-                segments={5}
-                fromZero={false}
-                yAxisInterval={5}
-                yAxisSuffix=""
-                yAxisLabel=""
-                legendStyle={styles.chartLegend}
-              />
-            </ScrollView>
-            <View style={styles.legendContainer}>
-              {selectedMetrics.includes("Temperature") && (
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendColor, { backgroundColor: "#FF6384" }]} />
-                  <Text style={styles.legendText}>Temperature</Text>
-                </View>
-              )}
-              {selectedMetrics.includes("Humidity") && (
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendColor, { backgroundColor: "#36A2EB" }]} />
-                  <Text style={styles.legendText}>Humidity</Text>
-                </View>
-              )}
-              {selectedMetrics.includes("Dew Point") && (
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendColor, { backgroundColor: "#4BC0C0" }]} />
-                  <Text style={styles.legendText}>Dew Point</Text>
-                </View>
-              )}
-              {selectedMetrics.includes("VPO") && (
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendColor, { backgroundColor: "#22C55E" }]} />
-                  <Text style={styles.legendText}>VPO</Text>
-                </View>
-              )}
+            <View style={styles.metricContainer}>
+              {["Temperature", "Humidity", "Dew Point", "VPO"].map((metric) => (
+                <TouchableOpacity
+                  key={metric}
+                  onPress={() => toggleMetric(metric)}
+                  style={[
+                    styles.metricButton,
+                    selectedMetrics.includes(metric) && {
+                      backgroundColor:
+                        metric === "Temperature"
+                          ? "#FF6384"
+                          : metric === "Humidity"
+                          ? "#36A2EB"
+                          : metric === "Dew Point"
+                          ? "#4BC0C0"
+                          : "#22C55E",
+                    },
+                  ]}
+                >
+                  <FontAwesome5
+                    name={
+                      metric === "Temperature"
+                        ? "thermometer-half"
+                        : metric === "Humidity"
+                        ? "tint"
+                        : metric === "Dew Point"
+                        ? "cloud"
+                        : "wind"
+                    }
+                    size={14}
+                    color="#fff"
+                    style={styles.metricIcon}
+                  />
+                  <Text style={styles.metricText}>{metric}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
-          </View>
+
+            {loading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#007AFF" />
+                <Text style={styles.loadingText}>Loading data...</Text>
+              </View>
+            ) : data.length === 0 ? (
+              <Text style={styles.noDataText}>No data available for the selected date range.</Text>
+            ) : (
+              <View style={styles.chartOuterContainer}>
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.chartScrollContainer}
+                >
+                  <LineChart
+                    data={finalData}
+                    width={Math.max(chartWidth, data.length * 80)}
+                    height={220}
+                    chartConfig={{
+                      backgroundColor: "#ffffff",
+                      backgroundGradientFrom: "#ffffff",
+                      backgroundGradientTo: "#f8f9fa",
+                      decimalPlaces: 1,
+                      color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                      labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                      style: { borderRadius: 16 },
+                      propsForDots: { r: "5", strokeWidth: "2", stroke: "#fff" },
+                      propsForBackgroundLines: { strokeDasharray: "5, 5", strokeWidth: 1, stroke: "#e0e0e0" },
+                      propsForLabels: { fontSize: 11, fontWeight: "bold" },
+                      formatYLabel: (value) => value,
+                    }}
+                    bezier
+                    style={styles.chart}
+                    withInnerLines={true}
+                    withOuterLines={true}
+                    withVerticalLabels={true}
+                    withHorizontalLabels={true}
+                    withDots={true}
+                    withShadow={true}
+                    segments={5}
+                    fromZero={false}
+                    yAxisInterval={5}
+                    yAxisSuffix=""
+                    yAxisLabel=""
+                    legendStyle={styles.chartLegend}
+                  />
+                </ScrollView>
+                <View style={styles.legendContainer}>
+                  {selectedMetrics.includes("Temperature") && (
+                    <View style={styles.legendItem}>
+                      <View style={[styles.legendColor, { backgroundColor: "#FF6384" }]} />
+                      <Text style={styles.legendText}>Temperature</Text>
+                    </View>
+                  )}
+                  {selectedMetrics.includes("Humidity") && (
+                    <View style={styles.legendItem}>
+                      <View style={[styles.legendColor, { backgroundColor: "#36A2EB" }]} />
+                      <Text style={styles.legendText}>Humidity</Text>
+                    </View>
+                  )}
+                  {selectedMetrics.includes("Dew Point") && (
+                    <View style={styles.legendItem}>
+                      <View style={[styles.legendColor, { backgroundColor: "#4BC0C0" }]} />
+                      <Text style={styles.legendText}>Dew Point</Text>
+                    </View>
+                  )}
+                  {selectedMetrics.includes("VPO") && (
+                    <View style={styles.legendItem}>
+                      <View style={[styles.legendColor, { backgroundColor: "#22C55E" }]} />
+                      <Text style={styles.legendText}>VPO</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            )}
+            
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>
+                Swipe the graph horizontally to view more data
+              </Text>
+            </View>
+          </>
         )}
-        
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Swipe the graph horizontally to view more data
-          </Text>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -493,9 +582,12 @@ const styles = StyleSheet.create({
   headerContainer: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     marginBottom: 16,
     paddingTop: 10,
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 10,
   },
   headerTitle: {
     fontSize: 24,
@@ -521,6 +613,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
+    minHeight: 66,
+    justifyContent: 'center',
   },
   dropdown: {
     height: 50,
@@ -666,6 +760,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     color: "#555",
+    marginLeft: 8,
   },
   noDataText: {
     textAlign: 'center',
@@ -727,5 +822,31 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
+  },
+  noDevicesWarning: {
+    alignItems: 'center',
+    padding: 10,
+  },
+  noDeviceText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  addDeviceButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  addDeviceButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  loadingSection: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 10,
   },
 });

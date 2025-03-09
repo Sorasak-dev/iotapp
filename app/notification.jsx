@@ -5,7 +5,12 @@ import {
   FlatList,
   TouchableOpacity,
   StyleSheet,
+  ScrollView,
+  Platform,
+  Modal,
+  Alert
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
@@ -72,11 +77,14 @@ const notificationsData = [
 export default function NotificationScreen() {
   const router = useRouter();
   const [selectedFilter, setSelectedFilter] = useState("all");
+  const [notifications, setNotifications] = useState(notificationsData);
+  const [editMode, setEditMode] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
 
   const filteredNotifications =
     selectedFilter === "all"
-      ? notificationsData
-      : notificationsData.filter((item) => item.type === selectedFilter);
+      ? notifications
+      : notifications.filter((item) => item.type === selectedFilter);
 
   const getBackgroundColor = (type, isRead) => {
     if (isRead) return "#FFFFFF";
@@ -118,6 +126,46 @@ export default function NotificationScreen() {
         return null;
     }
   };
+
+  const toggleEditMode = () => {
+    setEditMode(!editMode);
+    setMenuVisible(false);
+  };
+  
+  const handleDeleteNotification = (id) => {
+    setNotifications(notifications.filter(item => item.id !== id));
+  };
+
+  const markAllAsRead = () => {
+    setNotifications(
+      notifications.map(notification => ({
+        ...notification,
+        isRead: true
+      }))
+    );
+    setMenuVisible(false);
+  };
+
+  const deleteAllNotifications = () => {
+    Alert.alert(
+      "Delete All Notifications",
+      "Are you sure you want to delete all notifications?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Delete All",
+          onPress: () => {
+            setNotifications([]);
+            setMenuVisible(false);
+          },
+          style: "destructive"
+        }
+      ]
+    );
+  };
   
   const renderNotificationItem = ({ item }) => (
     <View
@@ -128,109 +176,169 @@ export default function NotificationScreen() {
     >
       <View style={styles.notificationIcon}>{getIcon(item.title, item.type)}</View>
       <View style={styles.notificationText}>
-        <Text style={styles.notificationTitle}>{item.title}</Text>
-        <Text style={styles.notificationMessage}>{item.message}</Text>
+        <Text style={styles.notificationTitle} numberOfLines={1} ellipsizeMode="tail">{item.title}</Text>
+        <Text style={styles.notificationMessage} numberOfLines={2} ellipsizeMode="tail">{item.message}</Text>
         <View style={styles.notificationFooter}>
           <Ionicons name="location-outline" size={16} color="gray" />
-          <Text style={styles.notificationLocation}>{item.location}</Text>
+          <Text style={styles.notificationLocation} numberOfLines={1} ellipsizeMode="tail">{item.location}</Text>
           <Text style={styles.notificationTime}>{item.time}</Text>
         </View>
       </View>
       {!item.isRead && <View style={styles.unreadDot} />}
+      {editMode && (
+        <TouchableOpacity 
+          style={styles.deleteButton}
+          onPress={() => handleDeleteNotification(item.id)}
+        >
+          <Ionicons name="trash-outline" size={24} color="red" />
+        </TouchableOpacity>
+      )}
     </View>
   );
   
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="black" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.moreOptions}>
-          <MaterialIcons name="more-vert" size={24} color="black" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Title (อยู่ใต้ลูกศรย้อนกลับ) */}
-      <Text style={styles.headerTitle}>Notification</Text>
-
-      {/* Filter Tabs */}
-      <View style={styles.filterContainer}>
-        {filters.map((filter) => (
-          <TouchableOpacity
-            key={filter.id}
-            style={[
-              styles.filterButton,
-              selectedFilter === filter.id && styles.selectedFilter,
-            ]}
-            onPress={() => setSelectedFilter(filter.id)}
-          >
-            <Ionicons
-              name={filter.icon}
-              size={16}
-              color={selectedFilter === filter.id ? "white" : "black"}
-            />
-            <Text
-              style={[
-                styles.filterText,
-                selectedFilter === filter.id && { color: "white" },
-              ]}
-            >
-              {filter.label}
-            </Text>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="black" />
           </TouchableOpacity>
-        ))}
-      </View>
+          <Text style={styles.headerTitle}>Notification</Text>
+          <TouchableOpacity style={styles.moreOptions} onPress={() => setMenuVisible(true)}>
+            <MaterialIcons name="more-vert" size={24} color="black" />
+          </TouchableOpacity>
+        </View>
 
-      <FlatList
-        data={filteredNotifications}
-        renderItem={renderNotificationItem}
-        keyExtractor={(item) => item.id}
-      />
-    </View>
+        {/* Filter Tabs */}
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterScroll}
+          contentContainerStyle={styles.filterContainer}
+        >
+          {filters.map((filter) => (
+            <TouchableOpacity
+              key={filter.id}
+              style={[
+                styles.filterButton,
+                selectedFilter === filter.id && styles.selectedFilter,
+              ]}
+              onPress={() => setSelectedFilter(filter.id)}
+              disabled={editMode}
+            >
+              <Ionicons
+                name={filter.icon}
+                size={16}
+                color={selectedFilter === filter.id ? "white" : "black"}
+              />
+              <Text
+                style={[
+                  styles.filterText,
+                  selectedFilter === filter.id && { color: "white" },
+                ]}
+              >
+                {filter.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        <FlatList
+          data={filteredNotifications}
+          renderItem={renderNotificationItem}
+          keyExtractor={(item) => item.id}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.listContent}
+        />
+
+        {/* More Options Menu */}
+        <Modal
+          visible={menuVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setMenuVisible(false)}
+        >
+          <TouchableOpacity 
+            style={styles.modalOverlay} 
+            activeOpacity={1} 
+            onPress={() => setMenuVisible(false)}
+          >
+            <View style={styles.menuContainer}>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={toggleEditMode}
+              >
+                <Ionicons name={editMode ? "close-outline" : "create-outline"} size={20} color="black" />
+                <Text style={styles.menuItemText}>{editMode ? "Done" : "Edit"}</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={markAllAsRead}
+              >
+                <Ionicons name="checkmark-circle-outline" size={20} color="black" />
+                <Text style={styles.menuItemText}>Mark All as Read</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={deleteAllNotifications}
+              >
+                <Ionicons name="trash-outline" size={20} color="red" />
+                <Text style={[styles.menuItemText, { color: "red" }]}>Delete All</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: "#F9F9F9",
+    },
     container: { 
       flex: 1, 
       backgroundColor: "#F9F9F9", 
-      padding: 23,
-      paddingTop: 50,
+      paddingHorizontal: 16,
     },
   
     header: { 
       flexDirection: "row", 
       alignItems: "center", 
       justifyContent: "space-between", 
-      marginBottom: 5, 
-      marginLeft: 10,
+      marginVertical: 10, 
     },
   
     backButton: {
-      padding: 10,
+      padding: 8,
     },
   
     moreOptions: {
-      padding: 10,
+      padding: 8,
     },
   
     headerTitle: { 
-      fontSize: 20, 
+      fontSize: 22, 
       fontWeight: "bold",
-      textAlign: "left",
-      marginLeft: 5,
-      marginTop: 5,
+      flex: 1,
+      marginLeft: 8,
     },
   
+    filterScroll: {
+      flexGrow: 0,
+    },
+    
     filterContainer: {
       flexDirection: "row",
-      marginBottom: 20,
       paddingBottom: 8,
       borderBottomWidth: 1,
       borderBottomColor: "#DADADA",
-      marginTop: 30,
+      marginBottom: 12,
     },
   
     filterButton: { 
@@ -244,8 +352,25 @@ const styles = StyleSheet.create({
   
     selectedFilter: { backgroundColor: "#007BFF" },
     filterText: { marginLeft: 4, fontSize: 14 },
-    notificationContainer: { flexDirection: "row", padding: 12, borderRadius: 8, marginBottom: 10, alignItems: "center" },
-    notificationIcon: { marginRight: 10 },
+    
+    listContent: {
+      paddingBottom: 20,
+    },
+    
+    notificationContainer: { 
+      flexDirection: "row", 
+      padding: 12, 
+      borderRadius: 8, 
+      marginBottom: 10, 
+      alignItems: "center" 
+    },
+    
+    notificationIcon: { 
+      marginRight: 10,
+      width: 32,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
 
     successIconContainer: {
       width: 32,
@@ -267,7 +392,43 @@ const styles = StyleSheet.create({
     notificationTitle: { fontWeight: "bold", fontSize: 16 },
     notificationMessage: { fontSize: 14, color: "gray" },
     notificationFooter: { flexDirection: "row", alignItems: "center", marginTop: 4 },
-    notificationLocation: { marginLeft: 4, fontSize: 12, color: "gray" },
+    notificationLocation: { marginLeft: 4, fontSize: 12, color: "gray", flex: 1 },
     notificationTime: { marginLeft: "auto", fontSize: 12, color: "gray" },
     unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#007BFF" },
+    deleteButton: {
+      padding: 8,
+      marginLeft: 4,
+    },
+    
+    // Menu Modal Styles
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    menuContainer: {
+      position: 'absolute',
+      right: 16,
+      top: 60,
+      width: 200,
+      backgroundColor: 'white',
+      borderRadius: 8,
+      paddingVertical: 8,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+      elevation: 5,
+    },
+    menuItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+    },
+    menuItemText: {
+      marginLeft: 12,
+      fontSize: 16,
+    },
   });

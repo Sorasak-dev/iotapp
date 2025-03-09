@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, SafeAreaView, Platform } from 'react-native';
 import { BarChart } from 'react-native-chart-kit';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { FontAwesome5 } from '@expo/vector-icons';
+import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 
-const API_URL = 'http://172.16.22.105:3000';
+const API_URL = 'http://192.168.1.12:3000';
 const screenWidth = 300;
 
 const FullChart = () => {
@@ -16,6 +16,7 @@ const FullChart = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [sensorData, setSensorData] = useState(null);
+  const router = useRouter();
 
   useEffect(() => {
     const fetchFullSensorData = async () => {
@@ -144,52 +145,97 @@ const FullChart = () => {
   };
 
   return (
-    <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.contentContainer}>
-      <View style={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.headerContainer}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#000" />
+        </TouchableOpacity>
         <Text style={styles.header}>{type.charAt(0).toUpperCase() + type.slice(1)} Chart</Text>
-        <View style={styles.dateExportContainer}>
-          <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.datePickerButton}>
-            <Text style={styles.datePickerText}>Select Date: {selectedDate.toLocaleDateString()}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleExportPress} style={styles.exportButton}>
-            <FontAwesome5 name="download" size={16} color="#fff" style={styles.exportIcon} />
-            <Text style={styles.exportText}>Export</Text>
-          </TouchableOpacity>
-        </View>
-        {showDatePicker && (
-          <DateTimePicker
-            value={selectedDate}
-            mode="date"
-            display="default"
-            onChange={onChangeDate}
-          />
-        )}
-        {filteredData.length > 0 ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={true}>
-            <BarChart
-              data={chartData}
-              width={Math.max(screenWidth, filteredData.length * 60)}
-              height={400}
-              yAxisLabel=""
-              chartConfig={chartConfig}
-              style={styles.chartStyle}
-              verticalLabelRotation={30}
-              fromZero
-            />
-          </ScrollView>
-        ) : (
-          <Text style={styles.noDataText}>No data available for this date</Text>
-        )}
+        <View style={styles.headerSpacer} />
       </View>
-    </ScrollView>
+      
+      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.contentContainer}>
+        <View style={styles.container}>
+          <View style={styles.dateExportContainer}>
+            <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.datePickerButton}>
+              <Text style={styles.datePickerText}>Select Date: {selectedDate.toLocaleDateString()}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleExportPress} style={styles.exportButton}>
+              <FontAwesome5 name="download" size={16} color="#fff" style={styles.exportIcon} />
+              <Text style={styles.exportText}>Export</Text>
+            </TouchableOpacity>
+          </View>
+          {showDatePicker && (
+            <DateTimePicker
+              value={selectedDate}
+              mode="date"
+              display="default"
+              onChange={onChangeDate}
+            />
+          )}
+          {filteredData.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+              <BarChart
+                data={chartData}
+                width={Math.max(screenWidth, filteredData.length * 60)}
+                height={400}
+                yAxisLabel=""
+                chartConfig={chartConfig}
+                style={styles.chartStyle}
+                verticalLabelRotation={30}
+                fromZero
+              />
+            </ScrollView>
+          ) : (
+            <Text style={styles.noDataText}>No data available for this date</Text>
+          )}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  scrollContainer: { flex: 1, backgroundColor: '#F8FAFC' },
-  contentContainer: { alignItems: 'center', paddingVertical: 20 },
-  container: { flex: 1, padding: 16, backgroundColor: '#F8FAFC', alignItems: 'center' },
-  header: { fontSize: 26, fontWeight: 'bold', marginBottom: 20 },
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    paddingTop: Platform.OS === 'android' ? 25 : 0,
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 8,
+  },
+  headerSpacer: {
+    flex: 1, // Push content to left
+  },
+  scrollContainer: { 
+    flex: 1, 
+    backgroundColor: '#F8FAFC' 
+  },
+  contentContainer: { 
+    alignItems: 'center', 
+    paddingVertical: 20 
+  },
+  container: { 
+    flex: 1, 
+    padding: 16, 
+    backgroundColor: '#F8FAFC', 
+    alignItems: 'center',
+    width: '100%'
+  },
+  header: { 
+    fontSize: 22, 
+    fontWeight: 'bold',
+    textAlign: 'left',
+  },
   dateExportContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -205,9 +251,13 @@ const styles = StyleSheet.create({
     shadowColor: '#000', 
     shadowOffset: { width: 0, height: 2 }, 
     shadowOpacity: 0.1, 
-    shadowRadius: 4 
+    shadowRadius: 4,
+    elevation: 2,
   },
-  datePickerText: { fontSize: 16, color: '#007AFF' },
+  datePickerText: { 
+    fontSize: 16, 
+    color: '#007AFF' 
+  },
   exportButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -217,10 +267,23 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginLeft: 10,
   },
-  exportIcon: { marginRight: 6 },
-  exportText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  chartStyle: { borderRadius: 16, marginVertical: 8 },
-  noDataText: { fontSize: 16, color: 'gray', marginVertical: 20 },
+  exportIcon: { 
+    marginRight: 6 
+  },
+  exportText: { 
+    color: '#fff', 
+    fontSize: 14, 
+    fontWeight: '600' 
+  },
+  chartStyle: { 
+    borderRadius: 16, 
+    marginVertical: 8 
+  },
+  noDataText: { 
+    fontSize: 16, 
+    color: 'gray', 
+    marginVertical: 20 
+  },
 });
 
 export default FullChart;

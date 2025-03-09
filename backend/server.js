@@ -14,13 +14,16 @@ const Device = require("./models/Device");
 
 const app = express();
 
+// Environment variables
 const mongoURI = process.env.MONGO_URI || "mongodb://localhost:27017/auth-demo";
 const SECRET_KEY = process.env.SECRET_KEY || "your_secret_key";
 const PORT = process.env.PORT || 3000;
 
+// Middleware
 app.use(cors());
 app.use(bodyParser.json());
 
+// Connect to MongoDB
 mongoose
   .connect(mongoURI)
   .then(() => console.log("✅ Connected to MongoDB"))
@@ -29,6 +32,7 @@ mongoose
     process.exit(1);
   });
 
+// Simulate Sensor Data
 const generateMockSensorData = (date) => {
   const shouldBeNull = Math.random() < 0.1;
 
@@ -189,17 +193,21 @@ const simulateSensorData = async () => {
   }
 };
 
+// Run the simulation every 1 hr
 simulateInitialSensorData().then(() => {
   simulateSensorData();
   setInterval(simulateSensorData, 3600000);
 });
 
+// Routes
 app.get('/', (req, res) => {
   res.send('Hello! Backend Server is running. 🚀');
 });
 
+// ✅ เชื่อม API อุปกรณ์เข้า Server
 app.use("/api/devices", require("./routes/deviceRoutes"));
 
+// ✅ Sign Up
 app.post("/api/signup", async (req, res, next) => {
   const { error } = userValidationSchema.validate(req.body);
   if (error) return res.status(400).json({ message: error.details[0].message });
@@ -218,6 +226,7 @@ app.post("/api/signup", async (req, res, next) => {
   }
 });
 
+// ✅ Sign In
 app.post("/api/signin", async (req, res, next) => {
   const { error } = userValidationSchema.validate(req.body);
   if (error) return res.status(400).json({ message: error.details[0].message });
@@ -239,6 +248,7 @@ app.post("/api/signin", async (req, res, next) => {
   }
 });
 
+// Add Sensor Data
 app.post('/api/user/sensor-data', authenticateToken, async (req, res, next) => {
   const { error } = userDataValidationSchema.validate(req.body);
   if (error) {
@@ -270,6 +280,7 @@ app.post('/api/user/sensor-data', authenticateToken, async (req, res, next) => {
   }
 });
 
+// Get Sensor Data
 app.get('/api/user/sensor-data', authenticateToken, async (req, res, next) => {
   try {
     const device = await Device.findOne({ deviceId: 'AM2315' });
@@ -358,6 +369,8 @@ app.get('/api/user/sensor-data', authenticateToken, async (req, res, next) => {
   }
 });
 
+// Global Error Handling Middleware
 app.use(errorHandler);
 
+// Start the server
 app.listen(PORT, () => console.log(`✅ Server running on http://localhost:${PORT}`));
