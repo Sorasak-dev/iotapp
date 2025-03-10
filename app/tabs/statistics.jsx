@@ -322,9 +322,6 @@ export default function Statistics() {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.container}>
         <View style={styles.headerContainer}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#000" />
-          </TouchableOpacity>
           <Text style={styles.headerTitle}>Statistics</Text>
           <View style={styles.placeholder} />
         </View>
@@ -585,12 +582,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingTop: 10,
   },
-  backButton: {
-    padding: 8,
-    marginRight: 10,
-  },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: "bold",
     flex: 1,
     textAlign: "left",

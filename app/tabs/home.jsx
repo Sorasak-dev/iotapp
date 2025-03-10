@@ -35,6 +35,7 @@ export default function HomeScreen() {
   const [date, setDate] = useState("");
   const router = useRouter();
   const [devices, setDevices] = useState([]);
+  
   const toggleDeviceStatus = (deviceId) => {
     setDevices((prevDevices) =>
       prevDevices.map((device) =>
@@ -70,7 +71,12 @@ export default function HomeScreen() {
       console.log("📡 Devices Data:", response.data);
 
       if (Array.isArray(response.data)) {
-        setDevices(response.data);
+        // เมื่อเชื่อมต่อเสร็จแล้ว ให้กำหนดให้อุปกรณ์เป็น Online เสมอ
+        const connectedDevices = response.data.map(device => ({
+          ...device,
+          status: "Online"
+        }));
+        setDevices(connectedDevices);
       } else {
         setDevices([]);
       }
@@ -153,14 +159,14 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-  <ScrollView contentContainerStyle={styles.scrollContainer}>
-    {/* Header */}
-    <View style={styles.header}>
-      <Text style={styles.headerTitle}>Home</Text>
-      <TouchableOpacity onPress={() => router.push("/notification")}>
-  <Ionicons name="notifications-outline" size={26} color="black" />
-</TouchableOpacity>
-    </View>
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Home</Text>
+          <TouchableOpacity onPress={() => router.push("/notification")}>
+            <Ionicons name="notifications-outline" size={26} color="black" />
+          </TouchableOpacity>
+        </View>
 
         {/* วันที่ */}
         <Text style={styles.dateText}>{date}</Text>
@@ -224,63 +230,62 @@ export default function HomeScreen() {
           </View>
         ) : (
           <View style={styles.deviceGrid}>
-          {devices.map((device) => (
-            <TouchableOpacity
-              key={device._id}
-              style={styles.deviceCard}
-              onPress={() => router.push("/device-monitor")}
-              activeOpacity={0.7} // ✅ เอฟเฟกต์เวลากด
-            >
-              {/* ปุ่มลบอุปกรณ์ */}
+            {devices.map((device) => (
               <TouchableOpacity
-                style={styles.disconnectButton}
-                onPress={() => handleDeleteDevice(device._id)}
+                key={device._id}
+                style={styles.deviceCard}
+                onPress={() => router.push("/device-monitor")}
+                activeOpacity={0.7} // ✅ เอฟเฟกต์เวลากด
               >
-                <MaterialIcons name="close" size={20} color="white" />
-              </TouchableOpacity>
-        
-              {/* รูปภาพอุปกรณ์ */}
-              <Image source={{ uri: device.image }} style={styles.deviceImage} />
-        
-              {/* Toggle Switch */}
-              <Switch
-                value={device.status === "Online"}
-                onValueChange={() => toggleDeviceStatus(device._id)}
-                trackColor={{ false: "#ccc", true: "#9FD4FA" }}
-                thumbColor={device.status === "Online" ? "#fff" : "#f4f3f4"}
-                style={styles.toggleSwitch}
-              />
-        
-              {/* สถานะ Online/Offline */}
-              <View style={styles.deviceStatusContainer}>
-                <View
-                  style={[
-                    styles.statusDot,
-                    device.status === "Online" ? styles.online : styles.offline,
-                  ]}
-                />
-                <Text
-                  style={[
-                    styles.deviceStatusText,
-                    device.status === "Online" ? styles.onlineText : styles.offlineText,
-                  ]}
+                {/* ปุ่มลบอุปกรณ์ */}
+                <TouchableOpacity
+                  style={styles.disconnectButton}
+                  onPress={() => handleDeleteDevice(device._id)}
                 >
-                  {device.status === "Online" ? "Online" : "Offline"}
-                </Text>
-              </View>
-        
-              {/* ชื่ออุปกรณ์ */}
-              <Text style={styles.deviceName}>{device.name}</Text>
-        
-              {/* แสดงแบตเตอรี่ และสถานะการเชื่อมต่อ */}
-              <View style={styles.deviceInfo}>
-                <Ionicons name="battery-half" size={16} color="green" />
-                <Text style={styles.batteryText}>50%</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
-        
+                  <MaterialIcons name="close" size={20} color="white" />
+                </TouchableOpacity>
+          
+                {/* รูปภาพอุปกรณ์ */}
+                <Image source={{ uri: device.image }} style={styles.deviceImage} />
+          
+                {/* Toggle Switch - สามารถเปิด/ปิดได้ */}
+                <Switch
+                  value={device.status === "Online"}
+                  onValueChange={() => toggleDeviceStatus(device._id)}
+                  trackColor={{ false: "#ccc", true: "#9FD4FA" }}
+                  thumbColor={device.status === "Online" ? "#fff" : "#f4f3f4"}
+                  style={styles.toggleSwitch}
+                />
+          
+                {/* สถานะ Online/Offline */}
+                <View style={styles.deviceStatusContainer}>
+                  <View
+                    style={[
+                      styles.statusDot,
+                      device.status === "Online" ? styles.online : styles.offline,
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.deviceStatusText,
+                      device.status === "Online" ? styles.onlineText : styles.offlineText,
+                    ]}
+                  >
+                    {device.status}
+                  </Text>
+                </View>
+          
+                {/* ชื่ออุปกรณ์ */}
+                <Text style={styles.deviceName}>{device.name}</Text>
+          
+                {/* แสดงแบตเตอรี่ และสถานะการเชื่อมต่อ */}
+                <View style={styles.deviceInfo}>
+                  <Ionicons name="battery-half" size={16} color="green" />
+                  <Text style={styles.batteryText}>50%</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
         )}
 
         {/* Add Device Button */}
