@@ -1,0 +1,53 @@
+=== ผลการประเมินโมเดล ===
+
+โมเดล: isolation_forest
+Classification Report:
+              precision    recall  f1-score   support
+
+      normal       0.99      0.83      0.90      1694
+     anomaly       0.14      0.86      0.24        56
+
+    accuracy                           0.83      1750
+   macro avg       0.57      0.84      0.57      1750
+weighted avg       0.97      0.83      0.88      1750
+
+Confusion Matrix:
+[[1400  294]
+ [   8   48]]
+
+==================================================
+
+โมเดล: local_outlier_factor
+Classification Report:
+              precision    recall  f1-score   support
+
+      normal       0.97      0.78      0.86      1694
+     anomaly       0.05      0.36      0.09        56
+
+    accuracy                           0.76      1750
+   macro avg       0.51      0.57      0.48      1750
+weighted avg       0.94      0.76      0.84      1750
+
+Confusion Matrix:
+[[1316  378]
+ [  36   20]]
+
+==================================================
+
+โมเดล: one_class_svm
+Classification Report:
+              precision    recall  f1-score   support
+
+      normal       0.98      0.80      0.88      1694
+     anomaly       0.08      0.52      0.14        56
+
+    accuracy                           0.79      1750
+   macro avg       0.53      0.66      0.51      1750
+weighted avg       0.95      0.79      0.86      1750
+
+Confusion Matrix:
+[[1356  338]
+ [  27   29]]
+
+==================================================
+
