@@ -8,7 +8,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 
-const API_URL = 'http://192.168.1.12:3000';
+const API_URL = 'http://192.168.1.7:3000';
 const screenWidth = 300;
 
 const FullChart = () => {

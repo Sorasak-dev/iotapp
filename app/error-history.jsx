@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 
-const API_URL = 'http://192.168.1.12:3000';
+const API_URL = 'http://192.168.1.7:3000';
 
 const getAuthToken = async () => {
   try {
