@@ -8,7 +8,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const API_URL = 'http://192.168.1.7:3000/api/devices';
+const API_URL = 'http://172.27.130.237:3000/api/devices';
 // ที่อยู่ipของแต่ละเครื่อง (ipconfig) แล้วดูตรง IPv4 Address 
 // ถ้าต่อผ่าน wifi ดูที่ Wireless LAN adapter Wi-Fi: IPv4 Address
 // ถ้าต่อผ่าน LAN ดูที่ Ethernet adapter Ethernet: IPv4 Address

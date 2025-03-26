@@ -11,6 +11,7 @@ const errorHandler = require("./middleware/errorHandler");
 const { userValidationSchema, userDataValidationSchema } = require("./validation/userValidation");
 const User = require("./models/User");
 const Device = require("./models/Device");
+const anomalyRoutes = require('./routes/anomaly');
 
 const app = express();
 
@@ -22,6 +23,7 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
+app.use(anomalyRoutes);
 
 // Connect to MongoDB
 mongoose

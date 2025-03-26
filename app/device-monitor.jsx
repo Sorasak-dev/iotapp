@@ -6,7 +6,7 @@ import { BarChart } from 'react-native-chart-kit';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_URL = 'http://192.168.1.7:3000/api/user/sensor-data';
+const API_URL = 'http://172.27.130.237:3000/api/user/sensor-data';
 const screenWidth = Dimensions.get('window').width;
 const isIOS = Platform.OS === 'ios';
 

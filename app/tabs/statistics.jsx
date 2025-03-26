@@ -26,7 +26,7 @@ import axios from "axios";
 const windowWidth = Dimensions.get("window").width;
 const windowHeight = Dimensions.get("window").height;
 const isIOS = Platform.OS === 'ios';
-const API_URL = "http://192.168.1.7:3000";
+const API_URL = "http://172.27.130.237:3000";
 
 export default function Statistics() {
   const router = useRouter();

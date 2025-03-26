@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, FlatList, SafeAreaView, TouchableOpacity, Platform } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, SafeAreaView, Platform, StatusBar, ActivityIndicator } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 
-const API_URL = 'http://192.168.1.7:3000';
+const API_URL = 'http://172.27.130.237:3000';
+const isIOS = Platform.OS === 'ios';
 
 const getAuthToken = async () => {
   try {
@@ -15,109 +17,194 @@ const getAuthToken = async () => {
     return token;
   } catch (error) {
     console.error('Error retrieving token:', error);
+    const navigation = useNavigation();
+    navigation.replace('/signin');
     throw error;
   }
 };
 
 export default function ErrorHistory() {
-  const router = useRouter();
-  const { errorHistory } = useLocalSearchParams() || {};
-  const [errors, setErrors] = useState(JSON.parse(errorHistory || '[]'));
-  const [apiErrors, setApiErrors] = useState([]);
+  const route = useRoute();
+  const navigation = useNavigation();
+  const { errorHistory } = route.params || {};
+  const [currentErrors, setCurrentErrors] = useState([]);
+  const [historicalErrors, setHistoricalErrors] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('all'); 
 
   useEffect(() => {
-    const fetchSensorData = async () => {
+   
+    if (errorHistory) {
       try {
-        setLoading(true);
-        const token = await getAuthToken();
-        const response = await fetch(`${API_URL}/api/user/sensor-data`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-
-        console.log('API Response Status (ErrorHistory):', response.status);
-
-        if (response.status === 401) {
-          await AsyncStorage.removeItem('token');
-          router.replace('/signin');
-          throw new Error('Session expired. Please log in again.');
-        }
-
-        const data = await response.json();
-
-        if (!data.data || data.data.length === 0) throw new Error("ไม่มีข้อมูลเซ็นเซอร์");
-
-        const issues = data.data.map(entry => {
-          const errors = [];
-          if (
-            entry.temperature === 0 &&
-            entry.humidity === 0 &&
-            (entry.co2 === 0 || entry.co2 === undefined) &&
-            (entry.ec === 0 || entry.ec === undefined) &&
-            (entry.ph === 0 || entry.ph === undefined)
-          ) {
-            errors.push({ type: 'ไฟดับ', timestamp: entry.timestamp, details: 'ทุกค่าของเซ็นเซอร์ (อุณหภูมิ, ความชื้น, CO2, EC, pH) เป็น 0' });
-          }
-          if ((entry.ec === 0 || entry.ec === undefined) || (entry.ph === 0 || entry.ph === undefined)) {
-            errors.push({ type: 'ถ่านหมด', timestamp: entry.timestamp, details: 'ค่า EC หรือ pH เป็น 0' });
-          }
-          if (entry.ph !== undefined && (entry.ph < 3 || entry.ph > 10)) {
-            errors.push({ type: 'เซ็นเซอร์เสีย', timestamp: entry.timestamp, details: 'ค่า pH อยู่นอกช่วง 3-10' });
-          }
-          if (entry.co2 !== undefined && entry.co2 < 200) {
-            errors.push({ type: 'เซ็นเซอร์เสีย', timestamp: entry.timestamp, details: 'ค่า CO2 ต่ำกว่า 200 ppm' });
-          }
-          return errors;
-        }).flat().sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-        setApiErrors(issues);
+        const parsedErrors = JSON.parse(errorHistory);
+        setCurrentErrors(parsedErrors);
       } catch (error) {
-        console.error("ข้อผิดพลาดในการดึงข้อมูลประวัติข้อผิดพลาด:", error);
-      } finally {
-        setLoading(false);
+        console.error('Error parsing error history:', error);
       }
-    };
+    }
 
-    fetchSensorData();
-  }, []);
+    fetchHistoricalErrors();
+  }, [errorHistory]);
 
-  const renderItem = ({ item }) => (
-    <View style={styles.errorItem}>
-      <Text style={styles.errorTitle}>{item.type}</Text>
-      <Text style={styles.errorDetails}>{item.details}</Text>
-      <Text style={styles.errorTimestamp}>{new Date(item.timestamp).toLocaleString('th-TH')}</Text>
-    </View>
-  );
+  const fetchHistoricalErrors = async () => {
+    try {
+      setLoading(true);
+      const token = await getAuthToken();
 
-  const EmptyListComponent = () => (
-    <View style={styles.emptyContainer}>
-      {loading ? (
-        <Text style={styles.loadingText}>กำลังโหลดข้อมูล...</Text>
-      ) : (
-        <Text style={styles.noDataText}>ไม่พบข้อผิดพลาด</Text>
-      )}
-    </View>
-  );
+      const response = await fetch(`${API_URL}/api/anomaly/history`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.status === 401) {
+        await AsyncStorage.removeItem('token');
+        navigation.replace('/signin');
+        throw new Error('Session expired. Please log in again.');
+      }
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch error history');
+      }
+
+      const data = await response.json();
+      
+      const formattedHistory = data.history.map(item => ({
+        type: item.anomaly_type || 'ความผิดปกติไม่ทราบสาเหตุ',
+        timestamp: item.timestamp,
+        details: item.details || 'ตรวจพบความผิดปกติในข้อมูลเซ็นเซอร์',
+        score: item.anomaly_score ? item.anomaly_score.toFixed(2) : undefined,
+        isAnomalyDetection: !!item.anomaly_score,
+        resolved: item.resolved || false
+      }));
+
+      setHistoricalErrors(formattedHistory);
+    } catch (error) {
+      console.error('Error fetching historical errors:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoBack = () => {
+    navigation.goBack();
+  };
+
+  const allErrors = [...currentErrors, ...historicalErrors]
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  const filteredErrors = allErrors.filter(error => {
+    if (filter === 'all') return true;
+    if (filter === 'basic') return !error.isAnomalyDetection && !error.score;
+    if (filter === 'anomaly') return error.isAnomalyDetection || !!error.score;
+    return true;
+  });
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.headerContainer}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#000" />
-        </TouchableOpacity>
-        <Text style={styles.header}>ErrorHistory</Text>
-        <View style={styles.headerSpacer} />
-      </View>
-      
-      <FlatList
-        style={styles.container}
-        contentContainerStyle={styles.listContent}
-        data={apiErrors}
-        renderItem={renderItem}
-        keyExtractor={(item, index) => index.toString()}
-        ListEmptyComponent={<EmptyListComponent />}
-        showsVerticalScrollIndicator={false}
-      />
+      <ScrollView style={styles.scrollContainer}>
+        <View style={styles.container}>
+          <View style={styles.headerContainer}>
+            <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color="black" />
+            </TouchableOpacity>
+            <Text style={styles.header}>Error History</Text>
+          </View>
+
+          <View style={styles.filtersContainer}>
+            <TouchableOpacity 
+              onPress={() => setFilter('all')}
+              style={[styles.filterButton, filter === 'all' && styles.activeFilter]}
+            >
+              <Text style={[styles.filterText, filter === 'all' && styles.activeFilterText]}>
+                All
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={() => setFilter('basic')}
+              style={[styles.filterButton, filter === 'basic' && styles.activeFilter]}
+            >
+              <Text style={[styles.filterText, filter === 'basic' && styles.activeFilterText]}>
+                Basic Errors
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={() => setFilter('anomaly')}
+              style={[styles.filterButton, filter === 'anomaly' && styles.activeFilter]}
+            >
+              <Text style={[styles.filterText, filter === 'anomaly' && styles.activeFilterText]}>
+                Anomalies
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#1976D2" />
+              <Text style={styles.loadingText}>Loading error history...</Text>
+            </View>
+          ) : filteredErrors.length > 0 ? (
+            <>
+              {filteredErrors.map((error, index) => (
+                <View 
+                  key={index} 
+                  style={[
+                    styles.errorItem, 
+                    error.resolved && styles.resolvedError,
+                    error.isAnomalyDetection && styles.anomalyError
+                  ]}
+                >
+                  <View style={styles.errorHeader}>
+                    <View style={styles.errorTypeContainer}>
+                      <Icon 
+                        name={error.isAnomalyDetection || error.score ? "warning" : "error"} 
+                        size={24} 
+                        color={error.isAnomalyDetection || error.score ? "#FF9800" : "#D32F2F"} 
+                      />
+                      <Text style={styles.errorType}>{error.type}</Text>
+                    </View>
+                    {error.resolved && (
+                      <View style={styles.resolvedBadge}>
+                        <Text style={styles.resolvedText}>Resolved</Text>
+                      </View>
+                    )}
+                  </View>
+                  
+                  <Text style={styles.errorDetails}>{error.details}</Text>
+                  
+                  
+                  
+                  <Text style={styles.timestamp}>
+                    {new Date(error.timestamp).toLocaleString()}
+                  </Text>
+                  
+                  {!error.resolved && (
+                    <TouchableOpacity style={styles.actionButton}>
+                      <Text style={styles.actionButtonText}>Mark as Resolved</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+            </>
+          ) : (
+            <View style={styles.noErrorsContainer}>
+              <Icon name="check-circle" size={48} color="#4CAF50" />
+              <Text style={styles.noErrorsText}>No errors found</Text>
+              <Text style={styles.noErrorsSubtext}>
+                There are no {filter !== 'all' ? `${filter} ` : ''}errors in the history.
+              </Text>
+            </View>
+          )}
+          
+          <View style={styles.infoContainer}>
+            <Icon name="info" size={20} color="#1976D2" />
+            <Text style={styles.infoText}>
+              Basic Errors are detected directly by the system. 
+              Anomalies are detected by our AI model based on unusual patterns in the sensor data.
+            </Text>
+          </View>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -126,76 +213,159 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#F8FAFC',
-    paddingTop: Platform.OS === 'android' ? 25 : 0,
+    paddingTop: isIOS ? 0 : StatusBar.currentHeight,
+  },
+  scrollContainer: { 
+    flex: 1, 
+    backgroundColor: '#F8FAFC' 
+  },
+  container: { 
+    flex: 1, 
+    padding: 16,
+    paddingBottom: 30,
   },
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    marginTop: 12,
+    marginBottom: 16,
   },
   backButton: {
-    padding: 8,
+    padding: 10,
+  },
+  header: { 
+    fontSize: 24, 
+    fontWeight: 'bold',
+    flex: 1,
+    marginLeft: 10,
+  },
+  filtersContainer: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    justifyContent: 'space-between',
+  },
+  filterButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
     marginRight: 8,
   },
-  headerSpacer: {
-    flex: 1, // Push content to left
+  activeFilter: {
+    backgroundColor: '#1976D2',
   },
-  header: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    textAlign: 'left',
+  filterText: {
+    color: '#333',
   },
-  container: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
+  activeFilterText: {
+    color: 'white',
   },
-  listContent: {
-    padding: 16,
-    paddingBottom: 24,
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 30,
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#666',
   },
   errorItem: {
-    backgroundColor: '#FFF',
-    padding: 16,
+    backgroundColor: 'white',
     borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000', 
+    shadowOffset: { width: 0, height: 2 }, 
+    shadowOpacity: 0.1, 
+    shadowRadius: 4, 
     elevation: 2,
   },
-  errorTitle: {
+  resolvedError: {
+    opacity: 0.7,
+    backgroundColor: '#f7f7f7',
+  },
+  anomalyError: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9800',
+  },
+  errorHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  errorTypeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  errorType: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#E53E3E',
+    color: '#333',
+    marginLeft: 8,
+  },
+  resolvedBadge: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  resolvedText: {
+    color: 'white',
+    fontSize: 12,
   },
   errorDetails: {
     fontSize: 14,
-    color: '#4A5568',
-    marginTop: 6,
+    color: '#555',
+    marginBottom: 8,
   },
-  errorTimestamp: {
+  timestamp: {
     fontSize: 12,
-    color: '#718096',
-    marginTop: 8,
+    color: '#888',
+    marginBottom: 12,
   },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  actionButton: {
+    backgroundColor: '#E3EAFD',
+    padding: 10,
+    borderRadius: 8,
     alignItems: 'center',
-    paddingVertical: 60,
   },
-  noDataText: {
-    fontSize: 16,
-    color: '#718096',
+  actionButtonText: {
+    color: '#1976D2',
+    fontWeight: '500',
+  },
+  noErrorsContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    marginVertical: 20,
+  },
+  noErrorsText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#4CAF50',
+    marginTop: 16,
+  },
+  noErrorsSubtext: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 8,
     textAlign: 'center',
   },
-  loadingText: {
-    fontSize: 16,
-    color: '#4A5568',
-    textAlign: 'center',
+  infoContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#E3EAFD',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+    alignItems: 'flex-start',
+  },
+  infoText: {
+    fontSize: 14,
+    color: '#333',
+    marginLeft: 12,
+    flex: 1,
   },
 });
