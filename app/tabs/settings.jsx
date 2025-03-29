@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
     View,
     Text,
@@ -10,61 +10,27 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Svg, Circle, Path } from 'react-native-svg';
-import { useTranslation } from 'react-i18next';
 import i18n from '../../locales/i18n';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+const SettingsScreen = () => {
 
-const Setting = () => {
-    const { t } = useTranslation();
     const [isNotificationsEnabled, setIsNotificationsEnabled] = useState(true);
     const navigation = useNavigation();
 
-    const changeLanguage = async (lng) => {
-        try {
-            await AsyncStorage.setItem('userLanguage', lng);
-            i18n.changeLanguage(lng);
-        } catch (error) {
-            console.error('Error saving language', error);
-        }
+
+    const changeLanguage = (lng) => {
+        i18n.changeLanguage(lng);
     };
 
-    useEffect(() => {
-        const loadStoredLanguage = async () => {
-            try {
-                const storedLanguage = await AsyncStorage.getItem('userLanguage');
-                if (storedLanguage) {
-                    i18n.changeLanguage(storedLanguage);
-                }
-            } catch (error) {
-                console.error('Error loading language', error);
-            }
-        };
+    const languageOptions = [
+        { code: 'en', label: 'English' },
+        { code: 'th', label: 'ไทย' },
+    ];
 
-        loadStoredLanguage();
-    }, []);
-
-    const LanguageToggle = ({ currentLanguage, onToggle }) => {
-        return (
-            <TouchableOpacity 
-                style={[
-                    styles.languageToggle,
-                    currentLanguage === 'th' ? styles.thToggle : styles.enToggle
-                ]}
-                onPress={onToggle}
-            >
-                <View style={styles.languageToggleTrack}>
-                    <View style={[
-                        styles.languageToggleThumb, 
-                        currentLanguage === 'th' ? styles.thumbLeft : styles.thumbRight
-                    ]}>
-                        <Text style={styles.toggleText}>
-                            {currentLanguage === 'th' ? 'TH' : 'EN'}
-                        </Text>
-                    </View>
-                </View>
-            </TouchableOpacity>
-        );
-    };
+    const BackIcon = () => (
+        <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <Path d="M15 19l-7-7 7-7" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+    );
 
     const ArrowIcon = () => (
         <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -140,15 +106,27 @@ const Setting = () => {
                 },
                 {
                     icon: (
-                        <Svg width="17" height="17" viewBox="0 0 17 17" fill="none">
-                            <Path d="M15.1797 9C15.4558 9 15.6797 8.77614 15.6797 8.5C15.6797 8.22386 15.4558 8 15.1797 8V9ZM15.125 8.5C15.125 12.1589 12.1589 15.125 8.5 15.125V16.125C12.7112 16.125 16.125 12.7112 16.125 8.5H15.125ZM8.5 15.125C4.84111 15.125 1.875 12.1589 1.875 8.5H0.875C0.875 12.7112 4.28883 16.125 8.5 16.125V15.125ZM1.875 8.5C1.875 4.84111 4.84111 1.875 8.5 1.875V0.875C4.28883 0.875 0.875 4.28883 0.875 8.5H1.875ZM8.5 1.875C12.1589 1.875 15.125 4.84111 15.125 8.5H16.125C16.125 4.28883 12.7112 0.875 8.5 0.875V1.875ZM8.5 15.125C8.23504 15.125 7.94321 15.0044 7.63418 14.7056C7.32275 14.4045 7.01945 13.9447 6.75389 13.3377C6.22343 12.1252 5.88281 10.4152 5.88281 8.5H4.88281C4.88281 10.5198 5.24 12.3723 5.83774 13.7385C6.13628 14.4209 6.50468 15.0045 6.93912 15.4246C7.37597 15.8469 7.90417 16.125 8.5 16.125V15.125ZM5.88281 8.5C5.88281 6.58477 6.22343 4.87476 6.75389 3.66227C7.01945 3.05529 7.32275 2.59548 7.63418 2.29439C7.9432 1.99564 8.23504 1.875 8.5 1.875V0.875C7.90417 0.875 7.37597 1.15311 6.93912 1.57544C6.50468 1.99545 6.13628 2.57907 5.83774 3.26145C5.24 4.62771 4.88281 6.4802 4.88281 8.5H5.88281ZM8.5 16.125C9.09583 16.125 9.62403 15.8469 10.0609 15.4246C10.4953 15.0045 10.8637 14.4209 11.1623 13.7385C11.76 12.3723 12.1172 10.5198 12.1172 8.5H11.1172C11.1172 10.4152 10.7766 12.1252 10.2461 13.3377C9.98055 13.9447 9.67725 14.4045 9.36582 14.7056C9.05679 15.0044 8.76496 15.125 8.5 15.125V16.125ZM12.1172 8.5C12.1172 6.4802 11.76 4.62771 11.1623 3.26145C10.8637 2.57907 10.4953 1.99545 10.0609 1.57544C9.62403 1.15311 9.09583 0.875 8.5 0.875V1.875C8.76496 1.875 9.0568 1.99564 9.36582 2.29439C9.67725 2.59548 9.98055 3.05529 10.2461 3.66227C10.7766 4.87476 11.1172 6.58477 11.1172 8.5H12.1172ZM1.375 9L15.1797 9V8L1.375 8L1.375 9Z" fill="#3B82F6" />
-                        </Svg>
+                        <svg width="17" height="17" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M15.1797 9C15.4558 9 15.6797 8.77614 15.6797 8.5C15.6797 8.22386 15.4558 8 15.1797 8V9ZM15.125 8.5C15.125 12.1589 12.1589 15.125 8.5 15.125V16.125C12.7112 16.125 16.125 12.7112 16.125 8.5H15.125ZM8.5 15.125C4.84111 15.125 1.875 12.1589 1.875 8.5H0.875C0.875 12.7112 4.28883 16.125 8.5 16.125V15.125ZM1.875 8.5C1.875 4.84111 4.84111 1.875 8.5 1.875V0.875C4.28883 0.875 0.875 4.28883 0.875 8.5H1.875ZM8.5 1.875C12.1589 1.875 15.125 4.84111 15.125 8.5H16.125C16.125 4.28883 12.7112 0.875 8.5 0.875V1.875ZM8.5 15.125C8.23504 15.125 7.94321 15.0044 7.63418 14.7056C7.32275 14.4045 7.01945 13.9447 6.75389 13.3377C6.22343 12.1252 5.88281 10.4152 5.88281 8.5H4.88281C4.88281 10.5198 5.24 12.3723 5.83774 13.7385C6.13628 14.4209 6.50468 15.0045 6.93912 15.4246C7.37597 15.8469 7.90417 16.125 8.5 16.125V15.125ZM5.88281 8.5C5.88281 6.58477 6.22343 4.87476 6.75389 3.66227C7.01945 3.05529 7.32275 2.59548 7.63418 2.29439C7.9432 1.99564 8.23504 1.875 8.5 1.875V0.875C7.90417 0.875 7.37597 1.15311 6.93912 1.57544C6.50468 1.99545 6.13628 2.57907 5.83774 3.26145C5.24 4.62771 4.88281 6.4802 4.88281 8.5H5.88281ZM8.5 16.125C9.09583 16.125 9.62403 15.8469 10.0609 15.4246C10.4953 15.0045 10.8637 14.4209 11.1623 13.7385C11.76 12.3723 12.1172 10.5198 12.1172 8.5H11.1172C11.1172 10.4152 10.7766 12.1252 10.2461 13.3377C9.98055 13.9447 9.67725 14.4045 9.36582 14.7056C9.05679 15.0044 8.76496 15.125 8.5 15.125V16.125ZM12.1172 8.5C12.1172 6.4802 11.76 4.62771 11.1623 3.26145C10.8637 2.57907 10.4953 1.99545 10.0609 1.57544C9.62403 1.15311 9.09583 0.875 8.5 0.875V1.875C8.76496 1.875 9.0568 1.99564 9.36582 2.29439C9.67725 2.59548 9.98055 3.05529 10.2461 3.66227C10.7766 4.87476 11.1172 6.58477 11.1172 8.5H12.1172ZM1.375 9L15.1797 9V8L1.375 8L1.375 9Z" fill="#3B82F6" />
+                        </svg>
                     ),
                     title: 'Language',
-                    customComponent: <LanguageToggle 
-                        currentLanguage={i18n.language} 
-                        onToggle={() => changeLanguage(i18n.language === 'th' ? 'en' : 'th')} 
-                    />
+                    hasArrow: false,
+                    customComponent: (
+                        <View style={{ flexDirection: 'row' }}>
+                            {languageOptions.map((lang) => (
+                                <TouchableOpacity
+                                    key={lang.code}
+                                    onPress={() => changeLanguage(lang.code)}
+                                    style={{ marginHorizontal: 8 }}
+                                >
+                                    <Text style={{ color: i18n.language === lang.code ? 'blue' : 'black' }}>
+                                        {lang.label}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    ),
                 }
             ]
         },
@@ -156,27 +134,27 @@ const Setting = () => {
             section: 'Support & About',
             items: [
                 {
-                    icon: <Svg width="17" height="17" viewBox="0 0 17 17" fill="none">
-                        <Path d="M8.49932 11.1719V8.5M8.49933 5.82812V5.8951M15.6236 8.5C15.6236 9.52424 15.4076 10.498 15.0185 11.3782L15.625 15.6243L11.9865 14.7146C10.9557 15.2943 9.76612 15.625 8.49932 15.625C4.56467 15.625 1.375 12.435 1.375 8.5C1.375 4.56497 4.56467 1.375 8.49932 1.375C12.434 1.375 15.6236 4.56497 15.6236 8.5Z" stroke="#3B82F6" strokeLinecap="round" strokeLinejoin="round" />
-                    </Svg>
+                    icon: <svg width="17" height="17" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M8.49932 11.1719V8.5M8.49933 5.82812V5.8951M15.6236 8.5C15.6236 9.52424 15.4076 10.498 15.0185 11.3782L15.625 15.6243L11.9865 14.7146C10.9557 15.2943 9.76612 15.625 8.49932 15.625C4.56467 15.625 1.375 12.435 1.375 8.5C1.375 4.56497 4.56467 1.375 8.49932 1.375C12.434 1.375 15.6236 4.56497 15.6236 8.5Z" stroke="#3B82F6" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
                     , title: 'Help Center', hasArrow: true, screen: 'help'
                 },
                 {
-                    icon: <Svg width="19" height="19" viewBox="0 0 19 19" fill="none">
-                        <Path d="M11.8752 1.8999V4.7499C11.8752 5.27457 12.3006 5.6999 12.8252 5.6999H15.6752M6.65025 5.6999H8.55025M6.65025 8.5499H12.3502M6.65025 11.3999H12.3502M14.2502 3.3249C13.8274 2.9466 13.3887 2.49791 13.1117 2.2065C12.9274 2.01258 12.6727 1.8999 12.4052 1.8999H5.22502C4.17569 1.8999 3.32503 2.75056 3.32502 3.79989L3.32495 15.1998C3.32494 16.2492 4.1756 17.0999 5.22494 17.0999L13.775 17.0999C14.8243 17.0999 15.675 16.2493 15.675 15.1999L15.6752 5.12819C15.6752 4.88527 15.5826 4.65176 15.414 4.47688C15.1022 4.1535 14.5816 3.62139 14.2502 3.3249Z" stroke="#444444" strokeLinecap="round" strokeLinejoin="round" />
-                    </Svg>
+                    icon: <svg width="19" height="19" viewBox="0 0 19 19" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M11.8752 1.8999V4.7499C11.8752 5.27457 12.3006 5.6999 12.8252 5.6999H15.6752M6.65025 5.6999H8.55025M6.65025 8.5499H12.3502M6.65025 11.3999H12.3502M14.2502 3.3249C13.8274 2.9466 13.3887 2.49791 13.1117 2.2065C12.9274 2.01258 12.6727 1.8999 12.4052 1.8999H5.22502C4.17569 1.8999 3.32503 2.75056 3.32502 3.79989L3.32495 15.1998C3.32494 16.2492 4.1756 17.0999 5.22494 17.0999L13.775 17.0999C14.8243 17.0999 15.675 16.2493 15.675 15.1999L15.6752 5.12819C15.6752 4.88527 15.5826 4.65176 15.414 4.47688C15.1022 4.1535 14.5816 3.62139 14.2502 3.3249Z" stroke="#444444" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
                     , title: 'Terms of Service', hasArrow: true
                 },
                 {
-                    icon: <Svg width="19" height="19" viewBox="0 0 19 19" fill="none">
-                        <Path d="M9.50005 1.8999C7.36508 3.71504 6.02685 3.7999 3.80005 3.7999V11.1054C3.80005 14.0206 5.82862 14.7813 9.50005 17.0999C13.1715 14.7813 15.2001 14.0206 15.2001 11.1054C15.2001 8.19017 15.2001 3.7999 15.2001 3.7999C12.9733 3.7999 11.635 3.71504 9.50005 1.8999Z" stroke="#39BF39" strokeLinejoin="round" />
-                    </Svg>
+                    icon: <svg width="19" height="19" viewBox="0 0 19 19" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M9.50005 1.8999C7.36508 3.71504 6.02685 3.7999 3.80005 3.7999V11.1054C3.80005 14.0206 5.82862 14.7813 9.50005 17.0999C13.1715 14.7813 15.2001 14.0206 15.2001 11.1054C15.2001 8.19017 15.2001 3.7999 15.2001 3.7999C12.9733 3.7999 11.635 3.71504 9.50005 1.8999Z" stroke="#39BF39" stroke-linejoin="round" />
+                    </svg>
                     , title: 'Privacy Policy', hasArrow: true
                 },
                 {
-                    icon: <Svg width="19" height="19" viewBox="0 0 19 19" fill="none">
-                        <Path d="M17.0999 5.225C17.0999 6.79901 13.6973 8.075 9.4999 8.075C5.30254 8.075 1.8999 6.79901 1.8999 5.225M17.0999 5.225C17.0999 3.65099 13.6973 2.375 9.4999 2.375C5.30254 2.375 1.8999 3.65099 1.8999 5.225M17.0999 5.225V13.775C17.0999 15.349 13.6973 16.625 9.4999 16.625C5.30254 16.625 1.8999 15.349 1.8999 13.775V5.225M17.0999 9.5C17.0999 11.074 13.6973 12.35 9.4999 12.35C5.30254 12.35 1.8999 11.074 1.8999 9.5" stroke="black" />
-                    </Svg>
+                    icon: <svg width="19" height="19" viewBox="0 0 19 19" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M17.0999 5.225C17.0999 6.79901 13.6973 8.075 9.4999 8.075C5.30254 8.075 1.8999 6.79901 1.8999 5.225M17.0999 5.225C17.0999 3.65099 13.6973 2.375 9.4999 2.375C5.30254 2.375 1.8999 3.65099 1.8999 5.225M17.0999 5.225V13.775C17.0999 15.349 13.6973 16.625 9.4999 16.625C5.30254 16.625 1.8999 15.349 1.8999 13.775V5.225M17.0999 9.5C17.0999 11.074 13.6973 12.35 9.4999 12.35C5.30254 12.35 1.8999 11.074 1.8999 9.5" stroke="black" />
+                    </svg>
                     , title: 'Data & Storage', hasArrow: true
                 },
             ]
@@ -202,7 +180,10 @@ const Setting = () => {
                         thumbColor={item.value ? '#007AFF' : '#FFFFFF'}
                     />
                 )}
-                {item.customComponent}
+                {item.customElement && item.customElement({
+                    value: item.value,
+                    onChange: item.onValueChange
+                })}
             </View>
         </TouchableOpacity>
     );
@@ -211,7 +192,10 @@ const Setting = () => {
         <SafeAreaView style={styles.container}>
             <ScrollView style={styles.scrollView}>
                 <View style={styles.header}>
-                    <Text style={styles.headerTitle}>{t('settings')}</Text>
+                    <TouchableOpacity onPress={() => navigation.goBack()}>
+                        <BackIcon />
+                    </TouchableOpacity>
+                    <Text style={styles.headerTitle}>Setting</Text>
                 </View>
 
                 <View style={styles.profileSection}>
@@ -234,7 +218,7 @@ const Setting = () => {
                 ))}
 
                 <TouchableOpacity style={styles.logoutButton}>
-                    <Text style={styles.logoutText}>{t('logout')}</Text>
+                    <Text style={styles.logoutText}>Log Out</Text>
                 </TouchableOpacity>
 
                 <Text style={styles.version}>Version 1.0.0</Text>
@@ -251,45 +235,26 @@ const styles = StyleSheet.create({
     scrollView: {
         flex: 1,
     },
-
-    languageToggle: {
-        width: 64,
-        height: 32,
-        borderRadius: 16,
-        justifyContent: 'center',
+    languageSwitch: {
+        flexDirection: 'row',
+        backgroundColor: '#f1f1f1',
+        borderRadius: 15,
         padding: 2,
     },
-    thToggle: {
-        backgroundColor: '#F32626', 
+    languageButton: {
+        paddingVertical: 4,
+        paddingHorizontal: 12,
+        borderRadius: 13,
     },
-    enToggle: {
-        backgroundColor: '#282D8F', 
+    languageButtonActive: {
+        backgroundColor: '#ff0000',
     },
-    languageToggleTrack: {
-        width: '100%',
-        height: '100%',
-        borderRadius: 14,
-        position: 'relative',
+    languageText: {
+        fontSize: 14,
+        color: '#666666',
     },
-    languageToggleThumb: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        backgroundColor: 'white',
-        position: 'absolute',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    thumbLeft: {
-        left: 2,
-    },
-    thumbRight: {
-        right: 2,
-    },
-    toggleText: {
-        fontSize: 12,
-        fontWeight: 'bold',
-        color: '#333',
+    languageTextActive: {
+        color: '#FFFFFF',
     },
     header: {
         flexDirection: 'row',
@@ -297,7 +262,7 @@ const styles = StyleSheet.create({
         padding: 16,
     },
     headerTitle: {
-        fontSize: 26,
+        fontSize: 24,
         fontWeight: 'bold',
         marginLeft: 16,
     },
@@ -377,4 +342,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default Setting;
+export default SettingsScreen;
