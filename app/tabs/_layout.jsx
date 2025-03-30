@@ -6,7 +6,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 function CustomTabBarIcon({ focused, iconName, label }) {
   return (
     <View style={[styles.iconWrapper, focused && styles.iconWrapperFocused]}>
-      <Ionicons name={iconName} size={28} color={focused ? "#2C3E50" : "#7F8C8D"} />
+      <Ionicons
+        name={iconName}
+        size={28}
+        color={focused ? "#2C3E50" : "#7F8C8D"}
+      />
       {focused && <Text style={styles.iconLabel}>{label}</Text>}
     </View>
   );
@@ -14,16 +18,20 @@ function CustomTabBarIcon({ focused, iconName, label }) {
 
 export default function TabsLayout() {
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }} edges={["left", "right"]}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: "#fff" }}
+      edges={["left", "right"]}
+    >
       <Tabs
+        initialRouteName="home"
         screenOptions={{
           tabBarShowLabel: false,
           headerShown: false,
-          tabBarSafeAreaInset: 'never',
-          tabBarStyle: { 
+          tabBarSafeAreaInset: "never",
+          tabBarStyle: {
             backgroundColor: "#fff",
-            height: 70, 
-            paddingBottom: 40, 
+            height: 50,
+            paddingBottom: 4,
             width: "100%",
             position: "absolute",
             bottom: 0,
@@ -35,10 +43,10 @@ export default function TabsLayout() {
             shadowColor: "#000",
             shadowOffset: { width: 0, height: -2 },
             shadowOpacity: 0.1,
-            shadowRadius: 8,
+            shadowRadius: 3,
             flexDirection: "row",
             justifyContent: "space-evenly",
-            alignItems: "center", 
+            alignItems: "center",
           },
         }}
       >
@@ -46,7 +54,11 @@ export default function TabsLayout() {
           name="home"
           options={{
             tabBarIcon: ({ focused }) => (
-              <CustomTabBarIcon focused={focused} iconName="home" label="Home" />
+              <CustomTabBarIcon
+                focused={focused}
+                iconName="home"
+                label="Home"
+              />
             ),
           }}
         />
@@ -54,7 +66,11 @@ export default function TabsLayout() {
           name="statistics"
           options={{
             tabBarIcon: ({ focused }) => (
-              <CustomTabBarIcon focused={focused} iconName="pie-chart-outline" label="Statistics" />
+              <CustomTabBarIcon
+                focused={focused}
+                iconName="pie-chart-outline"
+                label="Statistics"
+              />
             ),
           }}
         />
@@ -62,14 +78,42 @@ export default function TabsLayout() {
           name="settings"
           options={{
             tabBarIcon: ({ focused }) => (
-              <CustomTabBarIcon focused={focused} iconName="settings-outline" label="Settings" />
+              <CustomTabBarIcon
+                focused={focused}
+                iconName="settings-outline"
+                label="Settings"
+              />
             ),
           }}
+        />
+        <Tabs.Screen
+          name="edit_profile"
+          options={{ href: null }} // ซ่อนเมนูนี้
+        />
+        <Tabs.Screen
+          name="index"
+          options={{ href: null }} // ซ่อนเมนูนี้
+        />
+        <Tabs.Screen
+          name="chat"
+          options={{ href: null }} // ซ่อนเมนูนี้
+        />
+        <Tabs.Screen
+          name="help"
+          options={{ href: null }} // ซ่อนเมนูนี้
+        />
+        <Tabs.Screen
+          name="change_password"
+          options={{ href: null }} // ซ่อนเมนูนี้
+        />
+        <Tabs.Screen
+          name="forget_password"
+          options={{ href: null }} // ซ่อนเมนูนี้
         />
       </Tabs>
     </SafeAreaView>
   );
-} 
+}
 
 const styles = StyleSheet.create({
   iconWrapper: {
@@ -77,20 +121,27 @@ const styles = StyleSheet.create({
     height: 43,
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 24,
+    borderRadius: 4,
     flexDirection: "row",
     paddingHorizontal: 20,
     paddingVertical: 6,
   },
   iconWrapperFocused: {
-    backgroundColor: "#C2EAFF",
-    paddingHorizontal: 20,
+    flexDirection: "row", 
+    gap: 8,
     paddingVertical: 8,
-  },
-  iconLabel: {
-    marginLeft: 8,
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#2C3E50",
+    justifyContent: "center",
+    alignItems: "center", 
+    borderBottomWidth: 4, 
+    borderBottomColor: "#007BFF", 
+    width: "100%", 
+    alignSelf: "center",
+    // obj btn icons
+    iconLabel: {
+      marginLeft: 8,
+      fontSize: 14,
+      fontWeight: "500",
+      color: "#ffff",
+    },
   },
 });

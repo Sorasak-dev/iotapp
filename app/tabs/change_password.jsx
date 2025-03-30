@@ -54,7 +54,7 @@ const ChangePasswordScreen = () => {
         <SafeAreaView style={styles.container}>
             <View style={styles.content}>
                 <View style={styles.header}>
-                    <TouchableOpacity onPress={() => navigation.navigate('setting')}>
+                    <TouchableOpacity onPress={() => navigation.navigate('settings')}>
                         <BackIcon />
                     </TouchableOpacity>
                 </View>

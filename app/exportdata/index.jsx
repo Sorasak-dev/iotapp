@@ -53,6 +53,16 @@ const Index = () => {
         </Svg>
       )
     },
+    {
+      name: "VPD",
+      des: "VPD measurements",
+      svg: (
+        <Svg width="38" height="38" viewBox="0 0 38 38" fill="none">
+          <Circle cx="19" cy="19" r="19" fill="#D2FAFF" />
+          <Path d="M22.5998 20.4C22.064 22.0764 20.7174 23.4168 18.9998 24M18.9999 27.6C15.0298 27.6 11.7998 24.5579 11.7998 20.8187C11.7998 15.6 18.9999 8.40002 18.9999 8.40002C18.9999 8.40002 26.1998 15.6 26.1998 20.8187C26.1998 24.558 22.9699 27.6 18.9999 27.6Z" stroke="#0C93B0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+      )
+    },
   ];
 
   const fileFormats = [

@@ -141,9 +141,11 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 8,
         marginRight: 8,
+        marginTop: -140,
     },
     sendButton: {
         marginLeft: 8,
+        marginTop: -140,
     },
 });
 
