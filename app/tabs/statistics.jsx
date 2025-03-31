@@ -22,13 +22,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import axios from "axios";
+import { useTranslation } from "react-i18next";
 
 const windowWidth = Dimensions.get("window").width;
 const windowHeight = Dimensions.get("window").height;
 const isIOS = Platform.OS === 'ios';
-const API_URL = "http://172.27.130.237:3000";
+const API_URL = "http://172.16.22.169:3000";
 
 export default function Statistics() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [selectedMetrics, setSelectedMetrics] = useState(["Temperature", "Humidity", "Dew Point", "VPO"]);
   const [selectedSensor, setSelectedSensor] = useState(null);
@@ -322,23 +324,23 @@ export default function Statistics() {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.container}>
         <View style={styles.headerContainer}>
-          <Text style={styles.headerTitle}>Statistics</Text>
+          <Text style={styles.headerTitle}>{t("statistics")}</Text>
           <View style={styles.placeholder} />
         </View>
 
         <Text style={styles.currentDateText}>
-          Current Date and Time: {formatDate(currentDate)} {formatTime(currentDate)}
+          {t("current_date_and_time")}: {formatDate(currentDate)} {formatTime(currentDate)}
         </Text>
 
         <View style={styles.dropdownContainer}>
           {loadingDevices ? (
             <View style={styles.loadingSection}>
               <ActivityIndicator size="small" color="#007AFF" />
-              <Text style={styles.loadingText}>Loading devices...</Text>
+              <Text style={styles.loadingText}>{t("loading_devices")}</Text>
             </View>
           ) : connectedDevices.length === 0 ? (
             <View style={styles.noDevicesWarning}>
-              <Text style={styles.noDeviceText}>No connected devices. Please add a device first.</Text>
+              <Text style={styles.noDeviceText}>{t("no_connected_devices_please_add_a_device_first")}</Text>
               <TouchableOpacity
                 style={styles.addDeviceButton}
                 onPress={() => router.push({
@@ -346,7 +348,7 @@ export default function Statistics() {
                   params: { returnTo: "statistics" }
                 })}
               >
-                <Text style={styles.addDeviceButtonText}>Add Device</Text>
+                <Text style={styles.addDeviceButtonText}>{t("add_device")}</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -374,7 +376,7 @@ export default function Statistics() {
               <Text style={styles.dateRangeText}>SELECT DATE RANGE</Text>
               <TouchableOpacity style={styles.exportButton} onPress={handleExportPress} disabled={data.length === 0}>
                 <FontAwesome5 name="download" size={16} color="#fff" style={styles.exportIcon} />
-                <Text style={styles.exportText}>Export Data</Text>
+                <Text style={styles.exportText}>{t("export_data")}</Text>
               </TouchableOpacity>
             </View>
 
@@ -398,7 +400,7 @@ export default function Statistics() {
             <Modal visible={showStartPicker} transparent animationType="slide">
               <View style={styles.modalContainer}>
                 <View style={styles.pickerContainer}>
-                  <Text style={styles.pickerTitle}>Select Start Date</Text>
+                  <Text style={styles.pickerTitle}>{t("select_start_date")}</Text>
                   <DateTimePicker
                     value={tempStartDate}
                     mode="date"
@@ -407,10 +409,10 @@ export default function Statistics() {
                   />
                   <View style={styles.buttonContainer}>
                     <TouchableOpacity style={styles.cancelButton} onPress={cancelPicker}>
-                      <Text style={styles.buttonText}>Cancel</Text>
+                      <Text style={styles.buttonText}>{t("cancel")}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.confirmButton} onPress={confirmStartDate}>
-                      <Text style={styles.buttonText}>Confirm</Text>
+                      <Text style={styles.buttonText}>{t("confirm")}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -420,7 +422,7 @@ export default function Statistics() {
             <Modal visible={showEndPicker} transparent animationType="slide">
               <View style={styles.modalContainer}>
                 <View style={styles.pickerContainer}>
-                  <Text style={styles.pickerTitle}>Select End Date</Text>
+                  <Text style={styles.pickerTitle}>{t("select_end_date")}</Text>
                   <DateTimePicker
                     value={tempEndDate}
                     mode="date"
@@ -429,10 +431,10 @@ export default function Statistics() {
                   />
                   <View style={styles.buttonContainer}>
                     <TouchableOpacity style={styles.cancelButton} onPress={cancelPicker}>
-                      <Text style={styles.buttonText}>Cancel</Text>
+                      <Text style={styles.buttonText}>{t("cancel")}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.confirmButton} onPress={confirmEndDate}>
-                      <Text style={styles.buttonText}>Confirm</Text>
+                      <Text style={styles.buttonText}>{t("confirm")}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -480,10 +482,10 @@ export default function Statistics() {
             {loading ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#007AFF" />
-                <Text style={styles.loadingText}>Loading data...</Text>
+                <Text style={styles.loadingText}>{t("loading_data")}</Text>
               </View>
             ) : data.length === 0 ? (
-              <Text style={styles.noDataText}>No data available for the selected date range.</Text>
+              <Text style={styles.noDataText}>{t("no_data_available_for_the_selected_date_range.")}</Text>
             ) : (
               <View style={styles.chartOuterContainer}>
                 <ScrollView 
@@ -528,25 +530,25 @@ export default function Statistics() {
                   {selectedMetrics.includes("Temperature") && (
                     <View style={styles.legendItem}>
                       <View style={[styles.legendColor, { backgroundColor: "#FF6384" }]} />
-                      <Text style={styles.legendText}>Temperature</Text>
+                      <Text style={styles.legendText}>{t("temperature")}</Text>
                     </View>
                   )}
                   {selectedMetrics.includes("Humidity") && (
                     <View style={styles.legendItem}>
                       <View style={[styles.legendColor, { backgroundColor: "#36A2EB" }]} />
-                      <Text style={styles.legendText}>Humidity</Text>
+                      <Text style={styles.legendText}>{t("humidity")}</Text>
                     </View>
                   )}
                   {selectedMetrics.includes("Dew Point") && (
                     <View style={styles.legendItem}>
                       <View style={[styles.legendColor, { backgroundColor: "#4BC0C0" }]} />
-                      <Text style={styles.legendText}>Dew Point</Text>
+                      <Text style={styles.legendText}>{t("dew_point")}</Text>
                     </View>
                   )}
                   {selectedMetrics.includes("VPO") && (
                     <View style={styles.legendItem}>
                       <View style={[styles.legendColor, { backgroundColor: "#22C55E" }]} />
-                      <Text style={styles.legendText}>VPO</Text>
+                      <Text style={styles.legendText}>{t("vpo")}</Text>
                     </View>
                   )}
                 </View>
@@ -555,7 +557,7 @@ export default function Statistics() {
             
             <View style={styles.footer}>
               <Text style={styles.footerText}>
-                Swipe the graph horizontally to view more data
+                {t("swipe_the_graph_horizontally_to_view_more_data")}
               </Text>
             </View>
           </>

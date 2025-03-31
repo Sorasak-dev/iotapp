@@ -16,10 +16,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useTranslation } from "react-i18next";
 
 const { width, height } = Dimensions.get("window");
 
-const API_URL = 'http://172.27.130.237:3000/api/devices';
+const API_URL = 'http://172.16.22.169:3000/api/devices';
 // ที่อยู่ipของแต่ละเครื่อง (ipconfig) แล้วดูตรง IPv4 Address 
 // ถ้าต่อผ่าน wifi ดูที่ Wireless LAN adapter Wi-Fi: IPv4 Address
 // ถ้าต่อผ่าน LAN ดูที่ Ethernet adapter Ethernet: IPv4 Address
@@ -30,6 +31,7 @@ const CITY_NAME = "Chiang Rai";
 const COUNTRY_CODE = "TH";
 
 export default function HomeScreen() {
+  const { t } = useTranslation();
   const [weather, setWeather] = useState(null);
   const [loading, setLoading] = useState(true);
   const [date, setDate] = useState("");
@@ -162,7 +164,7 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Home</Text>
+          <Text style={styles.headerTitle}>{t("Home")}</Text>
           <TouchableOpacity onPress={() => router.push("/notification")}>
             <Ionicons name="notifications-outline" size={26} color="black" />
           </TouchableOpacity>
@@ -181,7 +183,7 @@ export default function HomeScreen() {
                 <View style={styles.weatherRow}>
                   {getWeatherIcon(weather.weather[0].main)}
                   <Text style={styles.weatherCondition}>
-                    {weather.weather[0].main}
+                  {t(weather.weather[0].main.toLowerCase())}
                   </Text>
                 </View>
                 <View>
@@ -209,13 +211,13 @@ export default function HomeScreen() {
               </View>
             </>
           ) : (
-            <Text style={styles.errorText}>Failed to load weather data</Text>
+            <Text style={styles.errorText}> {t("Failed to load weather data")}</Text>
           )}
         </View>
 
         {/* Your Device Section */}
         <View style={styles.deviceSection}>
-          <Text style={styles.sectionTitle}>Your Device</Text>
+          <Text style={styles.sectionTitle}>{t("your_device")}</Text>
           <MaterialIcons name="more-horiz" size={24} color="black" />
         </View>
 
@@ -226,7 +228,7 @@ export default function HomeScreen() {
               source={require("../assets/no-device.png")}
               style={styles.noDeviceImage}
             />
-            <Text style={styles.noDeviceText}>No Device</Text>
+            <Text style={styles.noDeviceText}>{t("no_device")}</Text>
           </View>
         ) : (
           <View style={styles.deviceGrid}>
@@ -294,7 +296,7 @@ export default function HomeScreen() {
           onPress={() => router.push("/selectdevice")}
         >
           <Ionicons name="add" size={18} color="white" />
-          <Text style={styles.addDeviceText}>Add device</Text>
+          <Text style={styles.addDeviceText}>{t("add_device")}</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
