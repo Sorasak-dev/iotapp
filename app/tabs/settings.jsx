@@ -1,20 +1,23 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
-  Switch,
-} from "react-native";
-import { useNavigation } from "@react-navigation/native";
-import { Svg, Path } from "react-native-svg";
+    View,
+    Text,
+    ScrollView,
+    TouchableOpacity,
+    StyleSheet,
+    SafeAreaView,
+    Switch
+} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
+import { Svg, Circle, Path } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
-import i18n from "../../locales/i18n";
+import i18n from '../../locales/i18n';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Toast from 'react-native-toast-message'; // เพิ่ม Toast สำหรับแจ้งเตือน
 
 const SettingsScreen = () => {
+  const router = useRouter();
   const navigation = useNavigation();
   const { t } = useTranslation();
   const [language, setLanguage] = useState(i18n.language);
@@ -45,6 +48,26 @@ const SettingsScreen = () => {
 
     loadStoredLanguage();
   }, []);
+
+  const handleLogout = async () => {
+    try {
+        await AsyncStorage.removeItem('token');
+        await AsyncStorage.removeItem('email');
+        Toast.show({
+            type: 'success',
+            text1: 'Logout Successful',
+            text2: 'You have been logged out.',
+        });
+        router.replace('/auth/sign-in'); // เปลี่ยนเป็น router.replace
+    } catch (error) {
+        console.error('Error during logout:', error);
+        Toast.show({
+            type: 'error',
+            text1: 'Logout Failed',
+            text2: 'Something went wrong while logging out.',
+        });
+    }
+};
 
   const LanguageToggle = () => (
     <TouchableOpacity
@@ -284,12 +307,13 @@ const SettingsScreen = () => {
           </View>
         ))}
 
-        <TouchableOpacity style={styles.logoutButton}>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Text style={styles.logoutText}>{t('logout')}</Text>
         </TouchableOpacity>
 
         <Text style={styles.version}>Version 1.0.0</Text>
       </ScrollView>
+      <Toast />
     </SafeAreaView>
   );
 };

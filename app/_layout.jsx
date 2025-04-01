@@ -17,6 +17,11 @@ export default function Layout() {
 
       {/* หน้า Error History */}
       <Stack.Screen name="error-history" />
+
+      {/* หน้า Select Device */}
+      <Stack.Screen name="selectdevice" />
+
+      <Stack.Screen name="sign-in" />
     </Stack>
   );
 }

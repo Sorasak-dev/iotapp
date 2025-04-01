@@ -27,7 +27,7 @@ import { useTranslation } from "react-i18next";
 const windowWidth = Dimensions.get("window").width;
 const windowHeight = Dimensions.get("window").height;
 const isIOS = Platform.OS === 'ios';
-const API_URL = "http://172.16.22.169:3000";
+const API_URL = "http://172.16.22.104:3000";
 
 export default function Statistics() {
   const { t } = useTranslation();
