@@ -7,7 +7,7 @@ const router = express.Router();
 // ✅ 1. บันทึกอุปกรณ์ที่เชื่อมต่อ (รองรับการอัปเดต และเพิ่มใน User)
 router.post("/", authenticateToken, async (req, res) => {
   try {
-    const { name, type, image, deviceId } = req.body;
+    const { name, type, image, deviceId, location } = req.body;
     
     // หา User ที่ล็อกอินอยู่
     const user = await User.findById(req.user.id);
@@ -21,10 +21,13 @@ router.post("/", authenticateToken, async (req, res) => {
       device.status = "Connected";
       device.image = image;
       device.updatedAt = new Date();
+      if (location) {
+        device.location = location;
+      }
       await device.save();
     } else {
       // ✅ ถ้ายังไม่มี → เพิ่มอุปกรณ์ใหม่
-      device = new Device({ userId: req.user.id, name, type, image, deviceId });
+      device = new Device({ userId: req.user.id, name, type, image, deviceId, location: location || {} });
       await device.save();
       
       // ✅ เพิ่มอุปกรณ์เข้าไปใน user.devices
@@ -68,6 +71,30 @@ router.delete("/:deviceId", authenticateToken, async (req, res) => {
     await user.save();
 
     res.json({ message: "Device removed successfully", device: deletedDevice });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.patch("/:deviceId/location", authenticateToken, async (req, res) => {
+  try {
+    const { location } = req.body;
+    
+    if (!location) {
+      return res.status(400).json({ message: "Location data is required" });
+    }
+
+    const device = await Device.findOneAndUpdate(
+      { _id: req.params.deviceId, userId: req.user.id },
+      { $set: { location } },
+      { new: true }
+    );
+
+    if (!device) {
+      return res.status(404).json({ message: "Device not found" });
+    }
+
+    res.json({ message: "Location updated successfully", device });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

@@ -20,7 +20,7 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message"; // เพิ่ม Toast
 
-const API_URL = "http://172.16.22.104:3000/api/devices";
+const API_URL = "http://192.168.1.15:3000/api/devices";
 
 // กำหนด mapping สำหรับรูปภาพเป็น URL (เพื่อส่งไปยัง API)
 const deviceImages = {

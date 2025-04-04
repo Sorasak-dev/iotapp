@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 
 const sensorDataSchema = new mongoose.Schema({
-  sensorId: { type: String }, // Optional: เก็บ sensorId เฉพาะใน data
+  sensorId: { type: String }, 
   temperature: { type: Number, default: null },
   humidity: { type: Number, default: null },
   co2: { type: Number, default: null },
@@ -20,7 +20,12 @@ const DeviceSchema = new mongoose.Schema({
   status: { type: String, default: "Connected" },
   createdAt: { type: Date, default: Date.now },
   deviceId: { type: String, required: true, index: true },
-  data: [sensorDataSchema], // เพิ่มฟิลด์ data เพื่อเก็บข้อมูลเซ็นเซอร์
+  location: {
+    latitude: { type: Number, default: null },
+    longitude: { type: Number, default: null },
+    address: { type: String, default: "" }
+  },
+  data: [sensorDataSchema], 
 });
 
 module.exports = mongoose.model("Device", DeviceSchema);

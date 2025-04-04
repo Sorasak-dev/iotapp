@@ -32,4 +32,29 @@ const userDataValidationSchema = Joi.object({
   }),
 });
 
-module.exports = { userValidationSchema, userDataValidationSchema };
+const deviceValidationSchema = Joi.object({
+  name: Joi.string().required(),
+  type: Joi.string().required(),
+  image: Joi.string().required(),
+  deviceId: Joi.string().required(),
+  location: Joi.object({
+    latitude: Joi.number().allow(null),
+    longitude: Joi.number().allow(null),
+    address: Joi.string().allow("")
+  })
+});
+
+const locationValidationSchema = Joi.object({
+  location: Joi.object({
+    latitude: Joi.number().allow(null),
+    longitude: Joi.number().allow(null),
+    address: Joi.string().allow("")
+  }).required()
+});
+
+module.exports = { 
+  userValidationSchema, 
+  userDataValidationSchema,
+  deviceValidationSchema,
+  locationValidationSchema
+};

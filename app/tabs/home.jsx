@@ -20,7 +20,7 @@ import { useTranslation } from "react-i18next";
 
 const { width, height } = Dimensions.get("window");
 
-const API_URL = 'http://172.16.22.104:3000/api/devices';
+const API_URL = 'http://192.168.1.15:3000/api/devices';
 // ที่อยู่ipของแต่ละเครื่อง (ipconfig) แล้วดูตรง IPv4 Address 
 // ถ้าต่อผ่าน wifi ดูที่ Wireless LAN adapter Wi-Fi: IPv4 Address
 // ถ้าต่อผ่าน LAN ดูที่ Ethernet adapter Ethernet: IPv4 Address
