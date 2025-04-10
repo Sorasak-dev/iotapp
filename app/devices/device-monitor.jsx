@@ -5,8 +5,8 @@ import * as Battery from 'expo-battery';
 import { BarChart } from 'react-native-chart-kit';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_ENDPOINTS, DATA_REFRESH_INTERVAL, getAuthHeaders } from '../utils/config/api';
 
-const API_URL = 'http://192.168.1.15:3000/api/user/sensor-data';
 const screenWidth = Dimensions.get('window').width;
 const isIOS = Platform.OS === 'ios';
 
@@ -44,7 +44,7 @@ export default function DeviceMonitor() {
     const fetchSensorData = async () => {
       try {
         const token = await getAuthToken();
-        const response = await fetch(`${API_URL}`, {
+        const response = await fetch(API_ENDPOINTS.SENSOR_DATA, {
           headers: { 'Authorization': `Bearer ${token}` },
         });
 
@@ -112,7 +112,7 @@ export default function DeviceMonitor() {
           setLatestData(null);
           setErrorMessage("ไม่มีข้อมูลเซ็นเซอร์ที่ใช้งานได้");
         }
-      } catch (error) {
+      }  catch (error) {
         console.error("Error fetching sensor data:", error);
         setErrorMessage(error.message || "ไม่สามารถดึงข้อมูลเซ็นเซอร์ได้");
         setSensorData({
@@ -126,9 +126,10 @@ export default function DeviceMonitor() {
     };
 
     fetchSensorData();
-    const interval = setInterval(fetchSensorData, 3600000); // อัปเดตทุกชั่วโมง
+    const interval = setInterval(fetchSensorData, DATA_REFRESH_INTERVAL); // ใช้ interval จาก config
     return () => clearInterval(interval);
   }, []);
+
 
   const renderChart = (data, color, type) => {
     if (!data || !data.labels.length) {

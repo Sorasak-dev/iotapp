@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
-    View,
-    Text,
-    ScrollView,
-    TouchableOpacity,
-    StyleSheet,
-    SafeAreaView,
-    Switch
+View,
+Text,
+ScrollView,
+TouchableOpacity,
+StyleSheet,
+SafeAreaView,
+Switch
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
@@ -14,7 +14,7 @@ import { Svg, Circle, Path } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../locales/i18n';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Toast from 'react-native-toast-message'; // เพิ่ม Toast สำหรับแจ้งเตือน
+import Toast from 'react-native-toast-message'; 
 
 const SettingsScreen = () => {
   const router = useRouter();
@@ -58,7 +58,7 @@ const SettingsScreen = () => {
             text1: 'Logout Successful',
             text2: 'You have been logged out.',
         });
-        router.replace('/auth/sign-in'); // เปลี่ยนเป็น router.replace
+        router.replace('/auth/sign-in'); 
     } catch (error) {
         console.error('Error during logout:', error);
         Toast.show({
@@ -90,18 +90,6 @@ const SettingsScreen = () => {
         </View>
       </View>
     </TouchableOpacity>
-  );
-
-  const BackIcon = () => (
-    <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M15 19l-7-7 7-7"
-        stroke="#000"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
   );
 
   const ArrowIcon = () => (
@@ -282,9 +270,6 @@ const SettingsScreen = () => {
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <BackIcon />
-          </TouchableOpacity>
           <Text style={styles.headerTitle}>{t('settings')}</Text>
         </View>
 
@@ -372,10 +357,10 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: "bold",
-    marginLeft: 16,
   },
+  
   profileSection: {
     flexDirection: "row",
     alignItems: "center",

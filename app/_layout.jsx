@@ -1,27 +1,12 @@
-import { Stack } from 'expo-router';
+// app/_layout.jsx
+import { Slot } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 
-export default function Layout() {
+export default function RootLayout() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      {/* หน้า Home (index) */}
-      <Stack.Screen name="index" />
-
-      {/* หน้า Device Monitor */}
-      <Stack.Screen name="device-monitor" />
-
-      {/* หน้า Sensor Detail */}
-      <Stack.Screen name="sensor-detail" />
-
-      {/* หน้า Full Chart */}
-      <Stack.Screen name="full-chart" />
-
-      {/* หน้า Error History */}
-      <Stack.Screen name="error-history" />
-
-      {/* หน้า Select Device */}
-      <Stack.Screen name="selectdevice" />
-
-      <Stack.Screen name="sign-in" />
-    </Stack>
+    <>
+      <StatusBar style="auto" />
+      <Slot />
+    </>
   );
 }

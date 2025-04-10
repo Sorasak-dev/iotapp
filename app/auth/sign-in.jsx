@@ -5,8 +5,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import { MaterialIcons, FontAwesome } from '@expo/vector-icons';
-
-const API_URL = 'http://192.168.1.15:3000';
+import { API_ENDPOINTS, API_TIMEOUT, getAuthHeaders } from '../utils/config/api';
 
 export default function SignIn() {
   const [email, setEmail] = useState('');
@@ -65,11 +64,17 @@ export default function SignIn() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/signin`, {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
+
+      const response = await fetch(API_ENDPOINTS.SIGNIN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       const data = await response.json();
 
@@ -85,7 +90,11 @@ export default function SignIn() {
         showToast('error', 'Login Failed', data.message || 'Something went wrong.');
       }
     } catch (error) {
-      showToast('error', 'Network Error', error.message || 'Unable to connect to the server.');
+      if (error.name === 'AbortError') {
+        showToast('error', 'Timeout', 'Request took too long. Please try again.');
+      } else {
+        showToast('error', 'Network Error', error.message || 'Unable to connect to the server.');
+      }
     } finally {
       setLoading(false);
     }

@@ -15,7 +15,7 @@ import { useRoute, useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 
-const API_URL = "http://192.168.1.15:3000";
+const API_URL = "http://192.168.1.6:3000";
 const isIOS = Platform.OS === "ios";
 
 const getAuthToken = async () => {

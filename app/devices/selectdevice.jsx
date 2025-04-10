@@ -18,9 +18,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import Toast from "react-native-toast-message"; // เพิ่ม Toast
-
-const API_URL = "http://192.168.1.15:3000/api/devices";
+import Toast from "react-native-toast-message";
+import { API_ENDPOINTS, API_TIMEOUT, getAuthHeaders } from '../utils/config/api';
 
 // กำหนด mapping สำหรับรูปภาพเป็น URL (เพื่อส่งไปยัง API)
 const deviceImages = {
@@ -31,10 +30,10 @@ const deviceImages = {
 };
 
 const devices = [
-  { id: "1", name: "IBS-TH3", type: "Temperature & Humidity Sensor", image: require("./assets/sensor.png") },
-  { id: "2", name: "IBS-TH4", type: "Temperature & Humidity Sensor", image: require("./assets/sensor2.png") },
-  { id: "3", name: "IBS-TH5", type: "Temperature & Humidity Sensor", image: require("./assets/sensor3.png") },
-  { id: "4", name: "IBS-TH6", type: "Temperature & Humidity Sensor", image: require("./assets/sensor4.png") },
+  { id: "1", name: "IBS-TH3", type: "Temperature & Humidity Sensor", image: require("../assets/sensor.png") },
+  { id: "2", name: "IBS-TH4", type: "Temperature & Humidity Sensor", image: require("../assets/sensor2.png") },
+  { id: "3", name: "IBS-TH5", type: "Temperature & Humidity Sensor", image: require("../assets/sensor3.png") },
+  { id: "4", name: "IBS-TH6", type: "Temperature & Humidity Sensor", image: require("../assets/sensor4.png") },
 ];
 
 export default function SelectDeviceScreen() {
@@ -67,8 +66,9 @@ export default function SelectDeviceScreen() {
         return;
       }
 
-      const response = await axios.get(API_URL, {
-        headers: { Authorization: `Bearer ${token}` },
+      const response = await axios.get(API_ENDPOINTS.DEVICES, {
+        headers: getAuthHeaders(token), 
+        timeout: API_TIMEOUT
       });
 
       if (Array.isArray(response.data)) {
@@ -136,14 +136,17 @@ export default function SelectDeviceScreen() {
       const imageUrl = deviceImages[imageFileName] || "https://example.com/images/default.png";
 
       const response = await axios.post(
-        API_URL,
+        API_ENDPOINTS.DEVICES,
         {
           name: device.name,
           type: device.type,
           image: imageUrl, // ใช้ URL แทน require
           deviceId: device.id,
         },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { 
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: API_TIMEOUT 
+        }
       );
 
       console.log("✅ Device Connected:", response.data);

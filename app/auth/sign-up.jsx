@@ -3,8 +3,7 @@ import { View, TextInput, Button, StyleSheet, ActivityIndicator, Text, Keyboard,
 import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import { MaterialIcons, FontAwesome } from '@expo/vector-icons';
-
-const API_URL = 'http://192.168.1.15:3000';
+import { API_ENDPOINTS, API_TIMEOUT } from '../utils/config/api';
 
 export default function SignUp() {
   const [email, setEmail] = useState('');
@@ -45,8 +44,6 @@ export default function SignUp() {
       return true;
     }
   };
-
-
 
   // ฟังก์ชันตรวจสอบ Confirm Password
   const validateConfirmPassword = (value) => {
@@ -97,11 +94,17 @@ export default function SignUp() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/signup`, {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
+
+      const response = await fetch(API_ENDPOINTS.SIGNUP, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       const data = await response.json();
 
@@ -116,7 +119,11 @@ export default function SignUp() {
         showToast('error', 'Signup Failed', data.message || 'Something went wrong.');
       }
     } catch (error) {
-      showToast('error', 'Network Error', error.message || 'Unable to connect to the server.');
+      if (error.name === 'AbortError') {
+        showToast('error', 'Timeout', 'Request took too long. Please try again.');
+      } else {
+        showToast('error', 'Network Error', error.message || 'Unable to connect to the server.');
+      }
     } finally {
       setLoading(false);
     }
@@ -131,8 +138,6 @@ export default function SignUp() {
       <Text style={styles.title}>Create Account</Text>
       <Text style={styles.welcomeText}>Welcome!</Text>
       <Text style={styles.subtitle}>Please fill in your details to create an account</Text>
-      
-
       
       <Text style={styles.label}>Email</Text>
       <TextInput 

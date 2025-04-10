@@ -23,11 +23,11 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import axios from "axios";
 import { useTranslation } from "react-i18next";
+import { API_ENDPOINTS, API_TIMEOUT, getAuthHeaders } from '../utils/config/api';
 
 const windowWidth = Dimensions.get("window").width;
 const windowHeight = Dimensions.get("window").height;
 const isIOS = Platform.OS === 'ios';
-const API_URL = "http://192.168.1.15:3000";
 
 export default function Statistics() {
   const { t } = useTranslation();
@@ -101,8 +101,8 @@ export default function Statistics() {
         return;
       }
 
-      const response = await axios.get(`${API_URL}/api/devices`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const response = await axios.get(API_ENDPOINTS.DEVICES, {
+        headers: getAuthHeaders(token),
       });
 
       if (Array.isArray(response.data) && response.data.length > 0) {
@@ -147,8 +147,8 @@ export default function Statistics() {
         return;
       }
 
-      const response = await fetch(`${API_URL}/api/user/sensor-data?startDate=${start}&endDate=${end}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const response = await fetch(`${API_ENDPOINTS.SENSOR_DATA}?startDate=${start}&endDate=${end}`, {
+        headers: getAuthHeaders(token),
       });
 
       const result = await response.json();
@@ -344,7 +344,7 @@ export default function Statistics() {
               <TouchableOpacity
                 style={styles.addDeviceButton}
                 onPress={() => router.push({
-                  pathname: "/selectdevice",
+                  pathname: "/devices/selectdevice",
                   params: { returnTo: "statistics" }
                 })}
               >

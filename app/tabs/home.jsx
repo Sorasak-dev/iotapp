@@ -13,18 +13,13 @@ import {
 } from "react-native";
 import axios from "axios";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { Ionicons, MaterialIcons, Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTranslation } from "react-i18next";
+import { API_ENDPOINTS, API_TIMEOUT, getAuthHeaders } from '../utils/config/api';
 
 const { width, height } = Dimensions.get("window");
-
-const API_URL = 'http://192.168.1.15:3000/api/devices';
-// ที่อยู่ipของแต่ละเครื่อง (ipconfig) แล้วดูตรง IPv4 Address 
-// ถ้าต่อผ่าน wifi ดูที่ Wireless LAN adapter Wi-Fi: IPv4 Address
-// ถ้าต่อผ่าน LAN ดูที่ Ethernet adapter Ethernet: IPv4 Address
-// http://<172.16.22.111>:3000/api/devices
 
 const WEATHER_API_KEY = "137ea86a7cc8fd70e39b16ad03c010a4";
 const CITY_NAME = "Chiang Rai";
@@ -37,6 +32,7 @@ export default function HomeScreen() {
   const [date, setDate] = useState("");
   const router = useRouter();
   const [devices, setDevices] = useState([]);
+  const [showDeleteOption, setShowDeleteOption] = useState(false);
   
   const toggleDeviceStatus = (deviceId) => {
     setDevices((prevDevices) =>
@@ -50,6 +46,10 @@ export default function HomeScreen() {
       )
     );
   };
+  
+  const toggleDeleteMode = () => {
+    setShowDeleteOption(!showDeleteOption);
+  };
 
   useEffect(() => {
     fetchWeather();
@@ -57,7 +57,7 @@ export default function HomeScreen() {
     fetchDevices();
   }, []);
 
-  // ✅ ดึงข้อมูลอุปกรณ์ของ User จาก MongoDB
+  // ดึงข้อมูลอุปกรณ์ของ User จาก MongoDB
   const fetchDevices = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
@@ -66,8 +66,9 @@ export default function HomeScreen() {
         return;
       }
 
-      const response = await axios.get(API_URL, {
-        headers: { Authorization: `Bearer ${token}` },
+      const response = await axios.get(API_ENDPOINTS.DEVICES, {
+        headers: getAuthHeaders(token),
+        timeout: API_TIMEOUT
       });
 
       console.log("📡 Devices Data:", response.data);
@@ -76,7 +77,8 @@ export default function HomeScreen() {
         // เมื่อเชื่อมต่อเสร็จแล้ว ให้กำหนดให้อุปกรณ์เป็น Online เสมอ
         const connectedDevices = response.data.map(device => ({
           ...device,
-          status: "Online"
+          status: "Online",
+          battery: "85%"  // Added default battery level
         }));
         setDevices(connectedDevices);
       } else {
@@ -88,7 +90,7 @@ export default function HomeScreen() {
     }
   };
 
-  // ✅ ฟังก์ชันลบอุปกรณ์
+  // ฟังก์ชันลบอุปกรณ์
   const handleDeleteDevice = async (deviceId) => {
     try {
       const token = await AsyncStorage.getItem("token");
@@ -97,8 +99,9 @@ export default function HomeScreen() {
         return;
       }
 
-      const response = await axios.delete(`${API_URL}/${deviceId}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const response = await axios.delete(`${API_ENDPOINTS.DEVICES}/${deviceId}`, {
+        headers: getAuthHeaders(token),
+        timeout: API_TIMEOUT
       });
 
       if (response.status === 200) {
@@ -126,14 +129,13 @@ export default function HomeScreen() {
   };
 
   const updateDate = () => {
-    const options = {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    };
-    const today = new Date().toLocaleDateString("en-US", options);
-    setDate(today);
+    const now = new Date();
+    
+    // Format for Thai date (16 มกราคม 2027)
+    const options = { day: 'numeric', month: 'long', year: 'numeric' };
+    const thaiDate = now.toLocaleDateString('th-TH', options);
+    
+    setDate(thaiDate);
   };
 
   const getWeatherIcon = (condition) => {
@@ -155,7 +157,7 @@ export default function HomeScreen() {
       case "Tornado":
         return <Ionicons name="warning" size={32} color="#8B0000" />;
       default:
-        return <Ionicons name="partly-sunny" size={32} color="#A9A9A9" />;
+        return <Ionicons name="partly-sunny" size={32} color="#FFA500" />;
     }
   };
 
@@ -164,9 +166,12 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>{t("Home")}</Text>
-          <TouchableOpacity onPress={() => router.push("/notification")}>
-            <Ionicons name="notifications-outline" size={26} color="black" />
+          <TouchableOpacity style={styles.zoneSelector}>
+            <Text style={styles.zoneText}>Your Zone</Text>
+            <Ionicons name="chevron-down" size={20} color="#333" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push("/notifications/notification")}>
+            <Ionicons name="notifications-outline" size={24} color="black" />
           </TouchableOpacity>
         </View>
 
@@ -187,7 +192,6 @@ export default function HomeScreen() {
                   </Text>
                 </View>
                 <View>
-                  <Text style={styles.weatherDate}>{date}</Text>
                   <Text style={styles.weatherCity}>
                     <Ionicons name="location-outline" size={16} color="gray" />{" "}
                     {CITY_NAME}
@@ -215,13 +219,16 @@ export default function HomeScreen() {
           )}
         </View>
 
+
         {/* Your Device Section */}
         <View style={styles.deviceSection}>
-          <Text style={styles.sectionTitle}>{t("your_device")}</Text>
-          <MaterialIcons name="more-horiz" size={24} color="black" />
+          <Text style={styles.sectionTitle}>{t("Your Device")}</Text>
+          <TouchableOpacity onPress={toggleDeleteMode}>
+            <MaterialIcons name={showDeleteOption ? "close" : "more-horiz"} size={24} color="#333" />
+          </TouchableOpacity>
         </View>
 
-        {/* ✅ แสดงอุปกรณ์ที่เชื่อมต่อ */}
+        {/* Device List */}
         {devices.length === 0 ? (
           <View style={styles.noDevice}>
             <Image
@@ -231,59 +238,48 @@ export default function HomeScreen() {
             <Text style={styles.noDeviceText}>{t("no_device")}</Text>
           </View>
         ) : (
-          <View style={styles.deviceGrid}>
+          <View style={styles.deviceList}>
             {devices.map((device) => (
               <TouchableOpacity
                 key={device._id}
                 style={styles.deviceCard}
-                onPress={() => router.push("/device-monitor")}
-                activeOpacity={0.7} // ✅ เอฟเฟกต์เวลากด
+                onPress={() => router.push("/devices/device-monitor")}
+                activeOpacity={0.7}
               >
-                {/* ปุ่มลบอุปกรณ์ */}
-                <TouchableOpacity
-                  style={styles.disconnectButton}
-                  onPress={() => handleDeleteDevice(device._id)}
-                >
-                  <MaterialIcons name="close" size={20} color="white" />
-                </TouchableOpacity>
-          
-                {/* รูปภาพอุปกรณ์ */}
-                <Image source={{ uri: device.image }} style={styles.deviceImage} />
-          
-                {/* Toggle Switch - สามารถเปิด/ปิดได้ */}
-                <Switch
-                  value={device.status === "Online"}
-                  onValueChange={() => toggleDeviceStatus(device._id)}
-                  trackColor={{ false: "#ccc", true: "#9FD4FA" }}
-                  thumbColor={device.status === "Online" ? "#fff" : "#f4f3f4"}
-                  style={styles.toggleSwitch}
-                />
-          
-                {/* สถานะ Online/Offline */}
-                <View style={styles.deviceStatusContainer}>
-                  <View
-                    style={[
-                      styles.statusDot,
-                      device.status === "Online" ? styles.online : styles.offline,
-                    ]}
-                  />
-                  <Text
-                    style={[
-                      styles.deviceStatusText,
-                      device.status === "Online" ? styles.onlineText : styles.offlineText,
-                    ]}
+                {showDeleteOption && (
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => handleDeleteDevice(device._id)}
                   >
-                    {device.status}
-                  </Text>
-                </View>
-          
-                {/* ชื่ออุปกรณ์ */}
-                <Text style={styles.deviceName}>{device.name}</Text>
-          
-                {/* แสดงแบตเตอรี่ และสถานะการเชื่อมต่อ */}
-                <View style={styles.deviceInfo}>
-                  <Ionicons name="battery-half" size={16} color="green" />
-                  <Text style={styles.batteryText}>50%</Text>
+                    <MaterialIcons name="close" size={16} color="#fff" />
+                  </TouchableOpacity>
+                )}
+                
+                <Image source={{ uri: device.image }} style={styles.deviceImage} />
+                
+                <View style={styles.deviceContent}>
+                  <View style={styles.deviceHeader}>
+                    <Text style={styles.deviceName}>{device.name}</Text>
+                    <TouchableOpacity>
+                      <MaterialIcons name="more-horiz" size={20} color="#333" />
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <Text style={styles.deviceSubtitle}>Connected</Text>
+                  
+                  <View style={styles.deviceInfo}>
+                    <View style={styles.batteryInfo}>
+                      <Ionicons name="battery-half-outline" size={16} color="#333" />
+                      <Text style={styles.batteryText}>{device.battery}</Text>
+                    </View>
+                    
+                    <View style={styles.statusContainer}>
+                      <View style={styles.statusDot} />
+                      <Text style={styles.statusText}>Online</Text>
+                    </View>
+                  </View>
+                  
+                  <Text style={styles.deviceType}>Temperature sensor</Text>
                 </View>
               </TouchableOpacity>
             ))}
@@ -293,10 +289,10 @@ export default function HomeScreen() {
         {/* Add Device Button */}
         <TouchableOpacity
           style={styles.addDeviceButton}
-          onPress={() => router.push("/selectdevice")}
+          onPress={() => router.push("/devices/selectdevice")}
         >
-          <Ionicons name="add" size={18} color="white" />
-          <Text style={styles.addDeviceText}>{t("add_device")}</Text>
+          <Ionicons name="add" size={22} color="white" />
+          <Text style={styles.addDeviceText}>{t("Add device")}</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -304,17 +300,37 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFF", padding: 20 },
-
+  container: { 
+    flex: 1, 
+    backgroundColor: "#f5f7fa",
+    padding: 16
+  },
+  scrollContainer: {
+    paddingBottom: 20
+  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginTop: 10,
+    marginBottom: 10
   },
-  headerTitle: { fontSize: 26, fontWeight: "bold", color: "#333" },
-
-  dateText: { fontSize: 16, color: "#777", marginVertical: 10 },
-
+  zoneSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  zoneText: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginRight: 4,
+    color: "#333"
+  },
+  dateText: { 
+    fontSize: 16, 
+    fontWeight: "500",
+    color: "#333", 
+    marginBottom: 16 
+  },
   weatherWidget: {
     backgroundColor: "#FFF",
     padding: 20,
@@ -352,144 +368,160 @@ const styles = StyleSheet.create({
   },
   feelsLike: { fontSize: 14, color: "#666" },
   humidity: { fontSize: 14, color: "#007AFF" },
-
   deviceSection: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 16,
   },
-  sectionTitle: { fontSize: 18, fontWeight: "bold", color: "#333" },
-
-  noDevice: { alignItems: "center", marginBottom: 20 },
-  noDeviceImage: { width: 250, height: 250, marginBottom: 10 },
-  noDeviceText: { fontSize: 16, color: "#777" },
-
+  sectionTitle: { 
+    fontSize: 18, 
+    fontWeight: "600", 
+    color: "#333" 
+  },
+  deviceList: {
+    marginBottom: 20,
+  },
+  deviceCard: {
+    flexDirection: 'row',
+    backgroundColor: "#FFF",
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+    position: 'relative',
+    width: '100%',
+  },
+  
+  deviceImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 10,
+    marginRight: 12,
+  },
+  
+  deviceContent: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  
+  deviceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  
+  deviceName: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#333",
+  },
+  
+  deviceSubtitle: {
+    fontSize: 14,
+    color: "#888",
+    marginVertical: 2,
+  },
+  
+  deviceStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: 12,
+    marginVertical: 4,
+  },
+  
+  statusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  
+  batteryInfo: {
+    position: "absolute",
+    top: -13,
+    right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  
+  statusDot: {
+    position: "absolute",
+    top:10,
+    right: 55,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#4CAF50',
+    marginRight: 6,
+  },
+  
+  statusText: {
+    position: "absolute",
+    top: 6,
+    right: 20,
+    fontSize: 12,
+    color: "#4CAF50",
+  },
+  
+  batteryText: {
+    fontSize: 12,
+    color: "#777",
+    marginLeft: 4,
+  },
+  
+  deviceType: {
+    fontSize: 14,
+    color: "#999",
+    marginTop: 2,
+  },
+  deleteButton: {
+    position: "absolute",
+    top: -13,
+    left: 2,
+    backgroundColor: "#FE5959",
+    width: 40,
+    height: 40,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  noDevice: { 
+    alignItems: "center", 
+    marginVertical: 20 
+  },
+  noDeviceImage: { 
+    width: 200, 
+    height: 200, 
+    marginBottom: 10 
+  },
+  noDeviceText: { 
+    fontSize: 16, 
+    color: "#777" 
+  },
   addDeviceButton: {
     flexDirection: "row",
-    backgroundColor: "#007AFF",
+    backgroundColor: "#3B82F6",
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
+    marginTop: 8,
   },
   addDeviceText: {
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: "500",
     color: "#FFF",
-    marginLeft: 5,
-  },
-  deviceContainer: { marginBottom: 20 },
-  deviceItem: {
-    flexDirection: "row",
-    padding: 20,
-    backgroundColor: "#F0F0F0",
-    marginBottom: 12,
-    borderRadius: 12,
-  },
-  deviceImage: { width: 50, height: 50, marginRight: 10 },
-  deviceName: { fontSize: 18, fontWeight: "bold" },
-  deviceStatus: { fontSize: 13, color: "green" },
-  deleteButton: {
-    backgroundColor: "transparent",
-    padding: 8,
-    borderRadius: 6,
-    marginLeft: 10,
-  },
-
-  disconnectText: {
-    color: "#FFF",
-    fontSize: 12,
-    fontWeight: "bold",
-  },
-
-  deviceGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  },
-  deviceCard: {
-    width: "48%",
-    backgroundColor: "#FFF",
-    padding: 15,
-    borderRadius: 15,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
-    marginBottom: 15,
-    alignItems: "center",
-    position: "relative",
-  },
-  deviceImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 10,
-    marginBottom: 8,
-  },
-  toggleSwitch: {
-    position: "absolute",
-    top: 10,
-    right: 10,
-  },
-  deviceStatusContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 5,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 6,
-  },
-  online: {
-    backgroundColor: "green",
-  },
-  offline: {
-    backgroundColor: "gray",
-  },
-  onlineText: {
-    color: "green",
-    fontSize: 14,
-    fontWeight: "bold",
-  },
-  offlineText: {
-    color: "gray",
-    fontSize: 14,
-    fontWeight: "bold",
-  },
-
-  deviceStatusText: {
-    fontSize: 14,
-    color: "green",
-  },
-  deviceName: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginTop: 8,
-  },
-  deviceInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 5,
-  },
-  batteryText: {
-    marginLeft: 5,
-    fontSize: 14,
-    color: "green",
-  },
-
-  disconnectButton: {
-    position: "absolute",
-    top: 10,
-    left: 10,
-    backgroundColor: "#FF3B30",
-    padding: 6,
-    borderRadius: 50,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 10,
+    marginLeft: 8,
   },
 });

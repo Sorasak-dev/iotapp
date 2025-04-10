@@ -4,8 +4,9 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { API_ENDPOINTS, getAuthHeaders } from '../utils/config/api';
+import { useRouter } from 'expo-router';
 
-const API_URL = 'http://192.168.1.15:3000';
 const screenWidth = Dimensions.get('window').width;
 const isIOS = Platform.OS === 'ios';
 
@@ -36,6 +37,7 @@ export default function SensorDetail() {
   const [dataStatus, setDataStatus] = useState('Normal');
   const [isLoading, setIsLoading] = useState(true);
   const [modelStatus, setModelStatus] = useState(null);
+  const router = useRouter();
 
   useEffect(() => {
     fetchSensorData();
@@ -45,7 +47,7 @@ export default function SensorDetail() {
   const checkModelStatus = async () => {
     try {
       const token = await getAuthToken();
-      const response = await fetch(`${API_URL}/api/anomaly/status`, {
+      const response = await fetch(`${API_ENDPOINTS.SENSOR_DATA.split('/user/sensor-data')[0]}/anomaly/status`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -75,7 +77,7 @@ export default function SensorDetail() {
       const token = await getAuthToken();
       
       // 1. ดึงข้อมูลเซ็นเซอร์จาก API
-      const response = await fetch(`${API_URL}/api/user/sensor-data`, {
+      const response = await fetch(API_ENDPOINTS.SENSOR_DATA, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -111,7 +113,7 @@ export default function SensorDetail() {
       try {
         const latestEntry = data.data[data.data.length - 1];
         
-        const anomalyResponse = await fetch(`${API_URL}/api/anomaly/detect`, {
+        const anomalyResponse = await fetch(`${API_ENDPOINTS.SENSOR_DATA.split('/user/sensor-data')[0]}/anomaly/detect`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -194,7 +196,7 @@ export default function SensorDetail() {
         setDeviceHealth('Error');
       }
 
-    } catch (error) {
+    }catch (error) {
       console.error("Error fetching sensor data:", error);
       Alert.alert('Error', error.message || 'Failed to fetch sensor data');
     } finally {
@@ -203,7 +205,10 @@ export default function SensorDetail() {
   };
 
   const handleViewErrorHistory = () => {
-    navigation.navigate('error-history', { errorHistory: JSON.stringify(currentIssues) });
+    router.push({
+      pathname: "/notifications/error-history", 
+      params: { errorHistory: JSON.stringify(currentIssues) }
+    });
   };
 
   const handleGoBack = () => {
@@ -216,7 +221,7 @@ export default function SensorDetail() {
     try {
       const token = await getAuthToken();
       // API สำหรับเปิด/ปิดเซ็นเซอร์
-      const response = await fetch(`${API_URL}/api/devices/toggle`, {
+      const response = await fetch(`${API_ENDPOINTS.DEVICES}/toggle`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

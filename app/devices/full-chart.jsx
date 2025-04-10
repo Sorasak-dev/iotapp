@@ -7,8 +7,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
+import { API_ENDPOINTS, getAuthHeaders } from '../utils/config/api';
 
-const API_URL = 'http://192.168.1.15:3000';
 const screenWidth = 300;
 
 const FullChart = () => {
@@ -22,7 +22,7 @@ const FullChart = () => {
     const fetchFullSensorData = async () => {
       try {
         const token = await AsyncStorage.getItem('token');
-        const response = await fetch(`${API_URL}/api/user/sensor-data`, {
+        const response = await fetch(API_ENDPOINTS.SENSOR_DATA, {
           headers: { 'Authorization': `Bearer ${token}` },
         });
         const data = await response.json();
