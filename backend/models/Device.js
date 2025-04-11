@@ -14,7 +14,6 @@ const sensorDataSchema = new mongoose.Schema({
 
 const DeviceSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true }, 
-  // ใหม่: เพิ่มฟิลด์ zoneId เพื่อเชื่อมกับ zone
   zoneId: { 
     type: mongoose.Schema.Types.ObjectId,
     default: null,

@@ -1,18 +1,14 @@
-// ไฟล์: backend/routes/anomaly.js
-
 const express = require('express');
 const router = express.Router();
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
-// ตรวจสอบว่ามีโฟลเดอร์ temp หรือไม่
 const tempDir = path.join(__dirname, '../temp');
 if (!fs.existsSync(tempDir)) {
   fs.mkdirSync(tempDir, { recursive: true });
 }
 
-// อ่านชื่อโมเดลที่ดีที่สุด
 function getBestModelName() {
   const bestModelFile = path.join(__dirname, '../models/best_model.txt');
   
@@ -20,22 +16,17 @@ function getBestModelName() {
     return fs.readFileSync(bestModelFile, 'utf8').trim();
   }
   
-  return 'isolation_forest'; // ค่าเริ่มต้น
+  return 'isolation_forest'; 
 }
 
-// ฟังก์ชันสำหรับตรวจจับความผิดปกติโดยเรียกใช้ Python script
 function detectAnomaly(sensorData) {
   return new Promise((resolve, reject) => {
-    // สร้างไฟล์ชั่วคราวเพื่อเก็บข้อมูลเซนเซอร์
     const tempDataFile = path.join(tempDir, `temp_data_${Date.now()}.json`);
     
-    // เขียนข้อมูลลงในไฟล์ชั่วคราว
     fs.writeFileSync(tempDataFile, JSON.stringify(sensorData));
     
-    // อ่านชื่อโมเดลที่ดีที่สุด
     const bestModel = getBestModelName();
     
-    // เรียกใช้ Python script
     const pythonScript = path.join(__dirname, '../scripts/predict_anomaly.py');
     const pythonProcess = spawn('/Users/sorasaksanom/Documents/01 Projects/iotapp/backend/venv/bin/python', [  
       pythonScript,
@@ -46,19 +37,15 @@ function detectAnomaly(sensorData) {
     let result = '';
     let errorData = '';
     
-    // รับข้อมูลจาก stdout
     pythonProcess.stdout.on('data', (data) => {
       result += data.toString();
     });
     
-    // รับข้อมูลจาก stderr
     pythonProcess.stderr.on('data', (data) => {
       errorData += data.toString();
     });
     
-    // เมื่อ Python script ทำงานเสร็จ
     pythonProcess.on('close', (code) => {
-      // ลบไฟล์ชั่วคราว
       try {
         if (fs.existsSync(tempDataFile)) {
           fs.unlinkSync(tempDataFile);
@@ -75,7 +62,6 @@ function detectAnomaly(sensorData) {
       }
       
       try {
-        // แปลงผลลัพธ์เป็น JSON
         const predictionResult = JSON.parse(result);
         resolve(predictionResult);
       } catch (error) {
@@ -86,17 +72,14 @@ function detectAnomaly(sensorData) {
   });
 }
 
-// API endpoint สำหรับตรวจจับความผิดปกติ
 router.post('/api/anomaly/detect', async (req, res) => {
   try {
     const sensorData = req.body;
     
-    // ตรวจสอบว่ามีข้อมูลหรือไม่
     if (!sensorData) {
       return res.status(400).json({ error: 'ไม่พบข้อมูลเซนเซอร์' });
     }
     
-    // ตรวจสอบข้อมูลขั้นต่ำที่จำเป็น
     const requiredFields = ['temperature', 'humidity'];
     const missingFields = requiredFields.filter(field => !(field in sensorData));
     
@@ -106,15 +89,12 @@ router.post('/api/anomaly/detect', async (req, res) => {
       });
     }
     
-    // เพิ่ม timestamp ถ้าไม่มี
     if (!sensorData.timestamp) {
       sensorData.timestamp = new Date().toISOString();
     }
     
-    // ตรวจจับความผิดปกติ
     const result = await detectAnomaly(sensorData);
     
-    // ส่งผลลัพธ์กลับไป
     res.json({
       success: true,
       data: {
@@ -132,12 +112,10 @@ router.post('/api/anomaly/detect', async (req, res) => {
   }
 });
 
-// API endpoint สำหรับดึงสถานะโมเดล
 router.get('/api/anomaly/status', (req, res) => {
   try {
     const bestModel = getBestModelName();
     
-    // ตรวจสอบไฟล์โมเดล
     const modelPath = path.join(__dirname, '../models');
     const modelFile = path.join(modelPath, `${bestModel}_model.pkl`);
     const preprocessorFile = path.join(modelPath, 'preprocessor.pkl');
@@ -171,11 +149,8 @@ router.get('/api/anomaly/status', (req, res) => {
   }
 });
 
-// API endpoint สำหรับดึงประวัติ anomaly
 router.get('/api/anomaly/history', (req, res) => {
   try {
-    // ในระบบจริงควรดึงข้อมูลจากฐานข้อมูล
-    // แต่ในตัวอย่างนี้ใช้ข้อมูลจำลอง
     const mockHistory = [
       {
         anomaly_type: 'อุณหภูมิสูงผิดปกติ',

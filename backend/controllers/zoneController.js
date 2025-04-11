@@ -2,7 +2,6 @@ const User = require('../models/User');
 const Device = require('../models/Device');
 const mongoose = require('mongoose');
 
-// สร้าง zone ใหม่
 exports.createZone = async (req, res) => {
   try {
     const { name, location, image } = req.body;
@@ -42,7 +41,6 @@ exports.createZone = async (req, res) => {
   }
 };
 
-// ดึงข้อมูล zone ทั้งหมดของผู้ใช้
 exports.getZones = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -66,7 +64,6 @@ exports.getZones = async (req, res) => {
   }
 };
 
-// อัปเดต zone ที่ระบุ
 exports.updateZone = async (req, res) => {
   try {
     const { zoneId } = req.params;
@@ -99,7 +96,6 @@ exports.updateZone = async (req, res) => {
   }
 };
 
-// ลบ zone ที่ระบุ
 exports.deleteZone = async (req, res) => {
   try {
     const { zoneId } = req.params;
@@ -144,7 +140,6 @@ exports.deleteZone = async (req, res) => {
   }
 };
 
-// เปลี่ยน zone ที่กำลังใช้งาน
 exports.switchCurrentZone = async (req, res) => {
   try {
     const { zoneId } = req.params;
@@ -184,7 +179,6 @@ exports.switchCurrentZone = async (req, res) => {
   }
 };
 
-// เพิ่มอุปกรณ์เข้า zone
 exports.addDeviceToZone = async (req, res) => {
   try {
     const { zoneId, deviceId } = req.params;

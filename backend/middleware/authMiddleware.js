@@ -11,7 +11,7 @@ const authenticateToken = (req, res, next) => {
   
   try {
     const decoded = jwt.verify(token, SECRET_KEY);
-    req.user = decoded; // เพิ่ม user.id ใน req.user
+    req.user = decoded; 
     next();
   } catch (err) {
     console.error("❌ Token verification failed:", err.message);

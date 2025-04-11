@@ -3,7 +3,7 @@ const errorHandler = (err, req, res, next) => {
 
   res.status(err.status || 500).json({
     message: err.message || 'Something went wrong!',
-    error: process.env.NODE_ENV === 'development' ? err.stack : undefined, // Show stack trace only in development
+    error: process.env.NODE_ENV === 'development' ? err.stack : undefined, 
   });
 };
 

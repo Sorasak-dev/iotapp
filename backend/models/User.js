@@ -1,7 +1,6 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
 
-// ใหม่: สร้าง Schema สำหรับ Zone
 const zoneSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -40,12 +39,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: [true, "Password is required"],
     },
-    // ใหม่: เพิ่มฟิลด์ zones ใน User model
     zones: {
       type: [zoneSchema],
       default: [],
     },
-    // ใหม่: เพิ่มฟิลด์ currentZoneId เพื่อเก็บ zone ที่กำลังใช้อยู่
     currentZoneId: {
       type: mongoose.Schema.Types.ObjectId,
       default: null
@@ -95,7 +92,6 @@ userSchema.pre("save", async function (next) {
   next();
 });
 
-// ใหม่: เพิ่ม method สำหรับสร้าง default zone หากผู้ใช้ยังไม่มี zone ใดๆ
 userSchema.methods.createDefaultZone = async function() {
   if (this.zones.length === 0) {
     const defaultZone = {
