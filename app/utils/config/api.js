@@ -1,10 +1,9 @@
-const IP_ADDRESS = '192.168.1.6'; 
+const IP_ADDRESS = '192.168.1.55'; 
 const PORT = '3000';
 
 export const API_BASE_URL = `http://${IP_ADDRESS}:${PORT}`;
 
 export const API_ENDPOINTS = {
-
   SENSOR_DATA: `${API_BASE_URL}/api/user/sensor-data`,
   
   DEVICES: `${API_BASE_URL}/api/devices`,
@@ -15,7 +14,10 @@ export const API_ENDPOINTS = {
   CHANGE_PASSWORD: `${API_BASE_URL}/api/change-password`,
   
   NOTIFICATIONS: `${API_BASE_URL}/api/notifications`,
-  ERROR_HISTORY: `${API_BASE_URL}/api/anomaly/history`
+  ERROR_HISTORY: `${API_BASE_URL}/api/anomaly/history`,
+  
+  // เพิ่ม endpoint สำหรับ Zone
+  ZONES: `${API_BASE_URL}/api/zones`
 };
 
 export const ANOMALY_ENDPOINTS = {

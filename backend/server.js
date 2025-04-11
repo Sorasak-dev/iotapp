@@ -208,6 +208,7 @@ app.get('/', (req, res) => {
 
 // ✅ เชื่อม API อุปกรณ์เข้า Server
 app.use("/api/devices", require("./routes/deviceRoutes"));
+app.use("/api/zones", require("./routes/zoneRoutes"));
 
 // ✅ Sign Up
 app.post("/api/signup", async (req, res, next) => {

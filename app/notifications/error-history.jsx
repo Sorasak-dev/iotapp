@@ -14,8 +14,8 @@ import Icon from "react-native-vector-icons/MaterialIcons";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
+import { ANOMALY_ENDPOINTS, getAuthHeaders, API_ENDPOINTS } from "../utils/config/api"; 
 
-const API_URL = "http://192.168.1.6:3000";
 const isIOS = Platform.OS === "ios";
 
 const getAuthToken = async () => {
@@ -60,10 +60,8 @@ export default function ErrorHistory() {
       setLoading(true);
       const token = await getAuthToken();
 
-      const response = await fetch(`${API_URL}/api/anomaly/history`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const response = await fetch(ANOMALY_ENDPOINTS.HISTORY, {
+        headers: getAuthHeaders(token),
       });
 
       if (response.status === 401) {

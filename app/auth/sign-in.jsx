@@ -131,7 +131,7 @@ export default function SignIn() {
       </View>
       {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
       
-      <TouchableOpacity onPress={() => router.push('/auth/forgot-password')} disabled={loading}>
+      <TouchableOpacity onPress={() => router.push('/auth/forgot_password')} disabled={loading}>
         <Text style={styles.forgotPassword}>Forgot Password?</Text>
       </TouchableOpacity>
       

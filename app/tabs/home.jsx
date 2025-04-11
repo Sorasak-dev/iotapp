@@ -10,6 +10,8 @@ import {
   Dimensions,
   Alert,
   Switch,
+  Modal,
+  FlatList
 } from "react-native";
 import axios from "axios";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -34,6 +36,11 @@ export default function HomeScreen() {
   const [devices, setDevices] = useState([]);
   const [showDeleteOption, setShowDeleteOption] = useState(false);
   
+  // ใหม่: เพิ่ม state สำหรับ zones และ zoneModal
+  const [zones, setZones] = useState([]);
+  const [currentZone, setCurrentZone] = useState(null);
+  const [zoneModalVisible, setZoneModalVisible] = useState(false);
+  
   const toggleDeviceStatus = (deviceId) => {
     setDevices((prevDevices) =>
       prevDevices.map((device) =>
@@ -54,11 +61,12 @@ export default function HomeScreen() {
   useEffect(() => {
     fetchWeather();
     updateDate();
-    fetchDevices();
+    // ใหม่: เรียกใช้ fetchZones แทนที่จะเรียก fetchDevices โดยตรง
+    fetchZones();
   }, []);
-
-  // ดึงข้อมูลอุปกรณ์ของ User จาก MongoDB
-  const fetchDevices = async () => {
+  
+  // ใหม่: ดึงข้อมูล Zone ของ User จาก MongoDB
+  const fetchZones = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
       if (!token) {
@@ -66,7 +74,62 @@ export default function HomeScreen() {
         return;
       }
 
-      const response = await axios.get(API_ENDPOINTS.DEVICES, {
+      const response = await axios.get(API_ENDPOINTS.ZONES, {
+        headers: getAuthHeaders(token),
+        timeout: API_TIMEOUT
+      });
+
+      console.log("📡 Zones Data:", response.data);
+
+      if (response.data && response.data.zones) {
+        setZones(response.data.zones);
+        
+        // ดึง current zone
+        const currentZoneId = response.data.currentZoneId;
+        if (currentZoneId) {
+          const activeZone = response.data.zones.find(
+            zone => zone._id === currentZoneId
+          );
+          if (activeZone) {
+            setCurrentZone(activeZone);
+          } else if (response.data.zones.length > 0) {
+            setCurrentZone(response.data.zones[0]);
+          }
+        } else if (response.data.zones.length > 0) {
+          setCurrentZone(response.data.zones[0]);
+        }
+        
+        // หลังจากดึง zone แล้ว ดึงอุปกรณ์ในโซนนั้น
+        await fetchDevices(currentZoneId);
+      } else {
+        // ถ้าไม่มี zone ให้ดึงอุปกรณ์ทั้งหมด
+        await fetchDevices();
+      }
+    } catch (error) {
+      console.error("❌ Error fetching zones:", error);
+      // ถ้ามีปัญหาในการดึง zone ให้ดึงอุปกรณ์ทั้งหมด
+      await fetchDevices();
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // ใหม่: แก้ไขฟังก์ชัน fetchDevices เพื่อรองรับ zoneId
+  const fetchDevices = async (zoneId = null) => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        console.error("No token found");
+        return;
+      }
+
+      // สร้าง URL ตาม zoneId
+      let url = API_ENDPOINTS.DEVICES;
+      if (zoneId) {
+        url += `?zoneId=${zoneId}`;
+      }
+
+      const response = await axios.get(url, {
         headers: getAuthHeaders(token),
         timeout: API_TIMEOUT
       });
@@ -88,6 +151,40 @@ export default function HomeScreen() {
       console.error("❌ Error fetching devices:", error);
       setDevices([]);
     }
+  };
+  
+  // ใหม่: ฟังก์ชันสำหรับเปลี่ยน zone
+  const handleZoneSelect = async (zone) => {
+    try {
+      setZoneModalVisible(false);
+      if (zone._id === currentZone?._id) return;
+      
+      setLoading(true);
+      const token = await AsyncStorage.getItem("token");
+      
+      // Switch to selected zone
+      await axios.post(
+        `${API_ENDPOINTS.ZONES}/${zone._id}/switch`,
+        {},
+        {
+          headers: getAuthHeaders(token),
+          timeout: API_TIMEOUT
+        }
+      );
+      
+      setCurrentZone(zone);
+      await fetchDevices(zone._id);
+    } catch (error) {
+      console.error('Error switching zone:', error);
+      Alert.alert(t("Error"), t("Failed to switch zone. Please try again."));
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // ใหม่: นำทางไปยังหน้าเพิ่ม Zone
+  const navigateToAddZone = () => {
+    router.push('/features/add-zone');
   };
 
   // ฟังก์ชันลบอุปกรณ์
@@ -160,14 +257,69 @@ export default function HomeScreen() {
         return <Ionicons name="partly-sunny" size={32} color="#FFA500" />;
     }
   };
+  
+  // ใหม่: แสดง zone selector modal
+  const renderZoneModal = () => (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={zoneModalVisible}
+      onRequestClose={() => setZoneModalVisible(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{t('Select Zone')}</Text>
+            <TouchableOpacity onPress={() => setZoneModalVisible(false)}>
+              <Ionicons name="close" size={24} color="#333" />
+            </TouchableOpacity>
+          </View>
+          
+          <FlatList
+            data={zones}
+            keyExtractor={(item) => item._id}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[
+                  styles.zoneItem,
+                  currentZone?._id === item._id && styles.activeZoneItem
+                ]}
+                onPress={() => handleZoneSelect(item)}
+              >
+                <Text style={styles.zoneItemText}>{item.name}</Text>
+                {currentZone?._id === item._id && (
+                  <Ionicons name="checkmark" size={20} color="#3B82F6" />
+                )}
+              </TouchableOpacity>
+            )}
+            ListFooterComponent={
+              <TouchableOpacity
+                style={styles.addZoneButton}
+                onPress={() => {
+                  setZoneModalVisible(false);
+                  navigateToAddZone();
+                }}
+              >
+                <Ionicons name="add-circle-outline" size={20} color="#3B82F6" />
+                <Text style={styles.addZoneText}>{t('Add New Zone')}</Text>
+              </TouchableOpacity>
+            }
+          />
+        </View>
+      </View>
+    </Modal>
+  );
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.zoneSelector}>
-            <Text style={styles.zoneText}>Your Zone</Text>
+          <TouchableOpacity 
+            style={styles.zoneSelector}
+            onPress={() => setZoneModalVisible(true)}
+          >
+            <Text style={styles.zoneText}>{currentZone?.name || 'Your Zone'}</Text>
             <Ionicons name="chevron-down" size={20} color="#333" />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push("/notifications/notification")}>
@@ -295,6 +447,9 @@ export default function HomeScreen() {
           <Text style={styles.addDeviceText}>{t("Add device")}</Text>
         </TouchableOpacity>
       </ScrollView>
+      
+      {/* Zone Selector Modal */}
+      {renderZoneModal()}
     </SafeAreaView>
   );
 }
@@ -523,5 +678,60 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "#FFF",
     marginLeft: 8,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 30,
+    maxHeight: '60%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EFEFEF',
+    marginBottom: 10,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  zoneItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  activeZoneItem: {
+    backgroundColor: '#F5F8FF',
+  },
+  zoneItemText: {
+    fontSize: 16,
+  },
+  addZoneButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  addZoneText: {
+    fontSize: 16,
+    color: '#3B82F6',
+    marginLeft: 8,
+  },
+  deviceInfo: {
+    position: 'relative',
+    height: 24,
   },
 });
