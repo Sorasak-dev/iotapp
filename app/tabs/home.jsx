@@ -36,10 +36,11 @@ export default function HomeScreen() {
   const [devices, setDevices] = useState([]);
   const [showDeleteOption, setShowDeleteOption] = useState(false);
   
-  // ใหม่: เพิ่ม state สำหรับ zones และ zoneModal
+  // state สำหรับ zones และ zoneModal
   const [zones, setZones] = useState([]);
   const [currentZone, setCurrentZone] = useState(null);
   const [zoneModalVisible, setZoneModalVisible] = useState(false);
+  const [hasSelectedZone, setHasSelectedZone] = useState(false); // ใช้เก็บสถานะว่าผู้ใช้เลือก zone แล้วหรือยัง
   
   const toggleDeviceStatus = (deviceId) => {
     setDevices((prevDevices) =>
@@ -61,11 +62,10 @@ export default function HomeScreen() {
   useEffect(() => {
     fetchWeather();
     updateDate();
-    // ใหม่: เรียกใช้ fetchZones แทนที่จะเรียก fetchDevices โดยตรง
     fetchZones();
   }, []);
   
-  // ใหม่: ดึงข้อมูล Zone ของ User จาก MongoDB
+  // ดึงข้อมูล Zone ของ User จาก MongoDB
   const fetchZones = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
@@ -82,7 +82,9 @@ export default function HomeScreen() {
       console.log("📡 Zones Data:", response.data);
 
       if (response.data && response.data.zones) {
-        setZones(response.data.zones);
+        // กรองออกเฉพาะ zones ที่ผู้ใช้สร้างเอง ไม่รวม default
+        const userCreatedZones = response.data.zones.filter(zone => !zone.isDefault);
+        setZones(userCreatedZones);
         
         // ดึง current zone
         const currentZoneId = response.data.currentZoneId;
@@ -92,29 +94,38 @@ export default function HomeScreen() {
           );
           if (activeZone) {
             setCurrentZone(activeZone);
-          } else if (response.data.zones.length > 0) {
-            setCurrentZone(response.data.zones[0]);
+            setHasSelectedZone(true);
+          } else if (userCreatedZones.length > 0) {
+            setCurrentZone(userCreatedZones[0]);
+            setHasSelectedZone(true);
+          } else {
+            setHasSelectedZone(false);
           }
-        } else if (response.data.zones.length > 0) {
-          setCurrentZone(response.data.zones[0]);
+        } else if (userCreatedZones.length > 0) {
+          setCurrentZone(userCreatedZones[0]);
+          setHasSelectedZone(true);
+        } else {
+          setHasSelectedZone(false);
         }
         
         // หลังจากดึง zone แล้ว ดึงอุปกรณ์ในโซนนั้น
         await fetchDevices(currentZoneId);
       } else {
         // ถ้าไม่มี zone ให้ดึงอุปกรณ์ทั้งหมด
+        setHasSelectedZone(false);
         await fetchDevices();
       }
     } catch (error) {
       console.error("❌ Error fetching zones:", error);
       // ถ้ามีปัญหาในการดึง zone ให้ดึงอุปกรณ์ทั้งหมด
+      setHasSelectedZone(false);
       await fetchDevices();
     } finally {
       setLoading(false);
     }
   };
   
-  // ใหม่: แก้ไขฟังก์ชัน fetchDevices เพื่อรองรับ zoneId
+  // แก้ไขฟังก์ชัน fetchDevices เพื่อรองรับ zoneId
   const fetchDevices = async (zoneId = null) => {
     try {
       const token = await AsyncStorage.getItem("token");
@@ -153,7 +164,7 @@ export default function HomeScreen() {
     }
   };
   
-  // ใหม่: ฟังก์ชันสำหรับเปลี่ยน zone
+  // ฟังก์ชันสำหรับเปลี่ยน zone
   const handleZoneSelect = async (zone) => {
     try {
       setZoneModalVisible(false);
@@ -173,6 +184,7 @@ export default function HomeScreen() {
       );
       
       setCurrentZone(zone);
+      setHasSelectedZone(true);
       await fetchDevices(zone._id);
     } catch (error) {
       console.error('Error switching zone:', error);
@@ -182,7 +194,66 @@ export default function HomeScreen() {
     }
   };
   
-  // ใหม่: นำทางไปยังหน้าเพิ่ม Zone
+  // ฟังก์ชันสำหรับลบ zone
+  const handleDeleteZone = async (zone) => {
+    try {
+      // ตรวจสอบว่าเป็น zone ที่กำลังใช้งานอยู่หรือไม่
+      const isCurrentZone = currentZone && zone._id === currentZone._id;
+      
+      // ถามยืนยันการลบ
+      Alert.alert(
+        t("Delete Zone"),
+        t("Are you sure you want to delete this zone?"),
+        [
+          {
+            text: t("Cancel"),
+            style: "cancel"
+          },
+          {
+            text: t("Delete"),
+            style: "destructive",
+            onPress: async () => {
+              const token = await AsyncStorage.getItem("token");
+              
+              // ส่งคำขอลบ zone ไปยัง API
+              await axios.delete(
+                `${API_ENDPOINTS.ZONES}/${zone._id}`,
+                {
+                  headers: getAuthHeaders(token),
+                  timeout: API_TIMEOUT
+                }
+              );
+              
+              // ลบ zone ออกจาก state
+              const updatedZones = zones.filter(z => z._id !== zone._id);
+              setZones(updatedZones);
+              
+              // ถ้าลบ zone ที่กำลังใช้งานอยู่
+              if (isCurrentZone) {
+                if (updatedZones.length > 0) {
+                  // ถ้ามี zone อื่นเหลืออยู่ ให้เลือก zone แรก
+                  await handleZoneSelect(updatedZones[0]);
+                } else {
+                  // ถ้าไม่มี zone เหลือ ให้กลับไปใช้ค่าเริ่มต้น
+                  setCurrentZone(null);
+                  setHasSelectedZone(false);
+                  await fetchDevices();
+                }
+              }
+              
+              // แจ้งเตือนสำเร็จ
+              Alert.alert(t("Success"), t("Zone deleted successfully"));
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error deleting zone:', error);
+      Alert.alert(t("Error"), t("Failed to delete zone. Please try again."));
+    }
+  };
+  
+  // นำทางไปยังหน้าเพิ่ม Zone
   const navigateToAddZone = () => {
     router.push('/features/add-zone');
   };
@@ -258,7 +329,7 @@ export default function HomeScreen() {
     }
   };
   
-  // ใหม่: แสดง zone selector modal
+  // แสดง zone selector modal
   const renderZoneModal = () => (
     <Modal
       animationType="slide"
@@ -275,36 +346,51 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
           
-          <FlatList
-            data={zones}
-            keyExtractor={(item) => item._id}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[
-                  styles.zoneItem,
-                  currentZone?._id === item._id && styles.activeZoneItem
-                ]}
-                onPress={() => handleZoneSelect(item)}
-              >
-                <Text style={styles.zoneItemText}>{item.name}</Text>
-                {currentZone?._id === item._id && (
-                  <Ionicons name="checkmark" size={20} color="#3B82F6" />
-                )}
-              </TouchableOpacity>
-            )}
-            ListFooterComponent={
-              <TouchableOpacity
-                style={styles.addZoneButton}
-                onPress={() => {
-                  setZoneModalVisible(false);
-                  navigateToAddZone();
-                }}
-              >
-                <Ionicons name="add-circle-outline" size={20} color="#3B82F6" />
-                <Text style={styles.addZoneText}>{t('Add New Zone')}</Text>
-              </TouchableOpacity>
-            }
-          />
+          {/* รายการ Zone ทั้งหมด */}
+          {zones.length > 0 ? (
+            <FlatList
+              data={zones}
+              keyExtractor={(item) => item._id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.zoneItem,
+                    currentZone?._id === item._id && styles.activeZoneItem
+                  ]}
+                  onPress={() => handleZoneSelect(item)}
+                >
+                  <Text style={styles.zoneItemText}>{item.name}</Text>
+                  <View style={styles.zoneItemActions}>
+                    {currentZone?._id === item._id && (
+                      <Ionicons name="checkmark" size={20} color="#3B82F6" style={styles.checkIcon} />
+                    )}
+                    <TouchableOpacity 
+                      onPress={() => handleDeleteZone(item)}
+                      style={styles.deleteZoneButton}
+                    >
+                      <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
+              )}
+            />
+          ) : (
+            <View style={styles.noZonesContainer}>
+              <Text style={styles.noZonesText}>{t("No zones found")}</Text>
+            </View>
+          )}
+          
+          {/* Add New Zone Button */}
+          <TouchableOpacity
+            style={styles.addZoneButton}
+            onPress={() => {
+              setZoneModalVisible(false);
+              navigateToAddZone();
+            }}
+          >
+            <Ionicons name="add-circle-outline" size={20} color="#3B82F6" />
+            <Text style={styles.addZoneText}>{t('Add New Zone')}</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>
@@ -319,7 +405,9 @@ export default function HomeScreen() {
             style={styles.zoneSelector}
             onPress={() => setZoneModalVisible(true)}
           >
-            <Text style={styles.zoneText}>{currentZone?.name || 'Your Zone'}</Text>
+            <Text style={styles.zoneText}>
+              {hasSelectedZone ? currentZone?.name : 'Your Zone'}
+            </Text>
             <Ionicons name="chevron-down" size={20} color="#333" />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push("/notifications/notification")}>
@@ -664,6 +752,14 @@ const styles = StyleSheet.create({
     fontSize: 16, 
     color: "#777" 
   },
+  noZonesContainer: {
+    padding: 30,
+    alignItems: 'center',
+  },
+  noZonesText: {
+    fontSize: 16,
+    color: '#777',
+  },
   addDeviceButton: {
     flexDirection: "row",
     backgroundColor: "#3B82F6",
@@ -720,10 +816,23 @@ const styles = StyleSheet.create({
   zoneItemText: {
     fontSize: 16,
   },
+  zoneItemActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkIcon: {
+    marginRight: 10,
+  },
+  deleteZoneButton: {
+    padding: 5,
+  },
   addZoneButton: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+    marginTop: 10,
   },
   addZoneText: {
     fontSize: 16,
