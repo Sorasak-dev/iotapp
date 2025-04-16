@@ -6,15 +6,22 @@ import {
     TouchableOpacity,
     StyleSheet,
     SafeAreaView,
+    ActivityIndicator,
 } from 'react-native';
 import { Svg, Path, Circle } from 'react-native-svg';
+import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Toast from 'react-native-toast-message';
 
 const ChangePasswordScreen = () => {
+    const navigation = useNavigation();
     const [formData, setFormData] = useState({
         currentPassword: '',
         newPassword: '',
         confirmPassword: ''
     });
+    const [loading, setLoading] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
 
     const BackIcon = () => (
         <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -45,9 +52,65 @@ const ChangePasswordScreen = () => {
     const isValidConfirmPassword = formData.newPassword === formData.confirmPassword
         && formData.confirmPassword.length > 0;
 
-    const handleSave = () => {
-        // Handle save functionality
-        console.log('Saving new password');
+    const handleSave = async () => {
+        setErrorMessage('');
+        if (!formData.currentPassword) {
+            setErrorMessage('Please enter your current password');
+            return;
+        }
+        if (!isValidNewPassword) {
+            setErrorMessage('New password must be at least 8 characters');
+            return;
+        }
+        if (!isValidConfirmPassword) {
+            setErrorMessage('New password and confirm password do not match');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const token = await AsyncStorage.getItem('token');
+            if (!token) {
+                throw new Error('No token found. Please log in again.');
+            }
+
+            const response = await fetch('http://172.16.22.108:3000/api/users/change-password', {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    oldPassword: formData.currentPassword,
+                    newPassword: formData.newPassword,
+                }),
+            });
+
+            // Check the content type of the response
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                throw new Error(`Unexpected response format: ${text.substring(0, 50)}...`);
+            }
+
+            const data = await response.json();
+
+            if (response.ok) {
+                Toast.show({
+                    type: 'success',
+                    text1: 'Success',
+                    text2: 'Password changed successfully',
+                });
+                navigation.navigate('settings');
+            } else {
+                throw new Error(data.message || 'Error changing password');
+            }
+        } catch (error) {
+            const message = error.message || 'Failed to connect to the server';
+            setErrorMessage(message);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -59,9 +122,10 @@ const ChangePasswordScreen = () => {
                     </TouchableOpacity>
                 </View>
                 <Text style={styles.headerTitle}>Password</Text>
+                {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
                 <View style={styles.formContainer}>
                     <View style={styles.inputContainer}>
-                        <Text style={styles.label}>Password</Text>
+                        <Text style={styles.label}>Current Password</Text>
                         <TextInput
                             style={styles.input}
                             secureTextEntry
@@ -88,7 +152,7 @@ const ChangePasswordScreen = () => {
                     </View>
 
                     <View style={styles.inputContainer}>
-                        <Text style={styles.label}>New Password</Text>
+                        <Text style={styles.label}>Confirm New Password</Text>
                         <View style={styles.inputWithIcon}>
                             <TextInput
                                 style={[styles.input, styles.inputFlex]}
@@ -113,11 +177,16 @@ const ChangePasswordScreen = () => {
                         (!isValidNewPassword || !isValidConfirmPassword) && styles.saveButtonDisabled
                     ]}
                     onPress={handleSave}
-                    disabled={!isValidNewPassword || !isValidConfirmPassword}
+                    disabled={loading || !isValidNewPassword || !isValidConfirmPassword}
                 >
-                    <Text style={styles.saveButtonText}>Save</Text>
+                    {loading ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                        <Text style={styles.saveButtonText}>Save</Text>
+                    )}
                 </TouchableOpacity>
             </View>
+            <Toast />
         </SafeAreaView>
     );
 };
@@ -140,7 +209,7 @@ const styles = StyleSheet.create({
         fontSize: 24,
         fontWeight: 'bold',
         marginLeft: 16,
-        marginBottom: 24
+        marginBottom: 24,
     },
     formContainer: {
         gap: 20,
@@ -192,6 +261,12 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: '600',
+    },
+    errorText: {
+        color: 'red',
+        fontSize: 14,
+        marginBottom: 10,
+        marginLeft: 24,
     },
 });
 

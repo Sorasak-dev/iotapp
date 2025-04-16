@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
-const User = require('../backend/models/User');
+const bcrypt = require('bcrypt');
+const User = require('../models/User');
 const SECRET_KEY = process.env.SECRET_KEY || 'your_secret_key';
 
 exports.getUser = async (req, res) => {
@@ -62,5 +63,38 @@ exports.getUserData = async (req, res) => {
   } catch (err) {
     console.error('❌ Error fetching user data:', err.message);
     res.status(401).json({ message: 'Invalid or expired token' });
+  }
+};
+
+exports.changePassword = async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ message: 'Access token is missing' });
+
+  const { oldPassword, newPassword } = req.body;
+  if (!oldPassword || !newPassword) {
+    return res.status(400).json({ message: 'Old and new passwords are required' });
+  }
+
+  if (newPassword.length < 8) {
+    return res.status(400).json({ message: 'New password must be at least 8 characters' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, SECRET_KEY);
+    const user = await User.findById(decoded.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Current password is incorrect' });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    res.status(200).json({ message: 'Password changed successfully' });
+  } catch (err) {
+    console.error('❌ Error changing password:', err.message);
+    res.status(500).json({ message: 'Internal Server Error' });
   }
 };
