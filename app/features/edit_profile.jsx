@@ -9,10 +9,10 @@ import {
   ScrollView,
 } from "react-native";
 import { Svg, Circle, Path } from "react-native-svg";
-import { useNavigation } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 
 const EditProfileScreen = () => {
-  const navigation = useNavigation();
+  const router = useRouter();
 
   const [formData, setFormData] = useState({
     name: "Sarah Wilson",
@@ -71,13 +71,24 @@ const EditProfileScreen = () => {
 
   const handleSave = () => {
     console.log("Saving profile:", formData);
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.push('/tabs/settings');
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.navigate("settings")}>
+          <TouchableOpacity onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.push('/tabs/settings');
+            }
+          }}>
             <BackIcon />
           </TouchableOpacity>
         </View>

@@ -10,7 +10,7 @@ export default function FeaturesLayout() {
         <Stack.Screen name="chat"/>
         <Stack.Screen name="edit_profile"/>
         <Stack.Screen name="help"/>
-        <Stack.Screen name="loaction"/>
+        <Stack.Screen name="add-zone"/>
         </Stack>
     );
 }

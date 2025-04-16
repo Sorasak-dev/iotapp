@@ -7,8 +7,8 @@ import {
   StyleSheet,
   SafeAreaView,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
-import { Svg, Circle, Path } from "react-native-svg";
+import { useRouter } from "expo-router";
+import { Svg, Path } from "react-native-svg";
 
 const BackIcon = () => (
   <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -22,17 +22,23 @@ const BackIcon = () => (
   </Svg>
 );
 
-const ForgetPasswordScreen = ({ navigation }) => {
-  const navigationPart = useNavigation();
+const ForgetPasswordScreen = () => {
+  const router = useRouter();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.push("/auth/change_password");
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigationPart.navigate("change_password")}
-        >
+        <TouchableOpacity onPress={handleBack}>
           <BackIcon />
         </TouchableOpacity>
       </View>
@@ -45,7 +51,7 @@ const ForgetPasswordScreen = ({ navigation }) => {
             value={username}
             onChangeText={setUsername}
             placeholder="bok"
-            placeholderTextColor="#000"
+            placeholderTextColor="#999"
           />
         </View>
 
@@ -56,7 +62,7 @@ const ForgetPasswordScreen = ({ navigation }) => {
             value={email}
             onChangeText={setEmail}
             placeholder="john.doe@email.com"
-            placeholderTextColor="#000"
+            placeholderTextColor="#999"
             keyboardType="email-address"
             autoCapitalize="none"
           />

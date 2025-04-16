@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
     View,
     Text,
@@ -8,15 +8,65 @@ import {
     TouchableOpacity,
     KeyboardAvoidingView,
     Platform,
+    FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
+
 const ChatScreen = () => {
-    const navigationPart = useNavigation();
+    const router = useRouter();
+    const [messageText, setMessageText] = useState('');
+    
+    // ข้อความตัวอย่าง (ในแอพจริงอาจดึงจาก API หรือฐานข้อมูล)
+    const messages = [
+        {
+            id: '1',
+            text: 'I can see you have elevated readings. Would you like me to check the calibration?',
+            isSupport: true,
+            timestamp: '10:31 AM'
+        },
+        {
+            id: '2',
+            text: 'Yes, please. The temperature seems higher than usual.',
+            isSupport: false,
+            timestamp: '10:32 AM'
+        }
+    ];
+
+    // ฟังก์ชันสำหรับการย้อนกลับ
+    const handleBack = () => {
+        if (router.canGoBack()) {
+            router.back();
+        } else {
+            router.push('/help');
+        }
+    };
+
+    // ฟังก์ชันสำหรับการส่งข้อความ
+    const handleSend = () => {
+        if (messageText.trim().length === 0) return;
+        
+        // ในแอพจริงคุณจะส่งข้อความไปยัง API
+        console.log('Sending message:', messageText);
+        
+        // เคลียร์ข้อความหลังจากส่ง
+        setMessageText('');
+    };
+
+    // แสดงข้อความแต่ละรายการ
+    const renderMessageItem = ({ item }) => (
+        <View style={item.isSupport ? styles.userMessageContainer : styles.supportMessageContainer}>
+            <Text style={item.isSupport ? styles.userMessage : styles.supportMessage}>
+                {item.text}
+            </Text>
+            <Text style={styles.timestamp}>{item.timestamp}</Text>
+        </View>
+    );
+
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
-                <TouchableOpacity style={styles.backButton} onPress={() => navigationPart.navigate('help')}>
+                <TouchableOpacity style={styles.backButton} onPress={handleBack}>
                     <Ionicons name="arrow-back" size={24} color="#000" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Chat with Support</Text>
@@ -27,27 +77,20 @@ const ChatScreen = () => {
                     Connected to Sensor ID: IOT-001
                 </Text>
 
-                <View style={styles.messagesContainer}>
-                    <View style={styles.userMessageContainer}>
-                        <Text style={styles.userMessage}>
-                            I can see you have elevated readings. Would you like me to check the calibration?
-                        </Text>
-                        <Text style={styles.timestamp}>10:31 AM</Text>
-                    </View>
-
-                    <View style={styles.supportMessageContainer}>
-                        <Text style={styles.supportMessage}>
-                            Yes, please. The temperature seems higher than usual.
-                        </Text>
-                        <Text style={styles.timestamp}>10:32 AM</Text>
-                    </View>
-                </View>
+                <FlatList
+                    style={styles.messagesContainer}
+                    data={messages}
+                    renderItem={renderMessageItem}
+                    keyExtractor={item => item.id}
+                    showsVerticalScrollIndicator={false}
+                    inverted={false}
+                />
             </View>
-
 
             <KeyboardAvoidingView
                 behavior={Platform.OS === "ios" ? "padding" : "height"}
                 style={styles.inputContainer}
+                keyboardVerticalOffset={100}
             >
                 <TouchableOpacity style={styles.attachButton}>
                     <Ionicons name="attach" size={24} color="#666" />
@@ -56,9 +99,23 @@ const ChatScreen = () => {
                     style={styles.input}
                     placeholder="Type your message"
                     placeholderTextColor="#999"
+                    value={messageText}
+                    onChangeText={setMessageText}
+                    multiline
                 />
-                <TouchableOpacity style={styles.sendButton}>
-                    <Ionicons name="send" size={24} color="#007AFF" />
+                <TouchableOpacity 
+                    style={[
+                        styles.sendButton, 
+                        messageText.trim().length === 0 && styles.sendButtonDisabled
+                    ]}
+                    onPress={handleSend}
+                    disabled={messageText.trim().length === 0}
+                >
+                    <Ionicons 
+                        name="send" 
+                        size={24} 
+                        color={messageText.trim().length === 0 ? "#ccc" : "#007AFF"} 
+                    />
                 </TouchableOpacity>
             </KeyboardAvoidingView>
         </SafeAreaView>
@@ -141,12 +198,14 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 8,
         marginRight: 8,
-        marginTop: -140,
+        maxHeight: 100,
     },
     sendButton: {
         marginLeft: 8,
-        marginTop: -140,
     },
+    sendButtonDisabled: {
+        opacity: 0.5,
+    }
 });
 
 export default ChatScreen;

@@ -110,7 +110,11 @@ export default function SignUp() {
 
       if (response.ok) {
         showToast('success', 'Signup Successful', 'You can now sign in to your account.');
-        router.push('/auth/sign-in'); // กลับไปหน้า Sign In
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.push('/auth/sign-in');
+        }
       } else if (response.status === 409) {
         showToast('error', 'Signup Failed', 'Email already exists.');
       } else if (response.status === 400) {
@@ -132,7 +136,16 @@ export default function SignUp() {
   return (
     <View style={styles.container}>
       {/* ปุ่มย้อนกลับ */}
-      <TouchableOpacity style={styles.backButton} onPress={() => router.push('/auth/sign-in')}>
+      <TouchableOpacity 
+        style={styles.backButton} 
+        onPress={() => {
+          if (router.canGoBack()) {
+            router.back();
+          } else {
+            router.push('/auth/sign-in');
+          }
+        }}
+      >
         <MaterialIcons name="arrow-back" size={24} color="black" />
       </TouchableOpacity>
       <Text style={styles.title}>Create Account</Text>
@@ -230,7 +243,13 @@ export default function SignUp() {
         Already have an account?{" "}
         <Text 
           style={styles.loginLink}
-          onPress={() => router.push('/auth/sign-in')}
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.push('/auth/sign-in');
+            }
+          }}
         >
           Sign In
         </Text>
