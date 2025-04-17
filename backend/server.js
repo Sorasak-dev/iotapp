@@ -1,3 +1,4 @@
+// D:\y3\งานจารออย\iotapp\backend\server.js
 const express = require("express");
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
@@ -12,6 +13,7 @@ const { userValidationSchema, userDataValidationSchema } = require("./validation
 const User = require("./models/User");
 const Device = require("./models/Device");
 const anomalyRoutes = require('./routes/anomaly');
+const userRoutes = require('./routes/userRoutes'); // เพิ่มการนำเข้า userRoutes
 
 const app = express();
 
@@ -24,6 +26,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(bodyParser.json());
 app.use(anomalyRoutes);
+app.use("/api/users", userRoutes); // เพิ่มเส้นทาง /api/users เพื่อเชื่อมกับ userRoutes
 
 // Connect to MongoDB
 mongoose
@@ -240,7 +243,12 @@ app.post("/api/signin", async (req, res, next) => {
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: "User not found" });
 
+    console.log("Stored hashed password:", user.password); // Debug: ดูรหัสผ่านที่เก็บใน DB
+    console.log("Input password:", password); // Debug: ดูรหัสผ่านที่ผู้ใช้กรอก
+
     const isPasswordValid = await bcrypt.compare(password, user.password);
+    console.log("Password comparison result:", isPasswordValid); // Debug: ผลการเปรียบเทียบ
+
     if (!isPasswordValid) return res.status(401).json({ message: "Invalid password" });
 
     const token = jwt.sign({ id: user._id, email: user.email }, SECRET_KEY, { expiresIn: "1h" });

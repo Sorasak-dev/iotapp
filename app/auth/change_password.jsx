@@ -1,3 +1,4 @@
+// D:\y3\งานจารออย\iotapp\app\auth\change_password.jsx
 import React, { useState } from 'react';
 import {
     View,
@@ -11,6 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
+import { API_BASE_URL } from '../utils/config/api'; // นำเข้า API_BASE_URL
 
 const ChangePasswordScreen = () => {
     const router = useRouter();
@@ -48,7 +50,7 @@ const ChangePasswordScreen = () => {
                 throw new Error('No token found. Please log in again.');
             }
 
-            const response = await fetch('http://172.16.22.108:3000/api/users/change-password', {
+            const response = await fetch(`${API_BASE_URL}/api/users/change-password`, { // ใช้ API_BASE_URL
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
@@ -60,7 +62,6 @@ const ChangePasswordScreen = () => {
                 }),
             });
 
-            // Check the content type of the response
             const contentType = response.headers.get('content-type');
             if (!contentType || !contentType.includes('application/json')) {
                 const text = await response.text();
@@ -75,7 +76,6 @@ const ChangePasswordScreen = () => {
                     text1: 'Success',
                     text2: 'Password changed successfully',
                 });
-                // ใช้ router.back() แทน navigation.navigate('settings')
                 router.back();
             } else {
                 throw new Error(data.message || 'Error changing password');
@@ -83,6 +83,11 @@ const ChangePasswordScreen = () => {
         } catch (error) {
             const message = error.message || 'Failed to connect to the server';
             setErrorMessage(message);
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: message,
+            });
         } finally {
             setLoading(false);
         }

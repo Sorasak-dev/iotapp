@@ -1,3 +1,4 @@
+// D:\y3\งานจารออย\iotapp\backend\controllers\userControllers.js
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const User = require('../models/User');
@@ -84,17 +85,25 @@ exports.changePassword = async (req, res) => {
     const user = await User.findById(decoded.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
+    // ตรวจสอบว่ารหัสผ่านเก่าถูกต้อง
     const isMatch = await bcrypt.compare(oldPassword, user.password);
     if (!isMatch) {
       return res.status(401).json({ message: 'Current password is incorrect' });
     }
 
-    user.password = newPassword;
+    // เข้ารหัสรหัสผ่านใหม่
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+
+    // ตั้งค่า flag เพื่อข้าม middleware ในการเข้ารหัสซ้ำ
+    user._skipHashing = true;
+
+    // บันทึกการเปลี่ยนแปลง
     await user.save();
 
     res.status(200).json({ message: 'Password changed successfully' });
   } catch (err) {
     console.error('❌ Error changing password:', err.message);
-    res.status(500).json({ message: 'Internal Server Error' });
+    res.status(500).json({ message: 'Internal Server Error', error: err.message });
   }
 };
