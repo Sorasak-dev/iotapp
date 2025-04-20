@@ -209,7 +209,7 @@ export default function DeviceMonitor() {
             <Text style={styles.header}>Device Monitor</Text>
           </View>
 
-          <Text style={styles.subHeader}>Sensor Status Overview</Text>
+          <Text style={styles.subHeader}>Sensor Data Overview</Text>
 
           {errorMessage && (
             <View style={styles.errorContainer}>
@@ -217,10 +217,15 @@ export default function DeviceMonitor() {
             </View>
           )}
 
+          {/* Modified sensor card with arrow indicator */}
           <TouchableOpacity onPress={handleSensorPress}>
             <View style={styles.sensorCard}>
-              <FontAwesome5 name="microchip" size={20} color="black" />
-              <Text style={styles.sensorTitle}>{deviceName}</Text>
+              <View style={styles.sensorInfo}>
+                <FontAwesome5 name="microchip" size={20} color="black" />
+                <Text style={styles.sensorTitle}>{deviceName}</Text>
+              </View>
+              {/* Added arrow icon to indicate the card is clickable */}
+              <MaterialIcons name="keyboard-arrow-right" size={24} color="black" />
             </View>
           </TouchableOpacity>
 
@@ -298,6 +303,7 @@ const styles = StyleSheet.create({
   sensorCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between', 
     backgroundColor: '#FFF',
     padding: 16,
     borderRadius: 12,
@@ -307,6 +313,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
+  },
+  sensorInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   sensorTitle: { fontSize: 16, fontWeight: 'bold', marginLeft: 12 },
   dataCard: {

@@ -29,10 +29,10 @@ const deviceImages = {
 };
 
 const devices = [
-  { id: "1", name: "IBS-TH3", type: "Temperature & Humidity Sensor", image: require("../assets/sensor.png") },
-  { id: "2", name: "IBS-TH4", type: "Temperature & Humidity Sensor", image: require("../assets/sensor2.png") },
-  { id: "3", name: "IBS-TH5", type: "Temperature & Humidity Sensor", image: require("../assets/sensor3.png") },
-  { id: "4", name: "IBS-TH6", type: "Temperature & Humidity Sensor", image: require("../assets/sensor4.png") },
+  { id: "1", name: "E-MIB1", type: "Temperature & Humidity Sensor", image: require("../assets/sensor.png") },
+  { id: "2", name: "E-MIB2", type: "Temperature & Humidity Sensor", image: require("../assets/sensor2.png") },
+  { id: "3", name: "E-MIB3", type: "Temperature & Humidity Sensor", image: require("../assets/sensor3.png") },
+  { id: "4", name: "E-MIB4", type: "Temperature & Humidity Sensor", image: require("../assets/sensor4.png") },
 ];
 
 export default function SelectDeviceScreen() {
