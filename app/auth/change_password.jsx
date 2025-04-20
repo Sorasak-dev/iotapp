@@ -1,4 +1,3 @@
-// D:\y3\งานจารออย\iotapp\app\auth\change_password.jsx
 import React, { useState } from 'react';
 import {
     View,
@@ -12,7 +11,7 @@ import {
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
-import { API_BASE_URL } from '../utils/config/api'; // นำเข้า API_BASE_URL
+import { API_BASE_URL } from '../utils/config/api'; 
 
 const ChangePasswordScreen = () => {
     const router = useRouter();
@@ -50,7 +49,7 @@ const ChangePasswordScreen = () => {
                 throw new Error('No token found. Please log in again.');
             }
 
-            const response = await fetch(`${API_BASE_URL}/api/users/change-password`, { // ใช้ API_BASE_URL
+            const response = await fetch(`${API_BASE_URL}/api/users/change-password`, { 
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',

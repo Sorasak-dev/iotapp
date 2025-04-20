@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
-  Pressable,
+  TouchableOpacity,
   ScrollView,
   Dimensions,
   StyleSheet,
@@ -11,10 +11,10 @@ import {
   Modal,
   SafeAreaView,
   StatusBar,
-  Platform,
+  Platform
 } from "react-native";
 import { LineChart } from "react-native-chart-kit";
-import MultiSelect from 'react-native-multiple-select';
+import { Dropdown, MultiSelect } from "react-native-element-dropdown";
 import { FontAwesome5, Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -24,50 +24,55 @@ import * as Sharing from 'expo-sharing';
 import axios from "axios";
 import { useTranslation } from "react-i18next";
 import { API_ENDPOINTS, API_TIMEOUT, getAuthHeaders } from '../utils/config/api';
-import DatePicker from 'react-datepicker';
-import "react-datepicker/dist/react-datepicker.css";
 
 const windowWidth = Dimensions.get("window").width;
 const windowHeight = Dimensions.get("window").height;
 const isIOS = Platform.OS === 'ios';
-const isWeb = Platform.OS === 'web';
 
-// ฟังก์ชันสุ่มสี
-const getRandomColor = () => {
-  const r = Math.floor(Math.random() * 256);
-  const g = Math.floor(Math.random() * 256);
-  const b = Math.floor(Math.random() * 256);
-  return `rgba(${r}, ${g}, ${b}, 1)`;
-};
+const SENSOR_COLORS = [
+  "#FF6384", // Red
+  "#36A2EB", // Blue
+  "#4BC0C0", // Teal
+  "#22C55E", // Green
+  "#FFCE56", // Yellow
+  "#9966FF", // Purple
+  "#FF9F40", // Orange
+  "#20C997", // Mint
+  "#6C757D", // Gray
+  "#FD7E14"  // Dark Orange
+];
 
 export default function Statistics() {
   const { t } = useTranslation();
   const router = useRouter();
-  const [selectedMetrics, setSelectedMetrics] = useState([]);
-  const [selectedZones, setSelectedZones] = useState([]);
+  const [selectedMetrics, setSelectedMetrics] = useState(["Temperature", "Humidity", "Dew Point", "VPO"]);
+  const [selectedZone, setSelectedZone] = useState(null);
   const [selectedSensors, setSelectedSensors] = useState([]);
-  const [startDate, setStartDate] = useState(new Date("2025-04-15T00:00:00Z"));
-  const [endDate, setEndDate] = useState(new Date("2025-04-15T23:59:59Z"));
-  const [tempStartDate, setTempStartDate] = useState(new Date("2025-04-15T00:00:00Z"));
-  const [tempEndDate, setTempEndDate] = useState(new Date("2025-04-15T23:59:59Z"));
+  const [startDate, setStartDate] = useState(new Date());
+  const [endDate, setEndDate] = useState(new Date());
+  const [tempStartDate, setTempStartDate] = useState(new Date());
+  const [tempEndDate, setTempEndDate] = useState(new Date());
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [data, setData] = useState([]);
+  const [data, setData] = useState({});  
   const [loading, setLoading] = useState(true);
   const [chartWidth, setChartWidth] = useState(windowWidth * 0.9);
   const [zones, setZones] = useState([]);
-  const [sensors, setSensors] = useState([]);
+  const [zoneSensors, setZoneSensors] = useState([]);
   const [loadingZones, setLoadingZones] = useState(true);
-  const [loadingSensors, setLoadingSensors] = useState(true);
-  const [colors, setColors] = useState({});
+  const [maxDataPoints, setMaxDataPoints] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
-      setSelectedZones([]);
+      const today = new Date();
+      setStartDate(today);
+      setEndDate(today);
+      setTempStartDate(today);
+      setTempEndDate(today);
+      
       fetchZones();
-      fetchSensors();
-      fetchSensorData(startDate.toISOString().split("T")[0], endDate.toISOString().split("T")[0]);
+      
       return () => {};
     }, [])
   );
@@ -81,22 +86,30 @@ export default function Statistics() {
   }, []);
 
   useEffect(() => {
-    if (selectedZones.length > 0 && selectedSensors.length > 0) {
-      fetchSensorData(startDate.toISOString().split("T")[0], endDate.toISOString().split("T")[0]);
-    } else {
-      setData([]);
+    if (selectedZone) {
+      fetchZoneSensors(selectedZone);
+      setSelectedSensors([]); 
+      setData({}); 
     }
-  }, [selectedZones, selectedSensors]);
+  }, [selectedZone]);
 
   useEffect(() => {
-    const updateChartWidth = () => {
-      const minWidth = windowWidth * 0.9;
-      const dataPoints = data.length;
-      const calculatedWidth = Math.max(minWidth, dataPoints * 80);
-      setChartWidth(calculatedWidth);
-    };
+    if (selectedSensors.length > 0) {
+      fetchSensorData(startDate.toISOString().split("T")[0], endDate.toISOString().split("T")[0]);
+    } else {
+      setData({});
+    }
+  }, [selectedSensors, startDate, endDate]);
+
+  useEffect(() => {
     updateChartWidth();
-  }, [data.length]);
+  }, [maxDataPoints]);
+
+  const updateChartWidth = () => {
+    const minWidth = windowWidth * 0.9;
+    const calculatedWidth = Math.max(minWidth, maxDataPoints * 80);
+    setChartWidth(calculatedWidth);
+  };
 
   const fetchZones = async () => {
     try {
@@ -107,28 +120,34 @@ export default function Statistics() {
         setLoadingZones(false);
         return;
       }
-
+  
       const response = await axios.get(API_ENDPOINTS.ZONES, {
         headers: getAuthHeaders(token),
-        timeout: API_TIMEOUT
       });
-
-      console.log("📡 Zones Response:", response.data);
-
-      if (response.data && response.data.zones) {
-        const userCreatedZones = response.data.zones.filter(zone => !zone.isDefault);
-        setZones(userCreatedZones);
-
-        const newColors = {};
-        userCreatedZones.forEach(zone => {
-          newColors[zone._id] = getRandomColor();
-        });
-        setColors(newColors);
+  
+      console.log("API Response:", response.data); 
+  
+      const zonesData = Array.isArray(response.data) ? response.data : 
+                       (response.data && response.data.zones ? response.data.zones : []);
+      
+      if (zonesData.length > 0) {
+        const zoneOptions = zonesData.map(zone => ({
+          label: zone.name || "Unnamed Zone",
+          value: zone._id || zone.id
+        }));
+        
+        setZones(zoneOptions);
+        
+        if (zoneOptions.length > 0 && !selectedZone) {
+          setSelectedZone(zoneOptions[0].value);
+        }
       } else {
         setZones([]);
+        setSelectedZone(null);
       }
     } catch (err) {
       console.error("Error fetching zones:", err);
+      console.log("Error details:", err.response ? err.response.data : "No response data");
       Alert.alert("Error", "Failed to fetch zones.");
       setZones([]);
     } finally {
@@ -136,46 +155,38 @@ export default function Statistics() {
     }
   };
 
-  const fetchSensors = async () => {
+  const fetchZoneSensors = async (zoneId) => {
     try {
-      setLoadingSensors(true);
+      setLoading(true);
       const token = await AsyncStorage.getItem("token");
       if (!token) {
         Alert.alert("Error", "Please log in again.");
-        setLoadingSensors(false);
+        setLoading(false);
         return;
       }
-
-      const response = await axios.get(API_ENDPOINTS.DEVICES, {
+      const response = await axios.get(`${API_ENDPOINTS.DEVICES}?zoneId=${zoneId}`, {
         headers: getAuthHeaders(token),
-        params: { allZones: true },
       });
-
-      console.log("📡 Sensors Response:", response.data);
-
+  
+      console.log("Devices response:", response.data);
+  
       if (Array.isArray(response.data) && response.data.length > 0) {
-        const devices = response.data.map(device => ({
-          label: device.name,
-          value: device.name,
-          zoneId: device.zoneId
+        const sensorOptions = response.data.map(device => ({
+          label: device.name || "Unnamed Sensor",
+          value: device._id
         }));
-        setSensors(devices);
-
-        console.log("📋 Mapped Sensors:", devices);
-        console.log("📋 Sensor Zone Mapping:", devices.map(d => ({ name: d.label, zoneId: d.zoneId })));
+        
+        setZoneSensors(sensorOptions);
       } else {
-        setSensors([]);
-        setSelectedSensors([]);
-        setData([]);
+        setZoneSensors([]);
       }
     } catch (err) {
-      console.error("Error fetching sensors:", err);
-      Alert.alert("Error", "Failed to fetch sensors.");
-      setSensors([]);
-      setSelectedSensors([]);
-      setData([]);
+      console.error("Error fetching zone sensors:", err);
+      console.log("Error details:", err.response ? err.response.data : "No response data");
+      Alert.alert("Error", "Failed to fetch sensors for this zone.");
+      setZoneSensors([]);
     } finally {
-      setLoadingSensors(false);
+      setLoading(false);
     }
   };
 
@@ -189,73 +200,95 @@ export default function Statistics() {
         return;
       }
 
-      const response = await axios.get(`${API_ENDPOINTS.SENSOR_DATA}?startDate=${start}&endDate=${end}`, {
-        headers: getAuthHeaders(token),
-      });
+      const newData = {};
+      let maxPoints = 0;
 
-      console.log("📡 Sensor Data Response:", response.data);
+      for (const sensorId of selectedSensors) {
+        const response = await fetch(
+          `${API_ENDPOINTS.SENSOR_DATA}?sensorId=${sensorId}&startDate=${start}&endDate=${end}`, 
+          {
+            headers: getAuthHeaders(token),
+          }
+        );
 
-      const result = response.data;
-      if (response.status === 200 && Array.isArray(result.data)) {
-        const filteredData = result.data.filter(item => {
-          const sensor = sensors.find(s => s.value === item.sensorId);
-          return sensor && 
-                 (selectedZones.length === 0 || selectedZones.includes(sensor.zoneId)) && 
-                 selectedSensors.includes(item.sensorId);
-        });
-
-        console.log("📊 Filtered Data:", filteredData);
-
-        const sortedData = filteredData.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-        setData(sortedData);
-      } else {
-        Alert.alert("Error", result.message || "Failed to fetch sensor data.");
-        setData([]);
+        const result = await response.json();
+        if (response.ok && result.data && Array.isArray(result.data)) {
+          const sortedData = result.data.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+          const sensorName = zoneSensors.find(s => s.value === sensorId)?.label || sensorId;
+          newData[sensorId] = {
+            name: sensorName,
+            data: sortedData
+          };
+          
+          if (sortedData.length > maxPoints) {
+            maxPoints = sortedData.length;
+          }
+        }
       }
+      
+      setData(newData);
+      setMaxDataPoints(maxPoints);
     } catch (err) {
       console.error("Network error:", err);
-      setData([]);
+      Alert.alert("Error", "Failed to fetch sensor data.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleExportPress = async () => {
-    if (data.length === 0) {
+    if (Object.keys(data).length === 0) {
       Alert.alert("Error", "No data available to export.");
       return;
     }
 
-    const htmlContent = `
+    let htmlContent = `
       <html>
         <head>
           <style>
             body { font-family: Arial, sans-serif; padding: 20px; }
             h1 { text-align: center; color: #333; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            h2 { color: #555; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; margin-bottom: 30px; }
             th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
             th { background-color: #f2f2f2; }
+            .sensor-header { background-color: #e6f2ff; font-weight: bold; }
             .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #888; }
           </style>
         </head>
         <body>
           <h1>Sensor Data Report</h1>
-          <p>Zones: ${selectedZones.map(zoneId => zones.find(z => z._id === zoneId)?.name).join(", ")}</p>
-          <p>Sensors: ${selectedSensors.map(sensorId => sensors.find(s => s.value === sensorId)?.label).join(", ")}</p>
-          <p>Metrics: ${selectedMetrics.join(", ")}</p>
+          <p>Zone: ${zones.find(z => z.value === selectedZone)?.label || 'Unknown'}</p>
           <p>Date Range: ${formatDate(startDate)} - ${formatDate(endDate)}</p>
-          <table>
+    `;
+
+    for (const sensorId in data) {
+      const sensorData = data[sensorId];
+      
+      htmlContent += `
+        <h2>Sensor: ${sensorData.name}</h2>
+        <table>
+          <tr>
+            <th>Timestamp</th>
+            ${selectedMetrics.includes("Temperature") ? "<th>Temperature (°C)</th>" : ""}
+            ${selectedMetrics.includes("Humidity") ? "<th>Humidity (%)</th>" : ""}
+            ${selectedMetrics.includes("Dew Point") ? "<th>Dew Point (°C)</th>" : ""}
+            ${selectedMetrics.includes("VPO") ? "<th>VPO</th>" : ""}
+          </tr>
+          ${sensorData.data.map(item => `
             <tr>
-              <th>Timestamp</th>
-              ${selectedMetrics.map(metric => `<th>${metric} (${metric === "Humidity" ? "%" : "°C"})</th>`).join('')}
+              <td>${new Date(item.timestamp).toLocaleString('th-TH')}</td>
+              ${selectedMetrics.includes("Temperature") ? `<td>${item.temperature || "N/A"}</td>` : ""}
+              ${selectedMetrics.includes("Humidity") ? `<td>${item.humidity || "N/A"}</td>` : ""}
+              ${selectedMetrics.includes("Dew Point") ? `<td>${item.dew_point || "N/A"}</td>` : ""}
+              ${selectedMetrics.includes("VPO") ? `<td>${item.vpo || "N/A"}</td>` : ""}
             </tr>
-            ${data.map(item => `
-              <tr>
-                <td>${new Date(item.timestamp).toLocaleString('th-TH')}</td>
-                ${selectedMetrics.map(metric => `<td>${item[metric.toLowerCase()] || "N/A"}</td>`).join('')}
-              </tr>
-            `).join('')}
-          </table>
+          `).join('')}
+        </table>
+      `;
+    }
+
+    htmlContent += `
           <div class="footer">Generated on ${formatDate(new Date())} ${formatTime(new Date())}</div>
         </body>
       </html>
@@ -280,116 +313,196 @@ export default function Statistics() {
   };
 
   const toggleMetric = (metric) => {
-    if (selectedMetrics.includes(metric)) {
-      setSelectedMetrics(selectedMetrics.filter(m => m !== metric));
-    } else {
-      setSelectedMetrics([...selectedMetrics, metric]);
-    }
-  };
-
-  const onZoneChange = (selectedItems) => {
-    setSelectedZones(selectedItems);
-    // ถ้ามีการยกเลิกเลือกโซน ให้ยกเลิกเซ็นเซอร์ที่อยู่ในโซนนั้นด้วย
-    setSelectedSensors(prevSensors => {
-      return prevSensors.filter(sensorId => {
-        const sensor = sensors.find(s => s.value === sensorId);
-        return sensor && (selectedItems.length === 0 || selectedItems.includes(sensor.zoneId));
-      });
-    });
-  };
-
-  const onSensorChange = (selectedItems) => {
-    setSelectedSensors(selectedItems);
+    setSelectedMetrics((prev) =>
+      prev.includes(metric) ? prev.filter((m) => m !== metric) : [...prev, metric]
+    );
   };
 
   const onStartDateChange = (event, selectedDate) => {
     const currentDate = selectedDate || tempStartDate;
-    console.log("Start Date Changed:", currentDate);
     setTempStartDate(currentDate);
   };
 
   const onEndDateChange = (event, selectedDate) => {
     const currentDate = selectedDate || tempEndDate;
-    console.log("End Date Changed:", currentDate);
     setTempEndDate(currentDate);
   };
 
   const confirmStartDate = () => {
-    console.log("Confirming Start Date:", tempStartDate);
     setStartDate(tempStartDate);
     setShowStartPicker(false);
+    setShowEndPicker(true);
   };
 
   const confirmEndDate = () => {
-    console.log("Confirming End Date:", tempEndDate);
     setEndDate(tempEndDate);
-    if (selectedSensors.length > 0) {
-      fetchSensorData(startDate.toISOString().split("T")[0], tempEndDate.toISOString().split("T")[0]);
-    }
     setShowEndPicker(false);
   };
 
   const cancelPicker = () => {
-    console.log("Canceling Date Picker");
     setShowStartPicker(false);
     setShowEndPicker(false);
   };
 
-  const handleWebStartDateChange = (date) => {
-    if (date) {
-      console.log("Web Start Date Changed:", date);
-      setTempStartDate(date);
+const prepareChartData = () => {
+  let allTimestamps = [];
+  Object.values(data).forEach(sensorData => {
+    sensorData.data.forEach(item => {
+      allTimestamps.push(item.timestamp);
+    });
+  });
+  
+  allTimestamps = [...new Set(allTimestamps)].sort();
+  
+  const labels = allTimestamps.map(timestamp => {
+    const date = new Date(timestamp);
+    const daysDiff = Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) + 1;
+    return daysDiff <= 2
+      ? date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+      : date.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit' });
+  });
+  
+  const datasets = [];
+  
+  Object.entries(data).forEach(([sensorId, sensorData], sensorIndex) => {
+    const dataByTimestamp = sensorData.data.reduce((acc, item) => {
+      acc[item.timestamp] = item;
+      return acc;
+    }, {});
+    
+    const sensorColorIndex = sensorIndex % SENSOR_COLORS.length;
+    
+    if (selectedMetrics.includes("Temperature")) {
+      datasets.push({
+        data: allTimestamps.map(timestamp => {
+          const item = dataByTimestamp[timestamp];
+          return item ? item.temperature || 0 : 0;
+        }),
+        color: (opacity = 1) => {
+          switch(sensorColorIndex) {
+            case 0: return `rgba(255, 99, 132, ${opacity})`; // #FF6384
+            case 1: return `rgba(54, 162, 235, ${opacity})`; // #36A2EB
+            case 2: return `rgba(75, 192, 192, ${opacity})`; // #4BC0C0
+            case 3: return `rgba(34, 197, 94, ${opacity})`; // #22C55E
+            case 4: return `rgba(255, 206, 86, ${opacity})`; // #FFCE56
+            case 5: return `rgba(153, 102, 255, ${opacity})`; // #9966FF
+            case 6: return `rgba(255, 159, 64, ${opacity})`; // #FF9F40
+            case 7: return `rgba(32, 201, 151, ${opacity})`; // #20C997
+            case 8: return `rgba(108, 117, 125, ${opacity})`; // #6C757D
+            case 9: return `rgba(253, 126, 20, ${opacity})`; // #FD7E14
+            default: return `rgba(0, 0, 0, ${opacity})`;
+          }
+        },
+        strokeWidth: 2,
+        withDots: true,
+        sensorName: sensorData.name,
+        metric: "Temperature"
+      });
     }
-  };
-
-  const handleWebEndDateChange = (date) => {
-    if (date) {
-      console.log("Web End Date Changed:", date);
-      setTempEndDate(date);
+    
+    if (selectedMetrics.includes("Humidity")) {
+      datasets.push({
+        data: allTimestamps.map(timestamp => {
+          const item = dataByTimestamp[timestamp];
+          return item ? item.humidity || 0 : 0;
+        }),
+        color: (opacity = 1) => {
+          switch(sensorColorIndex) {
+            case 0: return `rgba(215, 59, 92, ${opacity})`; // Darker #FF6384
+            case 1: return `rgba(14, 122, 195, ${opacity})`; // Darker #36A2EB
+            case 2: return `rgba(35, 152, 152, ${opacity})`; // Darker #4BC0C0
+            case 3: return `rgba(0, 157, 54, ${opacity})`; // Darker #22C55E
+            case 4: return `rgba(215, 166, 46, ${opacity})`; // Darker #FFCE56
+            case 5: return `rgba(113, 62, 215, ${opacity})`; // Darker #9966FF
+            case 6: return `rgba(215, 119, 24, ${opacity})`; // Darker #FF9F40
+            case 7: return `rgba(0, 161, 111, ${opacity})`; // Darker #20C997
+            case 8: return `rgba(68, 77, 85, ${opacity})`; // Darker #6C757D
+            case 9: return `rgba(213, 86, 0, ${opacity})`; // Darker #FD7E14
+            default: return `rgba(80, 80, 80, ${opacity})`;
+          }
+        },
+        strokeWidth: 2,
+        withDots: true,
+        dashArray: [5, 5],
+        sensorName: sensorData.name,
+        metric: "Humidity"
+      });
     }
+    
+    if (selectedMetrics.includes("Dew Point")) {
+      datasets.push({
+        data: allTimestamps.map(timestamp => {
+          const item = dataByTimestamp[timestamp];
+          return item ? item.dew_point || 0 : 0;
+        }),
+        color: (opacity = 1) => {
+          switch(sensorColorIndex) {
+            case 0: return `rgba(255, 139, 172, ${opacity})`; // Lighter #FF6384
+            case 1: return `rgba(94, 202, 255, ${opacity})`; // Lighter #36A2EB
+            case 2: return `rgba(115, 232, 232, ${opacity})`; // Lighter #4BC0C0
+            case 3: return `rgba(74, 237, 134, ${opacity})`; // Lighter #22C55E
+            case 4: return `rgba(255, 246, 126, ${opacity})`; // Lighter #FFCE56
+            case 5: return `rgba(193, 142, 255, ${opacity})`; // Lighter #9966FF
+            case 6: return `rgba(255, 199, 104, ${opacity})`; // Lighter #FF9F40
+            case 7: return `rgba(72, 241, 191, ${opacity})`; // Lighter #20C997
+            case 8: return `rgba(148, 157, 165, ${opacity})`; // Lighter #6C757D
+            case 9: return `rgba(255, 166, 60, ${opacity})`; // Lighter #FD7E14
+            default: return `rgba(180, 180, 180, ${opacity})`;
+          }
+        },
+        strokeWidth: 2,
+        withDots: true,
+        dashArray: [2, 2],
+        sensorName: sensorData.name,
+        metric: "Dew Point"
+      });
+    }
+
+    if (selectedMetrics.includes("VPO")) {
+      datasets.push({
+        data: allTimestamps.map(timestamp => {
+          const item = dataByTimestamp[timestamp];
+          return item ? item.vpo || 0 : 0;
+        }),
+        color: (opacity = 1) => {
+          switch(sensorColorIndex) {
+            case 0: return `rgba(255, 79, 112, ${opacity})`; // Orange tint #FF6384
+            case 1: return `rgba(34, 142, 215, ${opacity})`; // Orange tint #36A2EB
+            case 2: return `rgba(35, 172, 172, ${opacity})`; // Orange tint #4BC0C0
+            case 3: return `rgba(14, 177, 74, ${opacity})`; // Orange tint #22C55E
+            case 4: return `rgba(235, 186, 66, ${opacity})`; // Orange tint #FFCE56
+            case 5: return `rgba(133, 82, 235, ${opacity})`; // Orange tint #9966FF
+            case 6: return `rgba(235, 139, 60, ${opacity})`; // Orange tint #FF9F40
+            case 7: return `rgba(16, 182, 137, ${opacity})`; // Orange tint #20C997
+            case 8: return `rgba(88, 97, 105, ${opacity})`; // Orange tint #6C757D
+            case 9: return `rgba(233, 106, 0, ${opacity})`; // Orange tint #FD7E14
+            default: return `rgba(120, 120, 120, ${opacity})`;
+          }
+        },
+        strokeWidth: 2,
+        withDots: true,
+        dashArray: [5, 2, 2, 2], 
+        sensorName: sensorData.name,
+        metric: "VPO"
+      });
+    }
+  });
+  
+  return {
+    labels,
+    datasets: datasets.length > 0 ? datasets : [{ data: [0, 0, 0], color: () => "transparent" }]
   };
+};
 
-  const chartData = {
-    labels: data.length > 0
-      ? data.map((item) => {
-          const date = new Date(item.timestamp);
-          return date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-        })
-      : ["00:00"],
-    datasets: selectedMetrics.length > 0
-      ? selectedMetrics.flatMap(metric => {
-          return selectedSensors.map(sensorId => {
-            const sensor = sensors.find(s => s.value === sensorId);
-            const sensorData = data.filter(item => item.sensorId === sensorId);
-            console.log(`📊 Sensor ${sensor.label} Data for ${metric}:`, sensorData);
-            return {
-              data: sensorData.length > 0
-                ? sensorData
-                    .filter(item => item[metric.toLowerCase()] !== null)
-                    .map(item => item[metric.toLowerCase()])
-                : [0],
-              color: () => colors[sensor.zoneId] || "rgba(0, 0, 0, 1)",
-              strokeWidth: 3,
-              label: `${sensor.label} - ${metric}`,
-            };
-          }).filter(dataset => dataset.data.length > 0 && dataset.data.some(value => value !== 0));
-        })
-      : [],
+  const chartData = Object.keys(data).length > 0 ? prepareChartData() : {
+    labels: ["No Data"],
+    datasets: [{ data: [0, 0, 0], color: () => "transparent" }]
   };
-
-  const finalData = chartData.datasets.length > 0 && data.length > 0
-    ? chartData
-    : {
-        labels: ["00:00"],
-        datasets: [{ data: [0], color: () => "transparent" }],
-      };
-
-  console.log("📈 Final Chart Data:", finalData);
 
   const formatDate = (date) => {
     if (!date) return "";
     const thaiYear = date.getFullYear() + 543;
-    return `${String(date.getDate()).padStart(2, '0')} ${date.toLocaleString('th-TH', { month: 'long' })} ${thaiYear}`;
+    return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${thaiYear} BE`;
   };
 
   const formatTime = (date) => {
@@ -397,66 +510,27 @@ export default function Statistics() {
     return date.toLocaleTimeString();
   };
 
-  const zonesData = zones.map(zone => ({
-    id: zone._id,
-    name: zone.name,
-  }));
-
-  // กรองเซ็นเซอร์ตามโรงเรือนที่เลือก ถ้าไม่เลือกโรงเรือนใดเลย ให้แสดงเซ็นเซอร์ทั้งหมด
-  const sensorsData = sensors
-    .filter(sensor => selectedZones.length === 0 || selectedZones.includes(sensor.zoneId))
-    .map(sensor => ({
-      id: sensor.value,
-      name: sensor.label,
-    }));
+  const renderSensorItem = (item) => {
+    return (
+      <View style={styles.item}>
+        <Text style={styles.textItem}>{item.label}</Text>
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.container}>
         <View style={styles.headerContainer}>
-          <Pressable onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color="black" />
-          </Pressable>
           <Text style={styles.headerTitle}>{t("statistics")}</Text>
-          <Pressable style={styles.exportButton} onPress={handleExportPress} disabled={data.length === 0}>
-            <Ionicons name="ellipsis-vertical" size={24} color="black" />
-          </Pressable>
-        </View>
-
-        <View style={styles.metricContainer}>
-          {["Temperature", "Humidity", "Dew Point"].map((metric) => (
-            <Pressable
-              key={metric}
-              onPress={() => toggleMetric(metric)}
-              style={[
-                styles.metricButton,
-                selectedMetrics.includes(metric) && {
-                  backgroundColor:
-                    metric === "Temperature" ? "#FF6384" :
-                    metric === "Humidity" ? "#36A2EB" :
-                    "#4BC0C0",
-                },
-              ]}
-            >
-              <FontAwesome5
-                name={
-                  metric === "Temperature" ? "thermometer-half" :
-                  metric === "Humidity" ? "tint" :
-                  "cloud"
-                }
-                size={14}
-                color="#fff"
-                style={styles.metricIcon}
-              />
-              <Text style={styles.metricText}>{metric}</Text>
-            </Pressable>
-          ))}
+          <View style={styles.placeholder} />
         </View>
 
         <Text style={styles.currentDateText}>
-          {formatDate(currentDate)}
+          {t("current_date_and_time")}: {formatDate(currentDate)} {formatTime(currentDate)}
         </Text>
 
+        {/* Zone Selection */}
         <View style={styles.dropdownContainer}>
           {loadingZones ? (
             <View style={styles.loadingSection}>
@@ -465,234 +539,204 @@ export default function Statistics() {
             </View>
           ) : zones.length === 0 ? (
             <View style={styles.noDevicesWarning}>
-              <Text style={styles.noDeviceText}>{t("no_zones_please_add_a_zone_first")}</Text>
-              <Pressable
+              <Text style={styles.noDeviceText}>{t("No Zones Found Please Add A Zone First")}</Text>
+              <TouchableOpacity
                 style={styles.addDeviceButton}
                 onPress={() => router.push("/features/add-zone")}
               >
                 <Text style={styles.addDeviceButtonText}>{t("add_zone")}</Text>
-              </Pressable>
+              </TouchableOpacity>
             </View>
           ) : (
             <>
-              <Text style={styles.dropdownLabel}>โรงเรือน</Text>
-              <MultiSelect
-                items={zonesData}
-                uniqueKey="id"
-                onSelectedItemsChange={onZoneChange}
-                selectedItems={selectedZones}
-                selectText="เลือกโรงเรือน"
-                searchInputPlaceholderText="ค้นหาโรงเรือน..."
-                onChangeInput={(text) => console.log(text)}
-                tagRemoveIconColor="#CCC"
-                tagBorderColor="#CCC"
-                tagTextColor="#CCC"
-                selectedItemTextColor="#CCC"
-                selectedItemIconColor="#CCC"
-                itemTextColor="#000"
-                displayKey="name"
-                searchInputStyle={styles.dropdownInputSearch}
-                submitButtonColor="#007AFF"
-                submitButtonText="เลือก"
-                styleDropdownMenu={styles.dropdown}
-                styleDropdownMenuSubsection={styles.dropdownSubsection}
-                styleTextDropdownSelected={styles.dropdownSelectedText}
+              <Text style={styles.dropdownLabel}>{t("Zones")}</Text>
+              <Dropdown
+                style={styles.dropdown}
+                placeholderStyle={styles.dropdownPlaceholder}
+                selectedTextStyle={styles.dropdownSelectedText}
+                inputSearchStyle={styles.dropdownInputSearch}
+                data={zones}
+                search
+                maxHeight={300}
+                labelField="label"
+                valueField="value"
+                placeholder={t("select_zone")}
+                searchPlaceholder={t("search...")}
+                value={selectedZone}
+                onChange={(item) => setSelectedZone(item.value)}
               />
             </>
           )}
         </View>
 
-        {zones.length > 0 && (
+        {/* Sensor Selection (MultiSelect) */}
+        {selectedZone && (
           <View style={styles.dropdownContainer}>
-            {loadingSensors ? (
-              <View style={styles.loadingSection}>
-                <ActivityIndicator size="small" color="#007AFF" />
-                <Text style={styles.loadingText}>{t("loading_sensors")}</Text>
-              </View>
-            ) : sensors.length === 0 ? (
+            <Text style={styles.dropdownLabel}>{t("Sensors")}</Text>
+            {zoneSensors.length === 0 ? (
               <View style={styles.noDevicesWarning}>
-                <Text style={styles.noDeviceText}>{t("no_sensors_please_add_a_sensor_first")}</Text>
-                <Pressable
-                  style={styles.addDeviceButton}
-                  onPress={() => router.push({
-                    pathname: "/devices/selectdevice",
-                    params: { returnTo: "statistics" }
-                  })}
-                >
-                  <Text style={styles.addDeviceButtonText}>{t("add_sensor")}</Text>
-                </Pressable>
+                <Text style={styles.noDeviceText}>{t("No Sensors In This Zone")}</Text>
               </View>
             ) : (
-              <>
-                <Text style={styles.dropdownLabel}>เซ็นเซอร์</Text>
-                <MultiSelect
-                  items={sensorsData}
-                  uniqueKey="id"
-                  onSelectedItemsChange={onSensorChange}
-                  selectedItems={selectedSensors}
-                  selectText="เลือกเซ็นเซอร์"
-                  searchInputPlaceholderText="ค้นหาเซ็นเซอร์..."
-                  onChangeInput={(text) => console.log(text)}
-                  tagRemoveIconColor="#CCC"
-                  tagBorderColor="#CCC"
-                  tagTextColor="#CCC"
-                  selectedItemTextColor="#CCC"
-                  selectedItemIconColor="#CCC"
-                  itemTextColor="#000"
-                  displayKey="name"
-                  searchInputStyle={styles.dropdownInputSearch}
-                  submitButtonColor="#007AFF"
-                  submitButtonText="เลือก"
-                  styleDropdownMenu={styles.dropdown}
-                  styleDropdownMenuSubsection={styles.dropdownSubsection}
-                  styleTextDropdownSelected={styles.dropdownSelectedText}
-                />
-              </>
+              <MultiSelect
+              style={styles.dropdown}
+              placeholderStyle={styles.dropdownPlaceholder}
+              selectedTextStyle={styles.dropdownSelectedText}
+              inputSearchStyle={styles.dropdownInputSearch}
+              data={zoneSensors}
+              labelField="label"
+              valueField="value"
+              placeholder={t("select_sensors")}
+              searchPlaceholder={t("search...")}
+              value={selectedSensors}
+              onChange={item => {
+                setSelectedSensors(item);
+              }}
+              renderItem={(item) => (
+                <View style={styles.item}>
+                  <Text style={styles.textItem}>{item.label}</Text>
+                  {selectedSensors.includes(item.value) && (
+                    <FontAwesome5 name="check" size={16} color="#007AFF" />
+                  )}
+                </View>
+              )}
+              selectedStyle={styles.selectedStyle}
+              renderSelectedItem={(item, unSelect) => (
+                <TouchableOpacity onPress={() => unSelect && unSelect(item)}>
+                  <View style={styles.selectedItem}>
+                    <Text style={styles.selectedText}>{item.label}</Text>
+                    <FontAwesome5 name="times" size={12} color="#fff" />
+                  </View>
+                </TouchableOpacity>
+              )}
+            />
             )}
           </View>
         )}
 
-        {sensors.length > 0 && (
+        {selectedZone && zoneSensors.length > 0 && (
           <>
             <View style={styles.dateExportContainer}>
-              <Text style={styles.dateRangeText}>SELECT DATE RANGE</Text>
+              <Text style={styles.dateRangeText}>{t("Select Date Range")}</Text>
+              <TouchableOpacity 
+                style={styles.exportButton} 
+                onPress={handleExportPress} 
+                disabled={Object.keys(data).length === 0}
+              >
+                <FontAwesome5 name="download" size={16} color="#fff" style={styles.exportIcon} />
+                <Text style={styles.exportText}>{t("export_data")}</Text>
+              </TouchableOpacity>
             </View>
 
             <View style={styles.datePickerContainer}>
-              <Pressable
+              <TouchableOpacity
                 style={styles.datePickerButton}
-                onPress={() => {
-                  console.log("Opening Start Date Picker");
-                  setShowStartPicker(true);
-                }}
+                onPress={() => setShowStartPicker(true)}
               >
                 <FontAwesome5 name="calendar" size={16} color="#1E90FF" style={styles.calendarIcon} />
                 <Text style={styles.dateText}>{formatDate(startDate)}</Text>
-              </Pressable>
-              <Pressable
+              </TouchableOpacity>
+              <TouchableOpacity
                 style={styles.datePickerButton}
-                onPress={() => {
-                  console.log("Opening End Date Picker");
-                  setShowEndPicker(true);
-                }}
+                onPress={() => setShowEndPicker(true)}
               >
                 <FontAwesome5 name="calendar" size={16} color="#1E90FF" style={styles.calendarIcon} />
                 <Text style={styles.dateText}>{formatDate(endDate)}</Text>
-              </Pressable>
+              </TouchableOpacity>
             </View>
 
             <Modal visible={showStartPicker} transparent animationType="slide">
-              {console.log("Start Picker Modal Visible:", showStartPicker)}
               <View style={styles.modalContainer}>
                 <View style={styles.pickerContainer}>
-                  <Text style={styles.pickerTitle}>{t("select_start_date")}</Text>
-                  {isWeb ? (
-                    <>
-                      <DatePicker
-                        selected={tempStartDate}
-                        onChange={handleWebStartDateChange}
-                        dateFormat="dd/MM/yyyy"
-                        className="react-datepicker-wrapper"
-                        popperPlacement="bottom"
-                        inline={false}
-                        showYearDropdown
-                        dropdownMode="select"
-                      />
-                      <View style={styles.buttonContainer}>
-                        <Pressable style={styles.cancelButton} onPress={cancelPicker}>
-                          <Text style={styles.buttonText}>{t("cancel")}</Text>
-                        </Pressable>
-                        <Pressable style={styles.confirmButton} onPress={confirmStartDate}>
-                          <Text style={styles.buttonText}>{t("confirm")}</Text>
-                        </Pressable>
-                      </View>
-                    </>
-                  ) : (
-                    <>
-                      <DateTimePicker
-                        value={tempStartDate}
-                        mode="date"
-                        display="default"
-                        onChange={onStartDateChange}
-                      />
-                      <View style={styles.buttonContainer}>
-                        <Pressable style={styles.cancelButton} onPress={cancelPicker}>
-                          <Text style={styles.buttonText}>{t("cancel")}</Text>
-                        </Pressable>
-                        <Pressable style={styles.confirmButton} onPress={confirmStartDate}>
-                          <Text style={styles.buttonText}>{t("confirm")}</Text>
-                        </Pressable>
-                      </View>
-                    </>
-                  )}
+                  <Text style={styles.pickerTitle}>{t("Select Start Date")}</Text>
+                  <DateTimePicker
+                    value={tempStartDate}
+                    mode="date"
+                    display="default"
+                    onChange={onStartDateChange}
+                  />
+                  <View style={styles.buttonContainer}>
+                    <TouchableOpacity style={styles.cancelButton} onPress={cancelPicker}>
+                      <Text style={styles.buttonText}>{t("cancel")}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.confirmButton} onPress={confirmStartDate}>
+                      <Text style={styles.buttonText}>{t("confirm")}</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
             </Modal>
 
             <Modal visible={showEndPicker} transparent animationType="slide">
-              {console.log("End Picker Modal Visible:", showEndPicker)}
               <View style={styles.modalContainer}>
                 <View style={styles.pickerContainer}>
-                  <Text style={styles.pickerTitle}>{t("select_end_date")}</Text>
-                  {isWeb ? (
-                    <>
-                      <DatePicker
-                        selected={tempEndDate}
-                        onChange={handleWebEndDateChange}
-                        dateFormat="dd/MM/yyyy"
-                        className="react-datepicker-wrapper"
-                        popperPlacement="bottom"
-                        inline={false}
-                        showYearDropdown
-                        dropdownMode="select"
-                      />
-                      <View style={styles.buttonContainer}>
-                        <Pressable style={styles.cancelButton} onPress={cancelPicker}>
-                          <Text style={styles.buttonText}>{t("cancel")}</Text>
-                        </Pressable>
-                        <Pressable style={styles.confirmButton} onPress={confirmEndDate}>
-                          <Text style={styles.buttonText}>{t("confirm")}</Text>
-                        </Pressable>
-                      </View>
-                    </>
-                  ) : (
-                    <>
-                      <DateTimePicker
-                        value={tempEndDate}
-                        mode="date"
-                        display="default"
-                        onChange={onEndDateChange}
-                      />
-                      <View style={styles.buttonContainer}>
-                        <Pressable style={styles.cancelButton} onPress={cancelPicker}>
-                          <Text style={styles.buttonText}>{t("cancel")}</Text>
-                        </Pressable>
-                        <Pressable style={styles.confirmButton} onPress={confirmEndDate}>
-                          <Text style={styles.buttonText}>{t("confirm")}</Text>
-                        </Pressable>
-                      </View>
-                    </>
-                  )}
+                  <Text style={styles.pickerTitle}>{t("Select End Date")}</Text>
+                  <DateTimePicker
+                    value={tempEndDate}
+                    mode="date"
+                    display="default"
+                    onChange={onEndDateChange}
+                  />
+                  <View style={styles.buttonContainer}>
+                    <TouchableOpacity style={styles.cancelButton} onPress={cancelPicker}>
+                      <Text style={styles.buttonText}>{t("cancel")}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.confirmButton} onPress={confirmEndDate}>
+                      <Text style={styles.buttonText}>{t("confirm")}</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
             </Modal>
 
+            <View style={styles.metricContainer}>
+              {["Temperature", "Humidity", "Dew Point", "VPO"].map((metric) => (
+                <TouchableOpacity
+                  key={metric}
+                  onPress={() => toggleMetric(metric)}
+                  style={[
+                    styles.metricButton,
+                    selectedMetrics.includes(metric) && {
+                      backgroundColor:
+                        metric === "Temperature"
+                          ? "#FF6384"
+                          : metric === "Humidity"
+                          ? "#36A2EB" 
+                          : metric === "Dew Point"
+                          ? "#4BC0C0"
+                          : "#22C55E",
+                    },
+                  ]}
+                >
+                  <FontAwesome5
+                    name={
+                      metric === "Temperature"
+                        ? "thermometer-half"
+                        : metric === "Humidity"
+                        ? "tint"
+                        : metric === "Dew Point"
+                        ? "cloud"
+                        : "wind"
+                    }
+                    size={14}
+                    color="#fff"
+                    style={styles.metricIcon}
+                  />
+                  <Text style={styles.metricText}>{metric}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
             {loading ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#007AFF" />
-                <Text style={styles.loadingText}>{t("loading_data")}</Text>
+                <Text style={styles.loadingText}>{t("Loading Data")}</Text>
               </View>
-            ) : data.length === 0 ? (
+            ) : Object.keys(data).length === 0 ? (
               <Text style={styles.noDataText}>
-                {t("no_data_available_for_the_selected_date_range.")}
-              </Text>
-            ) : selectedMetrics.length === 0 ? (
-              <Text style={styles.noDataText}>
-                {t("please_select_at_least_one_metric.")}
-              </Text>
-            ) : finalData.datasets.length === 0 ? (
-              <Text style={styles.noDataText}>
-                {t("no_matching_data_for_selected_zones_or_sensors.")}
+                {selectedSensors.length === 0 
+                  ? t("Please Select At Least One Sensor") 
+                  : t("No Data Available For The Selected Date Range")}
               </Text>
             ) : (
               <View style={styles.chartOuterContainer}>
@@ -702,28 +746,28 @@ export default function Statistics() {
                   contentContainerStyle={styles.chartScrollContainer}
                 >
                   <LineChart
-                    data={finalData}
-                    width={Math.max(chartWidth, (finalData.labels.length || 1) * 80)}
+                    data={chartData}
+                    width={Math.max(chartWidth, maxDataPoints * 80)}
                     height={220}
                     chartConfig={{
                       backgroundColor: "#ffffff",
                       backgroundGradientFrom: "#ffffff",
-                      backgroundGradientTo: "#f8f9fa",
+                      backgroundGradientTo: "#ffffff",
                       decimalPlaces: 1,
                       color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
                       labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
                       style: { borderRadius: 16 },
                       propsForDots: { r: "5", strokeWidth: "2", stroke: "#fff" },
                       propsForBackgroundLines: { strokeDasharray: "5, 5", strokeWidth: 1, stroke: "#e0e0e0" },
-                      propsForLabels: { fontSize: 11, fontWeight: "bold" },
+                      propsForLabels: { fontSize: 10, fontWeight: "bold" },
                       formatYLabel: (value) => value,
                     }}
                     bezier
                     style={styles.chart}
                     withInnerLines={true}
-                    withOuterLines={true}
-                    withVerticalLabels={true}
-                    withHorizontalLabels={true}
+                    withOuterLines={false}
+                    withVerticalLines={true}
+                    withHorizontalLines={true}
                     withDots={true}
                     withShadow={false}
                     segments={5}
@@ -732,36 +776,31 @@ export default function Statistics() {
                     yAxisSuffix=""
                     yAxisLabel=""
                     legendStyle={styles.chartLegend}
-                    onDataPointClick={() => {}}
                   />
                 </ScrollView>
+                
+                {/* Enhanced Legend */}
                 <View style={styles.legendContainer}>
-                  {selectedZones.map(zoneId => {
-                    const zone = zones.find(z => z._id === zoneId);
-                    const zoneSensors = sensors.filter(sensor => sensor.zoneId === zoneId && selectedSensors.includes(sensor.value));
-                    if (zoneSensors.length === 0) return null;
-                    return (
-                      <View key={zone._id} style={styles.legendItem}>
-                        <Text style={styles.legendZoneText}>{zone.name}</Text>
-                        {zoneSensors.map(sensor => (
-                          selectedMetrics.map(metric => {
-                            const sensorData = data.filter(item => item.sensorId === sensor.value);
-                            if (sensorData.length === 0) return null;
-                            return (
-                              <View key={`${sensor.value}-${metric}`} style={styles.legendSubItems}>
-                                <View style={[styles.legendColor, { backgroundColor: colors[sensor.zoneId] }]} />
-                                <Text style={styles.legendText}>{`${sensor.label} - ${metric}`}</Text>
-                              </View>
-                            );
-                          })
-                        ))}
-                      </View>
-                    );
-                  })}
+                  {chartData.datasets.filter(dataset => dataset.sensorName).map((dataset, index) => (
+                    <View key={index} style={styles.legendItem}>
+                      <View 
+                        style={[
+                          styles.legendColor, 
+                          { 
+                            backgroundColor: dataset.color(1),
+                            borderStyle: dataset.dashArray ? 'dashed' : 'solid'
+                          }
+                        ]}
+                      />
+                      <Text style={styles.legendText}>
+                        {dataset.sensorName} - {dataset.metric}
+                      </Text>
+                    </View>
+                  ))}
                 </View>
               </View>
             )}
-
+            
             <View style={styles.footer}>
               <Text style={styles.footerText}>
                 {t("swipe_the_graph_horizontally_to_view_more_data")}
@@ -788,7 +827,6 @@ const styles = StyleSheet.create({
   headerContainer: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     marginBottom: 16,
     paddingTop: 10,
   },
@@ -796,38 +834,43 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: "bold",
     flex: 1,
-    textAlign: "center",
+    textAlign: "left",
   },
-  exportButton: {
-    padding: 5,
+  placeholder: {
+    width: 44,
   },
   currentDateText: {
-    fontSize: 16,
+    fontSize: 14,
     marginBottom: 16,
     color: "#555",
+  },
+  dropdownLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 8,
+    color: "#333",
   },
   dropdownContainer: {
     backgroundColor: "#fff",
     borderRadius: 12,
-    padding: 8,
-    marginBottom: 16,
-    boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.1)",
+    padding: 16,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
     elevation: 2,
-    minHeight: 66,
-    justifyContent: 'center',
-  },
-  dropdownLabel: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 8,
   },
   dropdown: {
+    height: 50,
+    backgroundColor: "#f9f9f9",
     borderRadius: 10,
-  },
-  dropdownSubsection: {
-    backgroundColor: "#fff",
     paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  dropdownPlaceholder: {
+    color: "#666",
   },
   dropdownSelectedText: {
     color: "#000",
@@ -837,7 +880,43 @@ const styles = StyleSheet.create({
     height: 40,
     fontSize: 16,
   },
+  selectedItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 8,  
+    marginRight: 8, 
+    marginBottom: 8,  
+    marginVertical: 4,  
+    backgroundColor: "#007AFF",
+    borderRadius: 14,
+  },
+  selectedText: {
+    color: "#fff",
+    marginRight: 6,
+    fontSize: 12,
+  },
+  selectedStyle: {
+    borderRadius: 10,
+    backgroundColor: "#f0f0f0",
+    paddingVertical: 4,
+  },
+  item: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  textItem: {
+    fontSize: 14,
+  },
   dateExportContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 12,
   },
   dateRangeText: {
@@ -845,11 +924,26 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#333",
   },
+  exportButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#28A745",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  exportIcon: {
+    marginRight: 6,
+  },
+  exportText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
   datePickerContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 16,
-    zIndex: 10,
   },
   datePickerButton: {
     flex: 1,
@@ -859,9 +953,11 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
     flexDirection: "row",
     alignItems: "center",
-    boxShadow: "0px 1px 2px rgba(0, 0, 0, 0.1)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
     elevation: 2,
-    zIndex: 1,
   },
   dateText: {
     fontSize: 13,
@@ -898,7 +994,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 10,
     marginTop: 16,
-    boxShadow: "0px 2px 6px rgba(0, 0, 0, 0.1)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
     elevation: 3,
   },
   chartScrollContainer: {
@@ -912,32 +1011,28 @@ const styles = StyleSheet.create({
     display: "none",
   },
   legendContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
     marginTop: 12,
     marginBottom: 8,
+    flexWrap: "wrap",
   },
   legendItem: {
-    marginHorizontal: 10,
-    marginBottom: 5,
-  },
-  legendZoneText: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 5,
-  },
-  legendSubItems: {
     flexDirection: "row",
     alignItems: "center",
-    marginLeft: 10,
+    marginHorizontal: 8,
+    marginBottom: 8,
   },
   legendColor: {
     width: 12,
     height: 12,
     borderRadius: 6,
     marginRight: 5,
+    borderWidth: 1,
+    borderColor: "rgba(0, 0, 0, 0.1)",
   },
   legendText: {
-    fontSize: 12,
+    fontSize: 11,
     color: "#444",
   },
   loadingContainer: {
@@ -976,7 +1071,10 @@ const styles = StyleSheet.create({
     padding: 20,
     width: "80%",
     alignItems: "center",
-    boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.3)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
     elevation: 5,
   },
   pickerTitle: {

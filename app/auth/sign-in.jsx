@@ -16,7 +16,6 @@ export default function SignIn() {
   const [secureText, setSecureText] = useState(true);
   const router = useRouter();
 
-  // ฟังก์ชันแสดง Toast
   const showToast = (type, title, message) => {
     Toast.show({
       type,
@@ -25,7 +24,6 @@ export default function SignIn() {
     });
   };
 
-  // ฟังก์ชันตรวจสอบ Validation
   const validateFields = () => {
     let valid = true;
 
@@ -49,9 +47,7 @@ export default function SignIn() {
     return valid;
   };
 
-  // ฟังก์ชัน Sign In
   const handleSignIn = async () => {
-    // ปิด Keyboard
     Keyboard.dismiss();
 
     if (!validateFields()) return;

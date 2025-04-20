@@ -1,4 +1,3 @@
-// D:\y3\งานจารออย\iotapp\backend\models\User.js
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
 
@@ -86,14 +85,11 @@ const userSchema = new mongoose.Schema(
   { timestamps: true } 
 );
 
-// เพิ่ม flag เพื่อระบุว่าการเข้ารหัสถูกจัดการแล้ว
 userSchema.pre("save", async function (next) {
-  // เข้ารหัสเฉพาะเมื่อ password ถูกแก้ไข และยังไม่ได้ถูกเข้ารหัสแล้ว
   if (this.isModified("password") && !this._skipHashing) {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
   }
-  // รีเซ็ต flag หลังบันทึก
   this._skipHashing = undefined;
   next();
 });

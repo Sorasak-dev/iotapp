@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, SafeAreaView, Platform } from 'react-native';
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
+  ScrollView, 
+  TouchableOpacity, 
+  SafeAreaView, 
+  Platform,
+  ActivityIndicator 
+} from 'react-native';
 import { BarChart } from 'react-native-chart-kit';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -16,11 +25,14 @@ const FullChart = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [sensorData, setSensorData] = useState(null);
+  const [loading, setLoading] = useState(true); 
+  const [exporting, setExporting] = useState(false); 
   const router = useRouter();
 
   useEffect(() => {
     const fetchFullSensorData = async () => {
       try {
+        setLoading(true); 
         const token = await AsyncStorage.getItem('token');
         const response = await fetch(API_ENDPOINTS.SENSOR_DATA, {
           headers: { 'Authorization': `Bearer ${token}` },
@@ -31,10 +43,19 @@ const FullChart = () => {
         }
       } catch (error) {
         console.error('Error fetching full sensor data:', error);
+      } finally {
+        setLoading(false); 
       }
     };
     fetchFullSensorData();
   }, []);
+
+  const reloadDataForDate = () => {
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+    }, 500);
+  };
 
   const parsedData = sensorData || JSON.parse(initialData || '{}');
   const hasValidData = parsedData && Array.isArray(parsedData);
@@ -72,7 +93,10 @@ const FullChart = () => {
 
   const onChangeDate = (event, selected) => {
     setShowDatePicker(false);
-    if (selected) setSelectedDate(selected);
+    if (selected) {
+      setSelectedDate(selected);
+      reloadDataForDate(); 
+    }
   };
 
   const handleExportPress = async () => {
@@ -80,40 +104,42 @@ const FullChart = () => {
       alert("No data available to export.");
       return;
     }
-
-    const htmlContent = `
-      <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
-            h1 { text-align: center; color: #333; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f2f2f2; }
-            .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #888; }
-          </style>
-        </head>
-        <body>
-          <h1>${type.charAt(0).toUpperCase() + type.slice(1)} Data Report</h1>
-          <p>Date: ${selectedDate.toLocaleDateString('th-TH')}</p>
-          <table>
-            <tr>
-              <th>Timestamp</th>
-              <th>${type.charAt(0).toUpperCase() + type.slice(1)}</th>
-            </tr>
-            ${filteredData.map(entry => `
-              <tr>
-                <td>${new Date(entry.timestamp).toLocaleString('th-TH')}</td>
-                <td>${entry[type === 'dewPoint' ? 'dew_point' : type] || 'N/A'}</td>
-              </tr>
-            `).join('')}
-          </table>
-          <div class="footer">Generated on ${new Date().toLocaleString('th-TH')}</div>
-        </body>
-      </html>
-    `;
-
+    
     try {
+      setExporting(true); 
+      
+      const htmlContent = `
+        <html>
+          <head>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 20px; }
+              h1 { text-align: center; color: #333; }
+              table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+              th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+              th { background-color: #f2f2f2; }
+              .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #888; }
+            </style>
+          </head>
+          <body>
+            <h1>${type.charAt(0).toUpperCase() + type.slice(1)} Data Report</h1>
+            <p>Date: ${selectedDate.toLocaleDateString('th-TH')}</p>
+            <table>
+              <tr>
+                <th>Timestamp</th>
+                <th>${type.charAt(0).toUpperCase() + type.slice(1)}</th>
+              </tr>
+              ${filteredData.map(entry => `
+                <tr>
+                  <td>${new Date(entry.timestamp).toLocaleString('th-TH')}</td>
+                  <td>${entry[type === 'dewPoint' ? 'dew_point' : type] || 'N/A'}</td>
+                </tr>
+              `).join('')}
+            </table>
+            <div class="footer">Generated on ${new Date().toLocaleString('th-TH')}</div>
+          </body>
+        </html>
+      `;
+
       const { uri } = await Print.printToFileAsync({
         html: htmlContent,
         base64: false,
@@ -128,6 +154,8 @@ const FullChart = () => {
       alert("PDF exported successfully!");
     } catch (error) {
       alert("Failed to export PDF: " + error.message);
+    } finally {
+      setExporting(false); 
     }
   };
 
@@ -160,11 +188,22 @@ const FullChart = () => {
             <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.datePickerButton}>
               <Text style={styles.datePickerText}>Select Date: {selectedDate.toLocaleDateString()}</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleExportPress} style={styles.exportButton}>
-              <FontAwesome5 name="download" size={16} color="#fff" style={styles.exportIcon} />
-              <Text style={styles.exportText}>Export</Text>
+            <TouchableOpacity 
+              onPress={handleExportPress} 
+              style={[styles.exportButton, exporting && styles.exportButtonDisabled]}
+              disabled={exporting || filteredData.length === 0}
+            >
+              {exporting ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <FontAwesome5 name="download" size={16} color="#fff" style={styles.exportIcon} />
+                  <Text style={styles.exportText}>Export</Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
+          
           {showDatePicker && (
             <DateTimePicker
               value={selectedDate}
@@ -173,7 +212,13 @@ const FullChart = () => {
               onChange={onChangeDate}
             />
           )}
-          {filteredData.length > 0 ? (
+          
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#007AFF" />
+              <Text style={styles.loadingText}>Loading data...</Text>
+            </View>
+          ) : filteredData.length > 0 ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={true}>
               <BarChart
                 data={chartData}
@@ -187,7 +232,10 @@ const FullChart = () => {
               />
             </ScrollView>
           ) : (
-            <Text style={styles.noDataText}>No data available for this date</Text>
+            <View style={styles.noDataContainer}>
+              <FontAwesome5 name="chart-bar" size={50} color="#ccc" />
+              <Text style={styles.noDataText}>No data available for this date</Text>
+            </View>
           )}
         </View>
       </ScrollView>
@@ -214,7 +262,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   headerSpacer: {
-    flex: 1, // Push content to left
+    flex: 1,
   },
   scrollContainer: { 
     flex: 1, 
@@ -266,6 +314,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 8,
     marginLeft: 10,
+    minWidth: 85,
+    justifyContent: 'center',
+  },
+  exportButtonDisabled: {
+    backgroundColor: '#6c757d',
   },
   exportIcon: { 
     marginRight: 6 
@@ -279,10 +332,27 @@ const styles = StyleSheet.create({
     borderRadius: 16, 
     marginVertical: 8 
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 100,
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#666',
+    fontSize: 16,
+  },
+  noDataContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 100,
+  },
   noDataText: { 
     fontSize: 16, 
     color: 'gray', 
-    marginVertical: 20 
+    marginTop: 16
   },
 });
 

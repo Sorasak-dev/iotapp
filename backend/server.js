@@ -1,4 +1,3 @@
-// D:\y3\งานจารออย\iotapp\backend\server.js
 const express = require("express");
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
@@ -13,7 +12,7 @@ const { userValidationSchema, userDataValidationSchema } = require("./validation
 const User = require("./models/User");
 const Device = require("./models/Device");
 const anomalyRoutes = require('./routes/anomaly');
-const userRoutes = require('./routes/userRoutes'); // เพิ่มการนำเข้า userRoutes
+const userRoutes = require('./routes/userRoutes'); 
 
 const app = express();
 
@@ -26,7 +25,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(bodyParser.json());
 app.use(anomalyRoutes);
-app.use("/api/users", userRoutes); // เพิ่มเส้นทาง /api/users เพื่อเชื่อมกับ userRoutes
+app.use("/api/users", userRoutes); 
 
 // Connect to MongoDB
 mongoose

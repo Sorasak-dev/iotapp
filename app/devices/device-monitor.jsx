@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, TouchableOpacity, ScrollView, SafeAreaView, Dim
 import { FontAwesome5, MaterialIcons, Ionicons } from '@expo/vector-icons';
 import * as Battery from 'expo-battery';
 import { BarChart } from 'react-native-chart-kit';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_ENDPOINTS, DATA_REFRESH_INTERVAL, getAuthHeaders } from '../utils/config/api';
 
@@ -33,8 +33,28 @@ export default function DeviceMonitor() {
   const [latestData, setLatestData] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
   const navigation = useNavigation();
+  const route = useRoute();
+  
+  const [deviceName, setDeviceName] = useState("Sensor Device");
 
   useEffect(() => {
+    if (route.params?.device) {
+      try {
+        let device;
+        if (typeof route.params.device === 'string') {
+          device = JSON.parse(route.params.device);
+        } else {
+          device = route.params.device;
+        }
+        
+        if (device && device.name) {
+          setDeviceName(device.name);
+        }
+      } catch (error) {
+        console.error("Error parsing device data:", error);
+      }
+    }
+    
     const getBatteryLevel = async () => {
       const level = await Battery.getBatteryLevelAsync();
       setBatteryLevel(Math.round(level * 100));
@@ -67,7 +87,6 @@ export default function DeviceMonitor() {
           return;
         }
 
-        // ดึงข้อมูลล่าสุด 5 รายการ โดยไม่จำกัด 5 ชั่วโมงถ้าไม่มีข้อมูลเพียงพอ
         let validData = data.data
           .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
           .slice(0, 5);
@@ -126,7 +145,7 @@ export default function DeviceMonitor() {
     };
 
     fetchSensorData();
-    const interval = setInterval(fetchSensorData, DATA_REFRESH_INTERVAL); // ใช้ interval จาก config
+    const interval = setInterval(fetchSensorData, DATA_REFRESH_INTERVAL); 
     return () => clearInterval(interval);
   }, []);
 
@@ -168,7 +187,11 @@ export default function DeviceMonitor() {
   };
 
   const handleSensorPress = () => {
-    navigation.navigate('sensor-detail', { sensorData: JSON.stringify(sensorData), latestData: JSON.stringify(latestData) });
+    navigation.navigate('sensor-detail', { 
+      sensorData: JSON.stringify(sensorData), 
+      latestData: JSON.stringify(latestData),
+      device: route.params?.device
+    });
   };
 
   const handleGoBack = () => {
@@ -197,7 +220,7 @@ export default function DeviceMonitor() {
           <TouchableOpacity onPress={handleSensorPress}>
             <View style={styles.sensorCard}>
               <FontAwesome5 name="microchip" size={20} color="black" />
-              <Text style={styles.sensorTitle}>Sensor IBS-TH3</Text>
+              <Text style={styles.sensorTitle}>{deviceName}</Text>
             </View>
           </TouchableOpacity>
 

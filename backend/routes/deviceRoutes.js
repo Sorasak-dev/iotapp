@@ -157,4 +157,28 @@ router.patch("/:deviceId/zone", authenticateToken, async (req, res) => {
   }
 });
 
+router.patch("/:deviceId", authenticateToken, async (req, res) => {
+  try {
+    const { name } = req.body;
+    
+    if (!name) {
+      return res.status(400).json({ message: "Name is required" });
+    }
+
+    const device = await Device.findOneAndUpdate(
+      { _id: req.params.deviceId, userId: req.user.id },
+      { $set: { name } },
+      { new: true }
+    );
+
+    if (!device) {
+      return res.status(404).json({ message: "Device not found" });
+    }
+
+    res.json({ message: "Device updated successfully", device });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

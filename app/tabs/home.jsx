@@ -5,42 +5,39 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
-  ActivityIndicator,
   ScrollView,
   Dimensions,
   Alert,
-  Switch,
   Modal,
   FlatList
 } from "react-native";
 import axios from "axios";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons, MaterialIcons, Feather } from "@expo/vector-icons";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTranslation } from "react-i18next";
 import { API_ENDPOINTS, API_TIMEOUT, getAuthHeaders } from '../utils/config/api';
+import WeatherWidget from "../components/WeatherWidget"; 
 
-const { width, height } = Dimensions.get("window");
-
-const WEATHER_API_KEY = "137ea86a7cc8fd70e39b16ad03c010a4";
-const CITY_NAME = "Chiang Rai";
-const COUNTRY_CODE = "TH";
+const { width } = Dimensions.get("window");
 
 export default function HomeScreen() {
   const { t } = useTranslation();
-  const [weather, setWeather] = useState(null);
   const [loading, setLoading] = useState(true);
   const [date, setDate] = useState("");
   const router = useRouter();
   const [devices, setDevices] = useState([]);
   const [showDeleteOption, setShowDeleteOption] = useState(false);
   
-  // state สำหรับ zones และ zoneModal
   const [zones, setZones] = useState([]);
   const [currentZone, setCurrentZone] = useState(null);
   const [zoneModalVisible, setZoneModalVisible] = useState(false);
-  const [hasSelectedZone, setHasSelectedZone] = useState(false); // ใช้เก็บสถานะว่าผู้ใช้เลือก zone แล้วหรือยัง
+  const [hasSelectedZone, setHasSelectedZone] = useState(false);
+  
+  const [deviceMenuVisible, setDeviceMenuVisible] = useState(false);
+  const [selectedDevice, setSelectedDevice] = useState(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
   
   const toggleDeviceStatus = (deviceId) => {
     setDevices((prevDevices) =>
@@ -60,14 +57,13 @@ export default function HomeScreen() {
   };
 
   useEffect(() => {
-    fetchWeather();
     updateDate();
     fetchZones();
   }, []);
   
-  // ดึงข้อมูล Zone ของ User จาก MongoDB
   const fetchZones = async () => {
     try {
+      setLoading(true);
       const token = await AsyncStorage.getItem("token");
       if (!token) {
         console.error("No token found");
@@ -82,11 +78,9 @@ export default function HomeScreen() {
       console.log("📡 Zones Data:", response.data);
 
       if (response.data && response.data.zones) {
-        // กรองออกเฉพาะ zones ที่ผู้ใช้สร้างเอง ไม่รวม default
         const userCreatedZones = response.data.zones.filter(zone => !zone.isDefault);
         setZones(userCreatedZones);
         
-        // ดึง current zone
         const currentZoneId = response.data.currentZoneId;
         if (currentZoneId) {
           const activeZone = response.data.zones.find(
@@ -108,16 +102,13 @@ export default function HomeScreen() {
           setHasSelectedZone(false);
         }
         
-        // หลังจากดึง zone แล้ว ดึงอุปกรณ์ในโซนนั้น
         await fetchDevices(currentZoneId);
       } else {
-        // ถ้าไม่มี zone ให้ดึงอุปกรณ์ทั้งหมด
         setHasSelectedZone(false);
         await fetchDevices();
       }
     } catch (error) {
       console.error("❌ Error fetching zones:", error);
-      // ถ้ามีปัญหาในการดึง zone ให้ดึงอุปกรณ์ทั้งหมด
       setHasSelectedZone(false);
       await fetchDevices();
     } finally {
@@ -125,7 +116,6 @@ export default function HomeScreen() {
     }
   };
   
-  // แก้ไขฟังก์ชัน fetchDevices เพื่อรองรับ zoneId
   const fetchDevices = async (zoneId = null) => {
     try {
       const token = await AsyncStorage.getItem("token");
@@ -134,7 +124,6 @@ export default function HomeScreen() {
         return;
       }
 
-      // สร้าง URL ตาม zoneId
       let url = API_ENDPOINTS.DEVICES;
       if (zoneId) {
         url += `?zoneId=${zoneId}`;
@@ -148,11 +137,10 @@ export default function HomeScreen() {
       console.log("📡 Devices Data:", response.data);
 
       if (Array.isArray(response.data)) {
-        // เมื่อเชื่อมต่อเสร็จแล้ว ให้กำหนดให้อุปกรณ์เป็น Online เสมอ
         const connectedDevices = response.data.map(device => ({
           ...device,
           status: "Online",
-          battery: "85%"  // Added default battery level
+          battery: "85%"  
         }));
         setDevices(connectedDevices);
       } else {
@@ -164,7 +152,6 @@ export default function HomeScreen() {
     }
   };
   
-  // ฟังก์ชันสำหรับเปลี่ยน zone
   const handleZoneSelect = async (zone) => {
     try {
       setZoneModalVisible(false);
@@ -194,13 +181,10 @@ export default function HomeScreen() {
     }
   };
   
-  // ฟังก์ชันสำหรับลบ zone
   const handleDeleteZone = async (zone) => {
     try {
-      // ตรวจสอบว่าเป็น zone ที่กำลังใช้งานอยู่หรือไม่
       const isCurrentZone = currentZone && zone._id === currentZone._id;
-      
-      // ถามยืนยันการลบ
+
       Alert.alert(
         t("Delete Zone"),
         t("Are you sure you want to delete this zone?"),
@@ -215,7 +199,6 @@ export default function HomeScreen() {
             onPress: async () => {
               const token = await AsyncStorage.getItem("token");
               
-              // ส่งคำขอลบ zone ไปยัง API
               await axios.delete(
                 `${API_ENDPOINTS.ZONES}/${zone._id}`,
                 {
@@ -224,24 +207,19 @@ export default function HomeScreen() {
                 }
               );
               
-              // ลบ zone ออกจาก state
               const updatedZones = zones.filter(z => z._id !== zone._id);
               setZones(updatedZones);
               
-              // ถ้าลบ zone ที่กำลังใช้งานอยู่
               if (isCurrentZone) {
                 if (updatedZones.length > 0) {
-                  // ถ้ามี zone อื่นเหลืออยู่ ให้เลือก zone แรก
                   await handleZoneSelect(updatedZones[0]);
                 } else {
-                  // ถ้าไม่มี zone เหลือ ให้กลับไปใช้ค่าเริ่มต้น
                   setCurrentZone(null);
                   setHasSelectedZone(false);
                   await fetchDevices();
                 }
               }
               
-              // แจ้งเตือนสำเร็จ
               Alert.alert(t("Success"), t("Zone deleted successfully"));
             }
           }
@@ -253,12 +231,10 @@ export default function HomeScreen() {
     }
   };
   
-  // นำทางไปยังหน้าเพิ่ม Zone
   const navigateToAddZone = () => {
     router.push('/features/add-zone');
   };
 
-  // ฟังก์ชันลบอุปกรณ์
   const handleDeleteDevice = async (deviceId) => {
     try {
       const token = await AsyncStorage.getItem("token");
@@ -282,54 +258,34 @@ export default function HomeScreen() {
     }
   };
 
-  const fetchWeather = async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get(
-        `https://api.openweathermap.org/data/2.5/weather?q=${CITY_NAME},${COUNTRY_CODE}&appid=${WEATHER_API_KEY}&units=metric`
-      );
-      setWeather(response.data);
-    } catch (error) {
-      console.error("Error fetching weather:", error);
-    } finally {
-      setLoading(false);
+  const handleShowDeviceMenu = (device, event) => {
+    setMenuPosition({
+      top: event.nativeEvent.pageY - 80,
+      right: 30
+    });
+    setSelectedDevice(device);
+    setDeviceMenuVisible(true);
+  };
+
+  const handleEditDevice = () => {
+    setDeviceMenuVisible(false);
+    if (selectedDevice) {
+      router.push({
+        pathname: "/devices/edit-device", 
+        params: { deviceId: selectedDevice._id, deviceName: selectedDevice.name }
+      });
     }
   };
 
   const updateDate = () => {
     const now = new Date();
     
-    // Format for Thai date (16 มกราคม 2027)
     const options = { day: 'numeric', month: 'long', year: 'numeric' };
     const thaiDate = now.toLocaleDateString('th-TH', options);
     
     setDate(thaiDate);
   };
-
-  const getWeatherIcon = (condition) => {
-    switch (condition) {
-      case "Clear":
-        return <Ionicons name="sunny" size={32} color="#FFA500" />;
-      case "Rain":
-        return <Ionicons name="rainy" size={32} color="#007AFF" />;
-      case "Clouds":
-        return <Ionicons name="cloud" size={32} color="#888888" />;
-      case "Mist":
-      case "Fog":
-      case "Haze":
-        return <Ionicons name="cloud-outline" size={32} color="#A9A9A9" />;
-      case "Thunderstorm":
-        return <Ionicons name="thunderstorm" size={32} color="#FF4500" />;
-      case "Snow":
-        return <Ionicons name="snow" size={32} color="#00BFFF" />;
-      case "Tornado":
-        return <Ionicons name="warning" size={32} color="#8B0000" />;
-      default:
-        return <Ionicons name="partly-sunny" size={32} color="#FFA500" />;
-    }
-  };
   
-  // แสดง zone selector modal
   const renderZoneModal = () => (
     <Modal
       animationType="slide"
@@ -396,6 +352,35 @@ export default function HomeScreen() {
     </Modal>
   );
 
+  const renderDeviceMenuModal = () => (
+    <Modal
+      animationType="fade"
+      transparent={true}
+      visible={deviceMenuVisible}
+      onRequestClose={() => setDeviceMenuVisible(false)}
+    >
+      <TouchableOpacity 
+        style={styles.menuModalOverlay}
+        activeOpacity={1}
+        onPress={() => setDeviceMenuVisible(false)}
+      >
+        <View 
+          style={[
+            styles.deviceMenuContainer, 
+            { top: menuPosition.top, right: menuPosition.right }
+          ]}
+        >
+          <TouchableOpacity 
+            style={styles.deviceMenuItem}
+            onPress={handleEditDevice}
+          >
+            <Text style={styles.deviceMenuItemText}>Edit Device</Text>
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
@@ -418,47 +403,8 @@ export default function HomeScreen() {
         {/* วันที่ */}
         <Text style={styles.dateText}>{date}</Text>
 
-        {/* Weather Widget */}
-        <View style={styles.weatherWidget}>
-          {loading ? (
-            <ActivityIndicator size="large" color="#007AFF" />
-          ) : weather ? (
-            <>
-              <View style={styles.weatherHeader}>
-                <View style={styles.weatherRow}>
-                  {getWeatherIcon(weather.weather[0].main)}
-                  <Text style={styles.weatherCondition}>
-                  {t(weather.weather[0].main.toLowerCase())}
-                  </Text>
-                </View>
-                <View>
-                  <Text style={styles.weatherCity}>
-                    <Ionicons name="location-outline" size={16} color="gray" />{" "}
-                    {CITY_NAME}
-                  </Text>
-                </View>
-              </View>
-
-              <Text style={styles.temperature}>
-                {Math.round(weather.main.temp)}°C
-              </Text>
-
-              <View style={styles.weatherDetails}>
-                <Text style={styles.feelsLike}>
-                  <Ionicons name="thermometer-outline" size={16} color="gray" />{" "}
-                  Feels like {Math.round(weather.main.feels_like)}°C
-                </Text>
-                <Text style={styles.humidity}>
-                  <Ionicons name="water-outline" size={16} color="#007AFF" />{" "}
-                  {weather.main.humidity}%
-                </Text>
-              </View>
-            </>
-          ) : (
-            <Text style={styles.errorText}> {t("Failed to load weather data")}</Text>
-          )}
-        </View>
-
+        {/* Weather Widget - ใช้ Component ใหม่ */}
+        <WeatherWidget />
 
         {/* Your Device Section */}
         <View style={styles.deviceSection}>
@@ -480,48 +426,51 @@ export default function HomeScreen() {
         ) : (
           <View style={styles.deviceList}>
             {devices.map((device) => (
-              <TouchableOpacity
-                key={device._id}
-                style={styles.deviceCard}
-                onPress={() => router.push("/devices/device-monitor")}
-                activeOpacity={0.7}
-              >
-                {showDeleteOption && (
-                  <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => handleDeleteDevice(device._id)}
-                  >
-                    <MaterialIcons name="close" size={16} color="#fff" />
-                  </TouchableOpacity>
-                )}
-                
-                <Image source={{ uri: device.image }} style={styles.deviceImage} />
-                
-                <View style={styles.deviceContent}>
-                  <View style={styles.deviceHeader}>
-                    <Text style={styles.deviceName}>{device.name}</Text>
-                    <TouchableOpacity>
-                      <MaterialIcons name="more-horiz" size={20} color="#333" />
-                    </TouchableOpacity>
-                  </View>
-                  
-                  <Text style={styles.deviceSubtitle}>Connected</Text>
-                  
-                  <View style={styles.deviceInfo}>
-                    <View style={styles.batteryInfo}>
-                      <Ionicons name="battery-half-outline" size={16} color="#333" />
-                      <Text style={styles.batteryText}>{device.battery}</Text>
-                    </View>
-                    
-                    <View style={styles.statusContainer}>
-                      <View style={styles.statusDot} />
-                      <Text style={styles.statusText}>Online</Text>
-                    </View>
-                  </View>
-                  
-                  <Text style={styles.deviceType}>Temperature sensor</Text>
-                </View>
-              </TouchableOpacity>
+             <TouchableOpacity
+               key={device._id}
+               style={styles.deviceCard}
+               onPress={() => router.push({
+                 pathname: "/devices/device-monitor",
+                 params: { device: JSON.stringify(device) }
+               })}
+               activeOpacity={0.7}
+             >
+               {showDeleteOption && (
+                 <TouchableOpacity
+                   style={styles.deleteButton}
+                   onPress={() => handleDeleteDevice(device._id)}
+                 >
+                   <MaterialIcons name="close" size={16} color="#fff" />
+                 </TouchableOpacity>
+               )}
+               
+               <Image source={{ uri: device.image }} style={styles.deviceImage} />
+               
+               <View style={styles.deviceContent}>
+                 <View style={styles.deviceHeader}>
+                   <Text style={styles.deviceName}>{device.name}</Text>
+                   <TouchableOpacity onPress={(event) => handleShowDeviceMenu(device, event)}>
+                     <MaterialIcons name="more-horiz" size={20} color="#333" />
+                   </TouchableOpacity>
+                 </View>
+                 
+                 <Text style={styles.deviceSubtitle}>Connected</Text>
+                 
+                 <View style={styles.deviceInfo}>
+                   <View style={styles.batteryInfo}>
+                     <Ionicons name="battery-half-outline" size={16} color="#333" />
+                     <Text style={styles.batteryText}>{device.battery}</Text>
+                   </View>
+                   
+                   <View style={styles.statusContainer}>
+                     <View style={styles.statusDot} />
+                     <Text style={styles.statusText}>Online</Text>
+                   </View>
+                 </View>
+                 
+                 <Text style={styles.deviceType}>Temperature sensor</Text>
+               </View>
+             </TouchableOpacity>
             ))}
           </View>
         )}
@@ -538,6 +487,9 @@ export default function HomeScreen() {
       
       {/* Zone Selector Modal */}
       {renderZoneModal()}
+      
+      {/* Device Menu Modal */}
+      {renderDeviceMenuModal()}
     </SafeAreaView>
   );
 }
@@ -574,43 +526,6 @@ const styles = StyleSheet.create({
     color: "#333", 
     marginBottom: 16 
   },
-  weatherWidget: {
-    backgroundColor: "#FFF",
-    padding: 20,
-    borderRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
-    marginBottom: 20,
-  },
-  weatherHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  weatherRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  weatherCondition: { fontSize: 18, fontWeight: "bold", marginLeft: 8 },
-  weatherDate: { fontSize: 14, color: "#666", textAlign: "right" },
-  weatherCity: { fontSize: 14, color: "#444", textAlign: "right" },
-
-  temperature: {
-    fontSize: 40,
-    fontWeight: "bold",
-    color: "#333",
-    marginVertical: 10,
-  },
-  weatherDetails: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  feelsLike: { fontSize: 14, color: "#666" },
-  humidity: { fontSize: 14, color: "#007AFF" },
   deviceSection: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -775,7 +690,6 @@ const styles = StyleSheet.create({
     color: "#FFF",
     marginLeft: 8,
   },
-  // Modal styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -843,4 +757,33 @@ const styles = StyleSheet.create({
     position: 'relative',
     height: 24,
   },
+  menuModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  deviceMenuContainer: {
+    position: 'absolute',
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 0,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    minWidth: 160,
+  },
+  deviceMenuItem: {
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  deviceMenuItemText: {
+    fontSize: 16,
+    color: '#333',
+  }
 });

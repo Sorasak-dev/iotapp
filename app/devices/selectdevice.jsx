@@ -21,7 +21,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
 import { API_ENDPOINTS, API_TIMEOUT, getAuthHeaders } from '../utils/config/api';
 
-// กำหนด mapping สำหรับรูปภาพเป็น URL (เพื่อส่งไปยัง API)
 const deviceImages = {
   "sensor.png": "https://example.com/images/sensor.png",
   "sensor2.png": "https://example.com/images/sensor2.png",
@@ -43,7 +42,7 @@ export default function SelectDeviceScreen() {
   const [connectingDevice, setConnectingDevice] = useState(null);
   const [connectedDevices, setConnectedDevices] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("All"); // เพิ่ม state สำหรับ tab
+  const [activeTab, setActiveTab] = useState("All"); 
   const params = useLocalSearchParams();
   const returnTo = params.returnTo;
   const [spinValue] = useState(new Animated.Value(0));
@@ -131,7 +130,6 @@ export default function SelectDeviceScreen() {
         return;
       }
 
-      // แปลง image เป็น URL
       const imageFileName = device.image?.default?.split("/").pop() || "";
       const imageUrl = deviceImages[imageFileName] || "https://example.com/images/default.png";
 
@@ -140,7 +138,7 @@ export default function SelectDeviceScreen() {
         {
           name: device.name,
           type: device.type,
-          image: imageUrl, // ใช้ URL แทน require
+          image: imageUrl, 
           deviceId: device.id,
         },
         { 
@@ -188,7 +186,6 @@ export default function SelectDeviceScreen() {
     return connectedDevices.includes(deviceId);
   };
 
-  // กรองอุปกรณ์ตาม tab
   const filteredDevices = () => {
     if (activeTab === "All") {
       return devices;
@@ -204,7 +201,7 @@ export default function SelectDeviceScreen() {
     return (
       <SafeAreaView style={[styles.container, styles.loadingContainer]}>
         <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>กำลังตรวจสอบอุปกรณ์...</Text>
+        <Text style={styles.loadingText}>Searching for devices...</Text>
       </SafeAreaView>
     );
   }

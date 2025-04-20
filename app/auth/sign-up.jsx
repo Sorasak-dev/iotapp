@@ -17,7 +17,6 @@ export default function SignUp() {
   const [termsError, setTermsError] = useState('');
   const router = useRouter();
 
-  // ฟังก์ชันตรวจสอบ Email
   const validateEmail = (value) => {
     if (!value) {
       setEmailError('Email is required');
@@ -31,7 +30,6 @@ export default function SignUp() {
     }
   };
 
-  // ฟังก์ชันตรวจสอบ Password
   const validatePassword = (value) => {
     if (!value) {
       setPasswordError('Password is required');
@@ -45,7 +43,6 @@ export default function SignUp() {
     }
   };
 
-  // ฟังก์ชันตรวจสอบ Confirm Password
   const validateConfirmPassword = (value) => {
     if (!value) {
       setConfirmPasswordError('Please confirm your password');
@@ -59,7 +56,6 @@ export default function SignUp() {
     }
   };
 
-  // ฟังก์ชันตรวจสอบ Terms
   const validateTerms = () => {
     if (!isChecked) {
       setTermsError('You must agree to the Terms of Service and Privacy Policy');
@@ -70,7 +66,6 @@ export default function SignUp() {
     }
   };
 
-  // ฟังก์ชันแสดง Toast
   const showToast = (type, title, message) => {
     Toast.show({
       type,
@@ -79,12 +74,9 @@ export default function SignUp() {
     });
   };
 
-  // ฟังก์ชัน Sign Up
   const handleSignUp = async () => {
-    // ปิด Keyboard
     Keyboard.dismiss();
 
-    // ตรวจสอบ Validation
     const isEmailValid = validateEmail(email);
     const isPasswordValid = validatePassword(password);
     const isConfirmPasswordValid = validateConfirmPassword(confirmPassword);

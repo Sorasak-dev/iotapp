@@ -50,7 +50,6 @@ const ForgetPasswordScreen = () => {
             style={styles.input}
             value={username}
             onChangeText={setUsername}
-            placeholder="bok"
             placeholderTextColor="#999"
           />
         </View>
@@ -61,7 +60,6 @@ const ForgetPasswordScreen = () => {
             style={styles.input}
             value={email}
             onChangeText={setEmail}
-            placeholder="john.doe@email.com"
             placeholderTextColor="#999"
             keyboardType="email-address"
             autoCapitalize="none"
