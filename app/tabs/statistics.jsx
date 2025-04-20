@@ -14,7 +14,7 @@ import {
   Platform
 } from "react-native";
 import { LineChart } from "react-native-chart-kit";
-import { Dropdown, MultiSelect } from "react-native-element-dropdown";
+import { MultiSelect } from "react-native-element-dropdown";
 import { FontAwesome5, Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -46,7 +46,7 @@ export default function Statistics() {
   const { t } = useTranslation();
   const router = useRouter();
   const [selectedMetrics, setSelectedMetrics] = useState(["Temperature", "Humidity", "Dew Point", "VPO"]);
-  const [selectedZone, setSelectedZone] = useState(null);
+  const [selectedZones, setSelectedZones] = useState([]); // Changed to array for multi-select
   const [selectedSensors, setSelectedSensors] = useState([]);
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
@@ -86,12 +86,14 @@ export default function Statistics() {
   }, []);
 
   useEffect(() => {
-    if (selectedZone) {
-      fetchZoneSensors(selectedZone);
+    if (selectedZones.length > 0) {
+      fetchSensorsForAllSelectedZones();
       setSelectedSensors([]); 
       setData({}); 
+    } else {
+      setZoneSensors([]);
     }
-  }, [selectedZone]);
+  }, [selectedZones]);
 
   useEffect(() => {
     if (selectedSensors.length > 0) {
@@ -137,13 +139,9 @@ export default function Statistics() {
         }));
         
         setZones(zoneOptions);
-        
-        if (zoneOptions.length > 0 && !selectedZone) {
-          setSelectedZone(zoneOptions[0].value);
-        }
       } else {
         setZones([]);
-        setSelectedZone(null);
+        setSelectedZones([]);
       }
     } catch (err) {
       console.error("Error fetching zones:", err);
@@ -155,7 +153,8 @@ export default function Statistics() {
     }
   };
 
-  const fetchZoneSensors = async (zoneId) => {
+  // New method to fetch sensors for all selected zones
+  const fetchSensorsForAllSelectedZones = async () => {
     try {
       setLoading(true);
       const token = await AsyncStorage.getItem("token");
@@ -164,26 +163,39 @@ export default function Statistics() {
         setLoading(false);
         return;
       }
-      const response = await axios.get(`${API_ENDPOINTS.DEVICES}?zoneId=${zoneId}`, {
-        headers: getAuthHeaders(token),
-      });
-  
-      console.log("Devices response:", response.data);
-  
-      if (Array.isArray(response.data) && response.data.length > 0) {
-        const sensorOptions = response.data.map(device => ({
-          label: device.name || "Unnamed Sensor",
-          value: device._id
-        }));
-        
-        setZoneSensors(sensorOptions);
-      } else {
-        setZoneSensors([]);
+
+      let allSensors = [];
+
+      // Fetch sensors for each selected zone
+      for (const zoneId of selectedZones) {
+        try {
+          const response = await axios.get(`${API_ENDPOINTS.DEVICES}?zoneId=${zoneId}`, {
+            headers: getAuthHeaders(token),
+          });
+          
+          console.log(`Devices response for zone ${zoneId}:`, response.data);
+          
+          if (Array.isArray(response.data) && response.data.length > 0) {
+            const zoneName = zones.find(z => z.value === zoneId)?.label || "Unknown Zone";
+            
+            const zoneSensorsData = response.data.map(device => ({
+              label: `${zoneName} - ${device.name || "Unnamed Sensor"}`,
+              value: device._id,
+              zoneId: zoneId,
+              zoneName: zoneName
+            }));
+            
+            allSensors = [...allSensors, ...zoneSensorsData];
+          }
+        } catch (err) {
+          console.error(`Error fetching sensors for zone ${zoneId}:`, err);
+        }
       }
+      
+      setZoneSensors(allSensors);
     } catch (err) {
-      console.error("Error fetching zone sensors:", err);
-      console.log("Error details:", err.response ? err.response.data : "No response data");
-      Alert.alert("Error", "Failed to fetch sensors for this zone.");
+      console.error("Error in fetchSensorsForAllSelectedZones:", err);
+      Alert.alert("Error", "Failed to fetch sensors for selected zones.");
       setZoneSensors([]);
     } finally {
       setLoading(false);
@@ -258,7 +270,7 @@ export default function Statistics() {
         </head>
         <body>
           <h1>Sensor Data Report</h1>
-          <p>Zone: ${zones.find(z => z.value === selectedZone)?.label || 'Unknown'}</p>
+          <p>Zones: ${selectedZones.map(zId => zones.find(z => z.value === zId)?.label || 'Unknown').join(', ')}</p>
           <p>Date Range: ${formatDate(startDate)} - ${formatDate(endDate)}</p>
     `;
 
@@ -510,10 +522,24 @@ const prepareChartData = () => {
     return date.toLocaleTimeString();
   };
 
+  const renderZoneItem = (item) => {
+    return (
+      <View style={styles.item}>
+        <Text style={styles.textItem}>{item.label}</Text>
+        {selectedZones.includes(item.value) && (
+          <FontAwesome5 name="check" size={16} color="#007AFF" />
+        )}
+      </View>
+    );
+  };
+
   const renderSensorItem = (item) => {
     return (
       <View style={styles.item}>
         <Text style={styles.textItem}>{item.label}</Text>
+        {selectedSensors.includes(item.value) && (
+          <FontAwesome5 name="check" size={16} color="#007AFF" />
+        )}
       </View>
     );
   };
@@ -530,7 +556,7 @@ const prepareChartData = () => {
           {t("current_date_and_time")}: {formatDate(currentDate)} {formatTime(currentDate)}
         </Text>
 
-        {/* Zone Selection */}
+        {/* Zone Multi-Selection */}
         <View style={styles.dropdownContainer}>
           {loadingZones ? (
             <View style={styles.loadingSection}>
@@ -550,7 +576,7 @@ const prepareChartData = () => {
           ) : (
             <>
               <Text style={styles.dropdownLabel}>{t("Zones")}</Text>
-              <Dropdown
+              <MultiSelect
                 style={styles.dropdown}
                 placeholderStyle={styles.dropdownPlaceholder}
                 selectedTextStyle={styles.dropdownSelectedText}
@@ -560,61 +586,66 @@ const prepareChartData = () => {
                 maxHeight={300}
                 labelField="label"
                 valueField="value"
-                placeholder={t("select_zone")}
+                placeholder={t("select_zones")}
                 searchPlaceholder={t("search...")}
-                value={selectedZone}
-                onChange={(item) => setSelectedZone(item.value)}
+                value={selectedZones}
+                onChange={item => {
+                  setSelectedZones(item);
+                }}
+                renderItem={renderZoneItem}
+                selectedStyle={styles.selectedStyle}
+                renderSelectedItem={(item, unSelect) => (
+                  <TouchableOpacity onPress={() => unSelect && unSelect(item)}>
+                    <View style={styles.selectedItem}>
+                      <Text style={styles.selectedText}>{item.label}</Text>
+                      <FontAwesome5 name="times" size={12} color="#fff" />
+                    </View>
+                  </TouchableOpacity>
+                )}
               />
             </>
           )}
         </View>
 
         {/* Sensor Selection (MultiSelect) */}
-        {selectedZone && (
+        {selectedZones.length > 0 && (
           <View style={styles.dropdownContainer}>
             <Text style={styles.dropdownLabel}>{t("Sensors")}</Text>
             {zoneSensors.length === 0 ? (
               <View style={styles.noDevicesWarning}>
-                <Text style={styles.noDeviceText}>{t("No Sensors In This Zone")}</Text>
+                <Text style={styles.noDeviceText}>{t("No Sensors In Selected Zones")}</Text>
               </View>
             ) : (
               <MultiSelect
-              style={styles.dropdown}
-              placeholderStyle={styles.dropdownPlaceholder}
-              selectedTextStyle={styles.dropdownSelectedText}
-              inputSearchStyle={styles.dropdownInputSearch}
-              data={zoneSensors}
-              labelField="label"
-              valueField="value"
-              placeholder={t("select_sensors")}
-              searchPlaceholder={t("search...")}
-              value={selectedSensors}
-              onChange={item => {
-                setSelectedSensors(item);
-              }}
-              renderItem={(item) => (
-                <View style={styles.item}>
-                  <Text style={styles.textItem}>{item.label}</Text>
-                  {selectedSensors.includes(item.value) && (
-                    <FontAwesome5 name="check" size={16} color="#007AFF" />
-                  )}
-                </View>
-              )}
-              selectedStyle={styles.selectedStyle}
-              renderSelectedItem={(item, unSelect) => (
-                <TouchableOpacity onPress={() => unSelect && unSelect(item)}>
-                  <View style={styles.selectedItem}>
-                    <Text style={styles.selectedText}>{item.label}</Text>
-                    <FontAwesome5 name="times" size={12} color="#fff" />
-                  </View>
-                </TouchableOpacity>
-              )}
-            />
+                style={styles.dropdown}
+                placeholderStyle={styles.dropdownPlaceholder}
+                selectedTextStyle={styles.dropdownSelectedText}
+                inputSearchStyle={styles.dropdownInputSearch}
+                data={zoneSensors}
+                labelField="label"
+                valueField="value"
+                placeholder={t("select_sensors")}
+                searchPlaceholder={t("search...")}
+                value={selectedSensors}
+                onChange={item => {
+                  setSelectedSensors(item);
+                }}
+                renderItem={renderSensorItem}
+                selectedStyle={styles.selectedStyle}
+                renderSelectedItem={(item, unSelect) => (
+                  <TouchableOpacity onPress={() => unSelect && unSelect(item)}>
+                    <View style={styles.selectedItem}>
+                      <Text style={styles.selectedText}>{item.label}</Text>
+                      <FontAwesome5 name="times" size={12} color="#fff" />
+                    </View>
+                  </TouchableOpacity>
+                )}
+              />
             )}
           </View>
         )}
 
-        {selectedZone && zoneSensors.length > 0 && (
+        {selectedZones.length > 0 && zoneSensors.length > 0 && (
           <>
             <View style={styles.dateExportContainer}>
               <Text style={styles.dateRangeText}>{t("Select Date Range")}</Text>

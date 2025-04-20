@@ -160,7 +160,6 @@ export default function HomeScreen() {
       setLoading(true);
       const token = await AsyncStorage.getItem("token");
       
-      // Switch to selected zone
       await axios.post(
         `${API_ENDPOINTS.ZONES}/${zone._id}/switch`,
         {},
@@ -281,9 +280,9 @@ export default function HomeScreen() {
     const now = new Date();
     
     const options = { day: 'numeric', month: 'long', year: 'numeric' };
-    const thaiDate = now.toLocaleDateString('th-TH', options);
+    const engDate = now.toLocaleDateString('en-EN', options);
     
-    setDate(thaiDate);
+    setDate(engDate);
   };
   
   const renderZoneModal = () => (
@@ -468,7 +467,7 @@ export default function HomeScreen() {
                    </View>
                  </View>
                  
-                 <Text style={styles.deviceType}>Temperature sensor</Text>
+                 <Text style={styles.deviceType}>Temperature and Humidity</Text>
                </View>
              </TouchableOpacity>
             ))}
