@@ -12,8 +12,6 @@ import { useRouter } from "expo-router";
 
 const HelpCenterScreen = () => {
   const router = useRouter();
-
-  // แยกส่วนประกอบย่อยออกเป็น components
   const PopularTopicItem = ({ title }) => (
     <TouchableOpacity style={styles.topicItem}>
       <Text style={styles.topicText}>{title}</Text>
@@ -28,7 +26,6 @@ const HelpCenterScreen = () => {
     </View>
   );
 
-  // ใช้ useMemo สำหรับข้อมูลที่ไม่เปลี่ยนแปลงบ่อย
   const popularTopics = useMemo(() => [
     { id: 1, title: "How to connect your sensor" },
     { id: 2, title: "Temperature reading issues" },
@@ -79,7 +76,6 @@ const HelpCenterScreen = () => {
     }
   ], []);
 
-  // ฟังก์ชันสำหรับสร้างไอคอน - ใช้ switch-case ที่ดีขึ้น
   const getIcon = (iconType) => {
     const iconProps = {
       width: "33",
@@ -130,7 +126,6 @@ const HelpCenterScreen = () => {
     }
   };
 
-  // Component สำหรับตัวเลือกการสนับสนุน
   const SupportItem = ({ iconType, title, subtitle, path }) => (
     <TouchableOpacity
       style={styles.supportItem}
@@ -145,7 +140,6 @@ const HelpCenterScreen = () => {
     </TouchableOpacity>
   );
 
-  // ฟังก์ชันสำหรับการนำทางกลับ
   const handleBack = () => {
     if (router.canGoBack()) {
       router.back();

@@ -1,3 +1,4 @@
+// cSpell:words Chiang Rai
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -128,7 +129,6 @@ const WeatherWidget = () => {
 
   return (
     <View style={styles.weatherWidget}>
-      {/* ส่วนด้านซ้าย - ข้อมูลสถานที่และเวลา */}
       <View style={styles.leftContent}>
         <View style={styles.locationContainer}>
           <Feather name="map-pin" size={24} color="#555" />
@@ -141,8 +141,6 @@ const WeatherWidget = () => {
           </Text>
         </View>
       </View>
-
-      {/* ส่วนด้านขวา - อุณหภูมิและสภาพอากาศ */}
       <View style={styles.rightContent}>
         <Text style={styles.temperature}>{Math.round(weather.main.temp)}°C</Text>
         <View style={styles.conditionContainer}>

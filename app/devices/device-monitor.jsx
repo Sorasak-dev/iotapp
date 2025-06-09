@@ -76,7 +76,7 @@ export default function DeviceMonitor() {
 
         const data = await response.json();
         if (!data.data || data.data.length === 0) {
-          setErrorMessage("ไม่มีข้อมูลเซ็นเซอร์ในฐานข้อมูล");
+          setErrorMessage("No sensor data found");
           setSensorData({
             temperature: { labels: [], values: [] },
             humidity: { labels: [], values: [] },
@@ -129,11 +129,11 @@ export default function DeviceMonitor() {
             vpo: { labels: [], values: [] },
           });
           setLatestData(null);
-          setErrorMessage("ไม่มีข้อมูลเซ็นเซอร์ที่ใช้งานได้");
+          setErrorMessage("No active sensors");
         }
       }  catch (error) {
         console.error("Error fetching sensor data:", error);
-        setErrorMessage(error.message || "ไม่สามารถดึงข้อมูลเซ็นเซอร์ได้");
+        setErrorMessage(error.message || "Failed to load sensor data");
         setSensorData({
           temperature: { labels: [], values: [] },
           humidity: { labels: [], values: [] },
@@ -152,7 +152,7 @@ export default function DeviceMonitor() {
 
   const renderChart = (data, color, type) => {
     if (!data || !data.labels.length) {
-      return <Text style={styles.noDataText}>ไม่มีข้อมูล</Text>;
+      return <Text style={styles.noDataText}>No data</Text>;
     }
 
     const chartConfig = {

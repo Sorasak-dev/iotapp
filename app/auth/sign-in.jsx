@@ -1,3 +1,4 @@
+// cSpell:words netinfo
 import React, { useState } from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Text, Keyboard } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';

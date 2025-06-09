@@ -1,3 +1,4 @@
+// cSpell: words selectdevice
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -300,8 +301,7 @@ export default function HomeScreen() {
               <Ionicons name="close" size={24} color="#333" />
             </TouchableOpacity>
           </View>
-          
-          {/* รายการ Zone ทั้งหมด */}
+      
           {zones.length > 0 ? (
             <FlatList
               data={zones}
@@ -398,11 +398,7 @@ export default function HomeScreen() {
             <Ionicons name="notifications-outline" size={24} color="black" />
           </TouchableOpacity>
         </View>
-
-        {/* วันที่ */}
         <Text style={styles.dateText}>{date}</Text>
-
-        {/* Weather Widget - ใช้ Component ใหม่ */}
         <WeatherWidget />
 
         {/* Your Device Section */}

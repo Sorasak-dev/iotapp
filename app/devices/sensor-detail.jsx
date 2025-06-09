@@ -113,16 +113,16 @@ export default function SensorDetail() {
 
       if (!data.data || data.data.length === 0) {
         setIsLoading(false);
-        throw new Error("ไม่มีข้อมูลเซ็นเซอร์");
+        throw new Error("No sensor data");
       }
 
       const basicIssues = data.data.map(entry => {
         const errors = [];
         if (entry.temperature === 0 && entry.humidity === 0) {
-          errors.push({ type: 'ไฟดับ', timestamp: entry.timestamp, details: 'ทุกค่าของเซ็นเซอร์เป็น 0' });
+          errors.push({ type: 'Power outage', timestamp: entry.timestamp, details: 'All sensor values are 0'});
         }
         if (entry.temperature === null || entry.humidity === null) {
-          errors.push({ type: 'เซ็นเซอร์เสีย', timestamp: entry.timestamp, details: 'ข้อมูลเซ็นเซอร์หายไป' });
+          errors.push({ type: 'Sensor malfunction', timestamp: entry.timestamp, details: 'Sensor data lost' });
         }
         return errors;
       }).flat();
@@ -144,23 +144,23 @@ export default function SensorDetail() {
           console.log('Anomaly detection result:', anomalyResult);
 
           if (anomalyResult.success && anomalyResult.data.prediction.is_anomaly) {
-            let anomalyType = 'ความผิดปกติของข้อมูลเซ็นเซอร์';
-            let details = 'ตรวจพบรูปแบบข้อมูลที่ผิดปกติ';
+            let anomalyType = 'Sensor data anomaly';
+            let details = 'Abnormal data pattern detected';
 
             const sensorValues = anomalyResult.data.original_data;
             
             if (sensorValues.temperature > 40) {
-              anomalyType = 'อุณหภูมิสูงผิดปกติ';
-              details = `อุณหภูมิวัดได้ ${sensorValues.temperature}°C ซึ่งสูงกว่าปกติ`;
+              anomalyType = 'High temperature alert';
+              details = `Temperature ${sensorValues.temperature}°C (above normal)`;
             } else if (sensorValues.temperature < 10) {
-              anomalyType = 'อุณหภูมิต่ำผิดปกติ';
-              details = `อุณหภูมิวัดได้ ${sensorValues.temperature}°C ซึ่งต่ำกว่าปกติ`;
+              anomalyType = 'Low temperature alert';
+              details = `Temperature ${sensorValues.temperature}°C (below normal)`;
             } else if (sensorValues.humidity > 90) {
-              anomalyType = 'ความชื้นสูงผิดปกติ';
-              details = `ความชื้นวัดได้ ${sensorValues.humidity}% ซึ่งสูงกว่าปกติ`;
+              anomalyType = 'High humidity alert';
+              details = `Humidity ${sensorValues.humidity}% (above normal)`;
             } else if (sensorValues.humidity < 20) {
-              anomalyType = 'ความชื้นต่ำผิดปกติ';
-              details = `ความชื้นวัดได้ ${sensorValues.humidity}% ซึ่งต่ำกว่าปกติ`;
+              anomalyType = 'Low humidity alert';
+              details = `Humidity ${sensorValues.humidity}% (below normal)`;
             }
 
             const anomalyIssue = {

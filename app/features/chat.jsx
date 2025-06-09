@@ -16,8 +16,6 @@ import { useRouter } from 'expo-router';
 const ChatScreen = () => {
     const router = useRouter();
     const [messageText, setMessageText] = useState('');
-    
-    // ข้อความตัวอย่าง (ในแอพจริงอาจดึงจาก API หรือฐานข้อมูล)
     const messages = [
         {
             id: '1',
@@ -33,7 +31,6 @@ const ChatScreen = () => {
         }
     ];
 
-    // ฟังก์ชันสำหรับการย้อนกลับ
     const handleBack = () => {
         if (router.canGoBack()) {
             router.back();
@@ -42,18 +39,14 @@ const ChatScreen = () => {
         }
     };
 
-    // ฟังก์ชันสำหรับการส่งข้อความ
     const handleSend = () => {
         if (messageText.trim().length === 0) return;
         
-        // ในแอพจริงคุณจะส่งข้อความไปยัง API
         console.log('Sending message:', messageText);
         
-        // เคลียร์ข้อความหลังจากส่ง
         setMessageText('');
     };
 
-    // แสดงข้อความแต่ละรายการ
     const renderMessageItem = ({ item }) => (
         <View style={item.isSupport ? styles.userMessageContainer : styles.supportMessageContainer}>
             <Text style={item.isSupport ? styles.userMessage : styles.supportMessage}>

@@ -1,3 +1,4 @@
+// cSpell:words selectdevice
 import { Stack } from 'expo-router';
 
 export default function DevicesLayout() {

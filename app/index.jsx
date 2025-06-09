@@ -1,3 +1,4 @@
+// cSpell: words IOTAPP
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -25,7 +26,7 @@ export default function Index() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>IOTAPP</Text>
-      <Text style={styles.subtitle}>กำลังโหลด...</Text>
+      <Text style={styles.subtitle}>Loading...</Text>
     </View>
   );
 }

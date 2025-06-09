@@ -127,7 +127,6 @@ export default function SignUp() {
 
   return (
     <View style={styles.container}>
-      {/* ปุ่มย้อนกลับ */}
       <TouchableOpacity 
         style={styles.backButton} 
         onPress={() => {
@@ -184,7 +183,6 @@ export default function SignUp() {
       />
       {confirmPasswordError ? <Text style={styles.errorText}>{confirmPasswordError}</Text> : null}
       
-      {/* ข้อตกลงเงื่อนไข */}
       <View style={styles.termsContainer}>
         <Switch 
           value={isChecked} 
@@ -218,7 +216,6 @@ export default function SignUp() {
       
       <Text style={styles.orText}>or continue with</Text>
       
-      {/* ปุ่มล็อกอินผ่านโซเชียล */}
       <View style={styles.socialButtonsContainer}>
         <TouchableOpacity style={styles.socialButton}>
           <FontAwesome name="google" size={20} color="black" />

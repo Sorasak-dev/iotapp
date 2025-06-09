@@ -77,9 +77,9 @@ export default function ErrorHistory() {
       const data = await response.json();
 
       const formattedHistory = data.history.map((item) => ({
-        type: item.anomaly_type || "ความผิดปกติไม่ทราบสาเหตุ",
+        type: item.anomaly_type || "Unknown anomaly",
         timestamp: item.timestamp,
-        details: item.details || "ตรวจพบความผิดปกติในข้อมูลเซ็นเซอร์",
+        details: item.details || "Anomaly detected in sensor data",
         score: item.anomaly_score ? item.anomaly_score.toFixed(2) : undefined,
         isAnomalyDetection: !!item.anomaly_score,
         resolved: item.resolved || false,
