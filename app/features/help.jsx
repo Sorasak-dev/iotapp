@@ -12,8 +12,10 @@ import { useRouter } from "expo-router";
 
 const HelpCenterScreen = () => {
   const router = useRouter();
-  const PopularTopicItem = ({ title }) => (
-    <TouchableOpacity style={styles.topicItem}>
+
+  // CHANGE 1: แก้ไขให้รับ onPress prop และนำไปใช้กับ TouchableOpacity
+  const PopularTopicItem = ({ title, onPress }) => (
+    <TouchableOpacity style={styles.topicItem} onPress={onPress}>
       <Text style={styles.topicText}>{title}</Text>
       <Text style={styles.chevron}>{">"}</Text>
     </TouchableOpacity>
@@ -27,11 +29,12 @@ const HelpCenterScreen = () => {
   );
 
   const popularTopics = useMemo(() => [
-    { id: 1, title: "How to connect your sensor" },
-    { id: 2, title: "Temperature reading issues" },
-    { id: 3, title: "Humidity calibration guide" },
-    { id: 4, title: "Battery replacement" },
-    { id: 5, title: "Network troubleshooting" },
+    { id: 1, title: "About us", path: "/about-us" }, // path สำหรับนำทาง
+    { id: 2, title: "How to connect your sensor", path: "/connect-sensor" },
+    { id: 3, title: "Notification", path: "/notification" },
+    { id: 4, title: "Manage your zones", path: "/manage-zones" },
+    { id: 5, title: "Statistics", path: "/statistics" },
+    { id: 6, title: "Device Monitor", path: "/device-monitor" },
   ], []);
 
   const faqs = useMemo(() => [
@@ -163,8 +166,13 @@ const HelpCenterScreen = () => {
       <ScrollView style={styles.content}>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Popular Topics</Text>
+          {/* CHANGE 2: ส่ง onPress prop ที่จะเรียก router.push เข้าไป */}
           {popularTopics.map(topic => (
-            <PopularTopicItem key={topic.id} title={topic.title} />
+            <PopularTopicItem 
+              key={topic.id} 
+              title={topic.title} 
+              onPress={() => topic.path && router.push(topic.path)}
+            />
           ))}
         </View>
 
