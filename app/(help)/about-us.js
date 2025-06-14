@@ -1,117 +1,55 @@
 import React from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  StyleSheet,
-  SafeAreaView,
-} from "react-native";
-import { useRouter } from "expo-router";
-
-const AboutUsScreen = () => {
-  const router = useRouter();
-
-  const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      // หากไม่สามารถย้อนกลับได้ ให้ไปที่หน้าหลักหรือหน้า settings
-      router.push('/tabs/settings');
-    }
-  };
-
+import { ScrollView, Text, View } from "react-native";
+import tw from "twrnc";
+import Support from "../components/Support";
+import BackButton from "../components/BackButton";
+export default function About() {
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Text style={styles.backButtonText}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>About Us</Text>
+    <ScrollView
+      style={tw`flex-1 bg-white`}
+      contentContainerStyle={tw`flex-grow p-4`}
+    >
+      <BackButton />
+      <View style={tw`px-6`}>
+        <Text
+          style={tw`text-xl text-gray-600 border-b border-gray-200 mb-4 text-center pb-4`}
+        >
+          About Us
+        </Text>
+        <Text style={tw`text-gray-700 mb-4`}>
+          SmartIoT is an intelligent platform that allows users to monitor and
+          manage environmental sensor data in real-time. We are committed to
+          empowering farmers, and general users with tools to analyze and plan
+          efficiently based on accurate data.
+        </Text>
+
+        <View style={tw`border border-gray-200 p-4 rounded-xl mb-6`}>
+          <Text style={tw`mb-4`}>
+            <Text>Developed by:</Text>{" "}
+            <Text style={tw`text-gray-400`}>
+              Thitaree, Panida, Prathana, Sorasak
+            </Text>
+          </Text>
+          <Text style={tw`mb-4`}>
+            <Text>Contact:</Text>
+            <Text style={tw`text-gray-400`}> support@smartiot.com</Text>
+          </Text>
+          <Text style={tw`mb-4`}>
+            <Text>Location:</Text>
+            <Text style={tw`text-gray-400`}> Chiang Rai, Thailand</Text>
+          </Text>
+          <Text style={tw`mb-4`}>
+            <Text>App Version: </Text>
+            <Text style={tw`text-gray-400`}>
+              {" "}
+              1.2.3 (Last updated: June 2025)
+            </Text>
+          </Text>
+        </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Our Mission</Text>
-          <Text style={styles.paragraph}>
-            Our mission is to provide you with the most accurate and reliable
-            environmental data through our state-of-the-art sensor technology.
-            We believe that by making data accessible and easy to understand, we
-            can empower individuals and communities to make informed decisions
-            about their environment.
-          </Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Who We Are</Text>
-          <Text style={styles.paragraph}>
-            We are a team of passionate engineers, developers, and designers
-            dedicated to building innovative solutions for a smarter and more
-        connected world. Our journey began with a simple idea: to make
-            environmental monitoring effortless and available to everyone.
-          </Text>
-        </View>
-
-         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Our Technology</Text>
-          <Text style={styles.paragraph}>
-            The sensor system is built on years of research and development. It
-            combines high-precision hardware with intelligent software to
-            deliver real-time insights. We are committed to continuous
-            improvement and innovation to ensure our products remain at the
-            forefront of the industry.
-          </Text>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+      {/* Footer ติดล่างสุดของ ScrollView */}
+      <Support />
+    </ScrollView>
   );
-};
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  backButton: {
-    padding: 4,
-  },
-  backButtonText: {
-    fontSize: 24,
-    color: "#000",
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    marginLeft: 16,
-    color: "#000",
-  },
-  content: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 60,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginBottom: 12,
-    color: "#333",
-  },
-  paragraph: {
-    fontSize: 15,
-    color: "#666",
-    lineHeight: 22,
-  },
-});
-
-export default AboutUsScreen;
+}
