@@ -16,7 +16,7 @@ const ManageZonesScreen = () => {
     if (router.canGoBack()) {
       router.back();
     } else {
-      router.push('/help-center');
+      router.push('/features/help');
     }
   };
 
