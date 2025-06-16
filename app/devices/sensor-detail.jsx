@@ -255,12 +255,6 @@ export default function SensorDetail() {
               <Ionicons name="arrow-back" size={24} color="black" />
             </TouchableOpacity>
             <Text style={styles.header}>System Status</Text>
-            <Switch 
-              value={sensorEnabled} 
-              onValueChange={handleToggleSensor}
-              trackColor={{ false: '#ccc', true: '#4CAF50' }} 
-              style={styles.switch}
-            />
           </View>
 
           <View style={styles.sensorContainer}>

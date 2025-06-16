@@ -547,7 +547,10 @@ const prepareChartData = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.container}>
+       <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent} // ✅ เพิ่มตรงนี้
+      >
         <View style={styles.headerContainer}>
           <Text style={styles.headerTitle}>{t("statistics")}</Text>
           <View style={styles.placeholder} />
@@ -650,14 +653,13 @@ const prepareChartData = () => {
           <>
             <View style={styles.dateExportContainer}>
               <Text style={styles.dateRangeText}>{t("Select Date Range")}</Text>
-              <TouchableOpacity 
-                style={styles.exportButton} 
-                onPress={handleExportPress} 
-                disabled={Object.keys(data).length === 0}
-              >
-                <FontAwesome5 name="download" size={16} color="#fff" style={styles.exportIcon} />
-                <Text style={styles.exportText}>{t("export_data")}</Text>
-              </TouchableOpacity>
+<TouchableOpacity 
+  style={styles.exportButton} 
+  onPress={() => router.push('/exportdata')} // ✅ ไปยัง exportdata/index.jsx
+>
+  <FontAwesome5 name="download" size={16} color="#fff" style={styles.exportIcon} />
+  <Text style={styles.exportText}>{t("export_data")}</Text>
+</TouchableOpacity>
             </View>
 
             <View style={styles.datePickerContainer}>
@@ -856,6 +858,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8FAFC",
     padding: 16,
   },
+    scrollContent: {
+  paddingHorizontal: 16, // ✔️ เพิ่ม padding ซ้าย-ขวาให้พอดีกับหน้าจอ
+  paddingBottom: 50, // เพื่อไม่ให้ข้อมูลด้านล่างถูกบัง
+},
   headerContainer: {
     flexDirection: "row",
     alignItems: "center",
