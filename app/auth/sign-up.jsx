@@ -16,6 +16,9 @@ export default function SignUp() {
   const [isChecked, setIsChecked] = useState(false);
   const [termsError, setTermsError] = useState('');
   const router = useRouter();
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
 
   const validateEmail = (value) => {
     if (!value) {
@@ -157,31 +160,55 @@ export default function SignUp() {
       />
       {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
       
-      <Text style={styles.label}>Password</Text>
-      <TextInput 
-        style={[styles.input, passwordError ? styles.inputError : null]} 
-        placeholder="Create a password" 
-        secureTextEntry
-        value={password}
-        onChangeText={(value) => {
-          setPassword(value);
-          validatePassword(value);
-        }} 
-      />
-      {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
-      
-      <Text style={styles.label}>Confirm Password</Text>
-      <TextInput 
-        style={[styles.input, confirmPasswordError ? styles.inputError : null]} 
-        placeholder="Confirm your password" 
-        secureTextEntry
-        value={confirmPassword}
-        onChangeText={(value) => {
-          setConfirmPassword(value);
-          validateConfirmPassword(value);
-        }}
-      />
-      {confirmPasswordError ? <Text style={styles.errorText}>{confirmPasswordError}</Text> : null}
+ <Text style={styles.label}>Create your password</Text>
+<View style={styles.passwordContainer}>
+  <TextInput 
+    style={[styles.input, passwordError ? styles.inputError : null]} 
+    placeholder="Enter your password"
+    secureTextEntry={!showPassword}
+    value={password}
+    onChangeText={(value) => {
+      setPassword(value);
+      validatePassword(value);
+    }}
+  />
+  <TouchableOpacity
+    style={styles.eyeIcon}
+    onPress={() => setShowPassword(!showPassword)}
+  >
+    <MaterialIcons 
+      name={showPassword ? "visibility" : "visibility-off"} 
+      size={22} 
+      color="gray" 
+    />
+  </TouchableOpacity>
+</View>
+{passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
+
+  <Text style={styles.label}>Confirm your password</Text>
+  <View style={styles.passwordContainer}>
+  <TextInput 
+    style={[styles.input, confirmPasswordError ? styles.inputError : null]} 
+    placeholder="Enter your password"
+    secureTextEntry={!showConfirmPassword}
+    value={confirmPassword}
+    onChangeText={(value) => {
+      setConfirmPassword(value);
+      validateConfirmPassword(value);
+    }}
+  />
+  <TouchableOpacity
+    style={styles.eyeIcon}
+    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+  >
+    <MaterialIcons 
+      name={showConfirmPassword ? "visibility" : "visibility-off"} 
+      size={22} 
+      color="gray" 
+    />
+  </TouchableOpacity>
+</View>
+{confirmPasswordError ? <Text style={styles.errorText}>{confirmPasswordError}</Text> : null}
       
       <View style={styles.termsContainer}>
         <Switch 
@@ -358,4 +385,13 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: '#555',
   },
+  passwordContainer: {
+  position: 'relative',
+  justifyContent: 'center',
+},
+eyeIcon: {
+  position: 'absolute',
+  right: 15,
+  top: '35%',
+},
 });
