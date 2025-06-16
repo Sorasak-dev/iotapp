@@ -55,7 +55,7 @@ const generateMockSensorData = (date) => {
     ph = parseFloat((Math.random() * (9 - 4) + 4).toFixed(2));
   }
 
-  let dewPoint = null, vpo = null;
+  let dewPoint = null, vpd = null;
   if (temperature !== null && humidity !== null) {
     const a = 17.27;
     const b = 237.7;
@@ -65,7 +65,7 @@ const generateMockSensorData = (date) => {
 
     const saturationVaporPressure = 0.6108 * Math.exp((17.27 * temperature) / (temperature + 237.3));
     const actualVaporPressure = saturationVaporPressure * (humidity / 100);
-    vpo = parseFloat((saturationVaporPressure - actualVaporPressure).toFixed(2));
+    vpd = parseFloat((saturationVaporPressure - actualVaporPressure).toFixed(2));
   }
 
   return {
@@ -76,7 +76,7 @@ const generateMockSensorData = (date) => {
     ec,
     ph,
     dew_point: dewPoint,
-    vpo: vpo,
+    vpd: vpd,
     timestamp: date.toISOString(),
   };
 };
@@ -149,7 +149,7 @@ const simulateInitialSensorData = async () => {
     sensorData.dew_point = parseFloat(((b * alpha) / (a - alpha)).toFixed(2));
     const saturationVaporPressure = 0.6108 * Math.exp((17.27 * sensorData.temperature) / (sensorData.temperature + 237.3));
     const actualVaporPressure = saturationVaporPressure * (sensorData.humidity / 100);
-    sensorData.vpo = parseFloat((saturationVaporPressure - actualVaporPressure).toFixed(2));
+    sensorData.vpd = parseFloat((saturationVaporPressure - actualVaporPressure).toFixed(2));
 
     try {
       const existingDevice = await Device.findOne({ deviceId: 'AM2315' });
@@ -179,7 +179,7 @@ const simulateSensorData = async () => {
   sensorData.dew_point = parseFloat(((b * alpha) / (a - alpha)).toFixed(2));
   const saturationVaporPressure = 0.6108 * Math.exp((17.27 * sensorData.temperature) / (sensorData.temperature + 237.3));
   const actualVaporPressure = saturationVaporPressure * (sensorData.humidity / 100);
-  sensorData.vpo = parseFloat((saturationVaporPressure - actualVaporPressure).toFixed(2));
+  sensorData.vpd = parseFloat((saturationVaporPressure - actualVaporPressure).toFixed(2));
 
   console.log("Simulated Sensor Data:", sensorData);
 
@@ -324,7 +324,7 @@ app.get('/api/user/sensor-data', authenticateToken, async (req, res, next) => {
               temperature: { sum: 0, count: 0 },
               humidity: { sum: 0, count: 0 },
               dew_point: { sum: 0, count: 0 },
-              vpo: { sum: 0, count: 0 },
+              vpd: { sum: 0, count: 0 },
               timestamp: item.timestamp, // ใช้ timestamp ล่าสุดของวัน
             };
           }
@@ -340,9 +340,9 @@ app.get('/api/user/sensor-data', authenticateToken, async (req, res, next) => {
             dailyData[date].dew_point.sum += item.dew_point;
             dailyData[date].dew_point.count += 1;
           }
-          if (item.vpo !== null) {
-            dailyData[date].vpo.sum += item.vpo;
-            dailyData[date].vpo.count += 1;
+          if (item.vpd !== null) {
+            dailyData[date].vpd.sum += item.vpd;
+            dailyData[date].vpd.count += 1;
           }
           // อัปเดต timestamp ให้เป็นรายการล่าสุดของวัน
           if (new Date(item.timestamp) > new Date(dailyData[date].timestamp)) {
@@ -361,8 +361,8 @@ app.get('/api/user/sensor-data', authenticateToken, async (req, res, next) => {
           dew_point: dailyData[date].dew_point.count > 0 
             ? parseFloat((dailyData[date].dew_point.sum / dailyData[date].dew_point.count).toFixed(2)) 
             : null,
-          vpo: dailyData[date].vpo.count > 0 
-            ? parseFloat((dailyData[date].vpo.sum / dailyData[date].vpo.count).toFixed(2)) 
+          vpd: dailyData[date].vpd.count > 0 
+            ? parseFloat((dailyData[date].vpd.sum / dailyData[date].vpd.count).toFixed(2)) 
             : null,
           timestamp: dailyData[date].timestamp,
         }));

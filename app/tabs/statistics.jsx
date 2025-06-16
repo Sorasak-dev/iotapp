@@ -46,7 +46,7 @@ const SENSOR_COLORS = [
 export default function Statistics() {
   const { t } = useTranslation();
   const router = useRouter();
-  const [selectedMetrics, setSelectedMetrics] = useState(["Temperature", "Humidity", "Dew Point", "VPO"]);
+  const [selectedMetrics, setSelectedMetrics] = useState(["Temperature", "Humidity", "Dew Point", "VPD"]);
   const [selectedZones, setSelectedZones] = useState([]); // Changed to array for multi-select
   const [selectedSensors, setSelectedSensors] = useState([]);
   const [startDate, setStartDate] = useState(new Date());
@@ -286,7 +286,7 @@ export default function Statistics() {
             ${selectedMetrics.includes("Temperature") ? "<th>Temperature (°C)</th>" : ""}
             ${selectedMetrics.includes("Humidity") ? "<th>Humidity (%)</th>" : ""}
             ${selectedMetrics.includes("Dew Point") ? "<th>Dew Point (°C)</th>" : ""}
-            ${selectedMetrics.includes("VPO") ? "<th>VPO</th>" : ""}
+            ${selectedMetrics.includes("VPD") ? "<th>VPD</th>" : ""}
           </tr>
           ${sensorData.data.map(item => `
             <tr>
@@ -294,7 +294,7 @@ export default function Statistics() {
               ${selectedMetrics.includes("Temperature") ? `<td>${item.temperature || "N/A"}</td>` : ""}
               ${selectedMetrics.includes("Humidity") ? `<td>${item.humidity || "N/A"}</td>` : ""}
               ${selectedMetrics.includes("Dew Point") ? `<td>${item.dew_point || "N/A"}</td>` : ""}
-              ${selectedMetrics.includes("VPO") ? `<td>${item.vpo || "N/A"}</td>` : ""}
+              ${selectedMetrics.includes("VPD") ? `<td>${item.vpd || "N/A"}</td>` : ""}
             </tr>
           `).join('')}
         </table>
@@ -471,11 +471,11 @@ const prepareChartData = () => {
       });
     }
 
-    if (selectedMetrics.includes("VPO")) {
+    if (selectedMetrics.includes("VPD")) {
       datasets.push({
         data: allTimestamps.map(timestamp => {
           const item = dataByTimestamp[timestamp];
-          return item ? item.vpo || 0 : 0;
+          return item ? item.vpd || 0 : 0;
         }),
         color: (opacity = 1) => {
           switch(sensorColorIndex) {
@@ -496,7 +496,7 @@ const prepareChartData = () => {
         withDots: true,
         dashArray: [5, 2, 2, 2], 
         sensorName: sensorData.name,
-        metric: "VPO"
+        metric: "VPD"
       });
     }
   });
@@ -722,7 +722,7 @@ const prepareChartData = () => {
             </Modal>
 
             <View style={styles.metricContainer}>
-              {["Temperature", "Humidity", "Dew Point", "VPO"].map((metric) => (
+              {["Temperature", "Humidity", "Dew Point", "VPD"].map((metric) => (
                 <TouchableOpacity
                   key={metric}
                   onPress={() => toggleMetric(metric)}

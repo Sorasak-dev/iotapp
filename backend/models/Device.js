@@ -8,7 +8,7 @@ const sensorDataSchema = new mongoose.Schema({
   ec: { type: Number, default: null },
   ph: { type: Number, default: null },
   dew_point: { type: Number, default: null },
-  vpo: { type: Number, default: null },
+  vpd: { type: Number, default: null },
   timestamp: { type: String, required: true },
 });
 

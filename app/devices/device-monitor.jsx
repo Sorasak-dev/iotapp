@@ -28,7 +28,7 @@ export default function DeviceMonitor() {
   const [showTempChart, setShowTempChart] = useState(false);
   const [showHumidityChart, setShowHumidityChart] = useState(false);
   const [showDewPointChart, setShowDewPointChart] = useState(false);
-  const [showVpoChart, setShowVpoChart] = useState(false);
+  const [showVpdChart, setShowVpdChart] = useState(false);
   const [sensorData, setSensorData] = useState(null);
   const [latestData, setLatestData] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
@@ -81,7 +81,7 @@ export default function DeviceMonitor() {
             temperature: { labels: [], values: [] },
             humidity: { labels: [], values: [] },
             dewPoint: { labels: [], values: [] },
-            vpo: { labels: [], values: [] },
+            vpd: { labels: [], values: [] },
           });
           setLatestData(null);
           return;
@@ -98,7 +98,7 @@ export default function DeviceMonitor() {
             temperature: latestEntry.temperature,
             humidity: latestEntry.humidity,
             dewPoint: latestEntry.dew_point,
-            vpo: latestEntry.vpo,
+            vpd: latestEntry.vpd,
             updatedAt: latestEntry.timestamp,
           });
 
@@ -115,9 +115,9 @@ export default function DeviceMonitor() {
               labels: validData.map(entry => `${new Date(entry.timestamp).getHours()}.00`),
               values: validData.map(entry => entry.dew_point || 0),
             },
-            vpo: {
+            vpd: {
               labels: validData.map(entry => `${new Date(entry.timestamp).getHours()}.00`),
-              values: validData.map(entry => entry.vpo || 0),
+              values: validData.map(entry => entry.vpd || 0),
             },
           });
           setErrorMessage(null);
@@ -126,7 +126,7 @@ export default function DeviceMonitor() {
             temperature: { labels: [], values: [] },
             humidity: { labels: [], values: [] },
             dewPoint: { labels: [], values: [] },
-            vpo: { labels: [], values: [] },
+            vpd: { labels: [], values: [] },
           });
           setLatestData(null);
           setErrorMessage("No active sensors");
@@ -138,7 +138,7 @@ export default function DeviceMonitor() {
           temperature: { labels: [], values: [] },
           humidity: { labels: [], values: [] },
           dewPoint: { labels: [], values: [] },
-          vpo: { labels: [], values: [] },
+          vpd: { labels: [], values: [] },
         });
         setLatestData(null);
       }
@@ -270,18 +270,18 @@ export default function DeviceMonitor() {
               </TouchableOpacity>
               {showDewPointChart && renderChart(sensorData?.dewPoint, '#06b6d4', 'dewPoint')}
 
-              <TouchableOpacity onPress={() => setShowVpoChart(!showVpoChart)}>
+              <TouchableOpacity onPress={() => setShowVpdChart(!showVpdChart)}>
                 <View style={styles.dataCard}>
                   <FontAwesome5 name="wind" size={20} color="#22c55e" />
                   <View style={styles.dataText}>
-                    <Text style={styles.dataTitle}>Vapor Pressure Deficit (VPO)</Text>
-                    <Text style={styles.dataValue}>{latestData.vpo !== null ? `${latestData.vpo} kPa` : 'N/A'}</Text>
+                    <Text style={styles.dataTitle}>Vapor Pressure Deficit (VPD)</Text>
+                    <Text style={styles.dataValue}>{latestData.vpd !== null ? `${latestData.vpd} kPa` : 'N/A'}</Text>
                     <Text style={styles.dataUpdate}>Updated {new Date(latestData.updatedAt).toLocaleString()}</Text>
                   </View>
-                  <MaterialIcons name={showVpoChart ? "keyboard-arrow-up" : "keyboard-arrow-down"} size={24} color="black" />
+                  <MaterialIcons name={showVpdChart ? "keyboard-arrow-up" : "keyboard-arrow-down"} size={24} color="black" />
                 </View>
               </TouchableOpacity>
-              {showVpoChart && renderChart(sensorData?.vpo, '#22c55e', 'vpo')}
+              {showVpdChart && renderChart(sensorData?.vpd, '#22c55e', 'vpd')}
             </>
           ) : (
             <Text style={styles.noDataText}>Loading sensor data...</Text>

@@ -85,7 +85,7 @@ const FullChart = () => {
           case 'temperature': return entry.temperature || 0;
           case 'humidity': return entry.humidity || 0;
           case 'dewPoint': return entry.dew_point || 0;
-          case 'vpo': return entry.vpo || 0;
+          case 'vpd': return entry.vpd || 0;
           default: return 0;
         }
       }),

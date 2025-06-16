@@ -56,3 +56,6 @@ yarn.lock
 
 # VS Code settings
 .vscode/
+
+# API configuration
+app/utils/config/api.js
