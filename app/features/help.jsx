@@ -13,7 +13,6 @@ import { useRouter } from "expo-router";
 const HelpCenterScreen = () => {
   const router = useRouter();
 
-  // CHANGE 1: แก้ไขให้รับ onPress prop และนำไปใช้กับ TouchableOpacity
   const PopularTopicItem = ({ title, onPress }) => (
     <TouchableOpacity style={styles.topicItem} onPress={onPress}>
       <Text style={styles.topicText}>{title}</Text>
@@ -29,7 +28,7 @@ const HelpCenterScreen = () => {
   );
 
   const popularTopics = useMemo(() => [
-    { id: 1, title: "About us", path: "/about-us" }, // path สำหรับนำทาง
+    { id: 1, title: "About us", path: "/about-us" },
     { id: 2, title: "How to connect your sensor", path: "/connect-sensor" },
     { id: 3, title: "Notification", path: "/notification" },
     { id: 4, title: "Manage your zones", path: "/manage-zones" },
@@ -57,25 +56,16 @@ const HelpCenterScreen = () => {
 
   const supportOptions = useMemo(() => [
     {
-      id: 1,
-      iconType: "chat",
-      title: "Chat with Support",
-      subtitle: "Available 24/7",
-      path: "/features/chat"
-    },
-    {
       id: 2,
       iconType: "email",
       title: "Email Support",
-      subtitle: "Response within 24h",
-      path: "email_support"
+      subtitle: "support@smartiot.com",
     },
     {
       id: 3,
       iconType: "phone",
       title: "Call Support",
-      subtitle: "Mon-Fri 9AM-6PM",
-      path: "phone_support"
+      subtitle: "000-000-111",
     }
   ], []);
 
@@ -88,18 +78,6 @@ const HelpCenterScreen = () => {
     };
 
     switch (iconType) {
-      case "chat":
-        return (
-          <Svg {...iconProps}>
-            <Path
-              d="M5.67188 8.42188L16.5 15.3828L28.1016 8.42188M7.21875 25.1685C5.51012 25.1685 4.125 23.7834 4.125 22.0747V9.96875C4.125 8.26012 5.51012 6.875 7.21875 6.875H25.7812C27.4899 6.875 28.875 8.26012 28.875 9.96875V22.0747C28.875 23.7834 27.4899 25.1685 25.7812 25.1685H7.21875Z"
-              stroke="#3B82F6"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
-        );
       case "email":
         return (
           <Svg {...iconProps}>
@@ -129,18 +107,14 @@ const HelpCenterScreen = () => {
     }
   };
 
-  const SupportItem = ({ iconType, title, subtitle, path }) => (
-    <TouchableOpacity
-      style={styles.supportItem}
-      onPress={() => path && router.push(path)}
-    >
+  const SupportItem = ({ iconType, title, subtitle }) => (
+    <View style={styles.supportItem}>
       {getIcon(iconType)}
       <View style={styles.supportContent}>
         <Text style={styles.supportTitle}>{title}</Text>
         <Text style={styles.supportSubtitle}>{subtitle}</Text>
       </View>
-      <Text style={styles.chevron}>{">"}</Text>
-    </TouchableOpacity>
+    </View>
   );
 
   const handleBack = () => {
@@ -166,7 +140,6 @@ const HelpCenterScreen = () => {
       <ScrollView style={styles.content}>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Popular Topics</Text>
-          {/* CHANGE 2: ส่ง onPress prop ที่จะเรียก router.push เข้าไป */}
           {popularTopics.map(topic => (
             <PopularTopicItem 
               key={topic.id} 
@@ -195,7 +168,6 @@ const HelpCenterScreen = () => {
               iconType={option.iconType}
               title={option.title}
               subtitle={option.subtitle}
-              path={option.path}
             />
           ))}
         </View>
@@ -276,10 +248,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 12,
-  },
-  supportIcon: {
-    fontSize: 20,
-    marginRight: 14,
   },
   supportContent: {
     flex: 1,

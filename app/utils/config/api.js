@@ -1,4 +1,4 @@
-const IP_ADDRESS = '192.168.1.6'; 
+const IP_ADDRESS = '192.168.1.184'; 
 const PORT = '3000';
 
 export const API_BASE_URL = `http://${IP_ADDRESS}:${PORT}`;
