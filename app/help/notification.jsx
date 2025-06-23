@@ -33,7 +33,7 @@ const NotificationScreen = () => {
             {/* Title - Centered using absolute positioning */}
             <View style={tw`absolute left-0 right-0 items-center`}>
               <Text style={tw`text-xl font-medium text-gray-600`}>
-                How to Connect Your Sensor
+                Notification
               </Text>
             </View>
             
