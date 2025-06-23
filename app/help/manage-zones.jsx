@@ -6,8 +6,12 @@ import {
   ScrollView,
   StyleSheet,
   SafeAreaView,
+  Dimensions
 } from "react-native";
 import { useRouter } from "expo-router";
+import Support from "../components/Support";
+
+const { width, height } = Dimensions.get('window');
 
 const ManageZonesScreen = () => {
   const router = useRouter();
@@ -16,7 +20,7 @@ const ManageZonesScreen = () => {
     if (router.canGoBack()) {
       router.back();
     } else {
-      router.push('/features/help');
+       router.push('/help/help-center');
     }
   };
 
@@ -101,19 +105,8 @@ const ManageZonesScreen = () => {
           </View>
         </View>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            พบปัญหาในการใช้งาน กรุณาติดต่อฝ่ายสนับสนุนของเราได้ที่
-          </Text>
-          <View style={styles.contactContainer}>
-            <Text style={styles.contactText}>
-              Email: support@smartiot.com
-            </Text>
-            <Text style={styles.contactText}>
-              Tell: 000-000-0000
-            </Text>
-          </View>
-        </View>
+        {/* Support Footer */}
+        <Support />
       </ScrollView>
     </SafeAreaView>
   );

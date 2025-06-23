@@ -40,19 +40,6 @@ export default function HomeScreen() {
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
   
-  const toggleDeviceStatus = (deviceId) => {
-    setDevices((prevDevices) =>
-      prevDevices.map((device) =>
-        device._id === deviceId
-          ? {
-              ...device,
-              status: device.status === "Online" ? "Offline" : "Online",
-            }
-          : device
-      )
-    );
-  };
-  
   const toggleDeleteMode = () => {
     setShowDeleteOption(!showDeleteOption);
   };

@@ -28,12 +28,12 @@ const HelpCenterScreen = () => {
   );
 
   const popularTopics = useMemo(() => [
-    { id: 1, title: "About us", path: "/about-us" },
-    { id: 2, title: "How to connect your sensor", path: "/connect-sensor" },
-    { id: 3, title: "Notification", path: "/notification" },
-    { id: 4, title: "Manage your zones", path: "/manage-zones" },
-    { id: 5, title: "Statistics", path: "/statistics" },
-    { id: 6, title: "Device Monitor", path: "/device-monitor" },
+    { id: 1, title: "About us", path: "/help/about-us" },
+    { id: 2, title: "How to connect your sensor", path: "/help/connect-sensor" },
+    { id: 3, title: "Notification", path: "/help/notification" },
+    { id: 4, title: "Manage your zones", path: "/help/manage-zones" },
+    { id: 5, title: "Statistics", path: "/help/statistics" },
+    { id: 6, title: "Device Monitor", path: "/help/device-monitor" },
   ], []);
 
   const faqs = useMemo(() => [

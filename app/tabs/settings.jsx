@@ -198,7 +198,7 @@ const SettingsScreen = () => {
           ),
           title: t('Help Center'),
           hasArrow: true,
-          onPress: () => router.push("/features/help"),
+          onPress: () => router.push("/help/help-center"),
         },
         {
           icon: (
@@ -274,7 +274,7 @@ const SettingsScreen = () => {
     <SafeAreaView style={styles.container}>
        <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent} // ✅ เพิ่มตรงนี้
+        contentContainerStyle={styles.scrollContent} 
       >
         <View style={styles.header}>
           <Text style={styles.headerTitle}>{t('settings')}</Text>
@@ -314,14 +314,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0, // เพิ่มบรรทัดนี้
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0, 
   },
   scrollView: {
     flex: 1,
     paddingBottom: 50,
   },
 scrollContent: {
-  paddingBottom: 120, // หรือจะลอง 150 ก็ได้ถ้ายังไม่พอ
+  paddingBottom: 120, 
 },
 
 

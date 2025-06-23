@@ -7,18 +7,22 @@ import {
   StyleSheet,
   SafeAreaView,
   Image,
+  Dimensions
 } from "react-native";
 import { useRouter } from "expo-router";
+import Support from "../components/Support";
 
-const DeviceMonitorScreen = () => {
+const { width, height } = Dimensions.get('window');
+
+const StatisticsScreen = () => {
   const router = useRouter();
 
   const handleBack = () => {
     if (router.canGoBack()) {
       router.back();
     } else {
-      console.log("กำลังนำทางไปยัง /features/help");
-      router.push('/features/help');
+      console.log("Navigating to /help-center");
+      router.push('/help/help-center');
     }
   };
 
@@ -28,60 +32,62 @@ const DeviceMonitorScreen = () => {
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Device Monitor</Text>
+        <Text style={styles.headerTitle}>Statistics</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.section}>
           <Text style={styles.paragraph}>
-            This feature allows you to monitor the real-time status of all connected IoT devices within the system, ensuring that every device operates efficiently and minimizing the risk of undetected malfunctions.
+            Clear historical data analysis enables users to thoroughly understand the overall environmental conditions and changes over specific periods.
+          </Text>
+          <Text style={styles.paragraph}>
+            This information supports effective decision-making in managing cultivation areas such as adjusting irrigation, controlling temperature, or planning the use of various resources appropriately.
+          </Text>
+          <Text style={styles.paragraph}>
+            It helps reduce risks and enhances productivity to meet targeted goals more efficiently.
           </Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Check devices</Text>
+          <Text style={styles.sectionTitle}>Daily / Weekly / Monthly View</Text>
           <View style={styles.blueBorder}>
             <Text style={styles.paragraph}>
-              The system clearly displays the status of each device:
+              You can flexibly view environmental data on a daily, weekly, or monthly basis according to your needs. This feature allows you to examine detailed insights for each time period and conveniently compare trends across different time frames. This helps you gain a clear overview of changes and make better-informed decisions.
             </Text>
-            <Text style={styles.listItem}>• ✅ Online: The device is functioning properly and transmitting data as expected.</Text>
-            <Text style={styles.listItem}>• 🔴 Offline: The device is disconnected—this may be due to power failure, signal loss, or internal issues.</Text>
-            <Text style={styles.listItem}>• ⚠️ Error: The device has encountered an issue such as abnormal sensor readings or failure to collect data.</Text>
+            <View style={styles.imageContainer}>
+              <Image
+                source={require('../assets/s1.png')}
+                style={styles.image}
+                resizeMode="contain"
+              />
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Compare data between zones or across time periods</Text>
+          <View style={styles.blueBorder}>
+            <Text style={styles.paragraph}>
+              If the cultivation area is divided into multiple zones—such as Zone A, B, and C—users can compare the data collected from each zone.
+            </Text>
+            <Text style={styles.listItem}>• Zone A may have a stable temperature, while Zone B shows an unusual drop in humidity.</Text>
+            <Text style={styles.listItem}>• Users can also compare temperature data from this week with last week's to observe changes over time.</Text>
             
             <Text style={styles.paragraph}>
-              Users can view the overall system status in a single dashboard without having to check each device individually—saving time and improving system management.
+              This comparison helps users identify which areas need adjustments—such as improving irrigation or ventilation systems—and supports better decision-making for optimizing cultivation strategies in each specific zone.
             </Text>
+            <View style={styles.imageContainer}>
+              <Image
+                source={require('../assets/s2.png')}
+                style={styles.image}
+                resizeMode="contain"
+              />
+            </View>
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Last Connection Timestamp</Text>
-          <View style={styles.blueBorder}>
-            <Text style={styles.paragraph}>
-              If a device has not transmitted data for a certain period, the system will display the date and time of its last connection to help users identify potential issues.
-            </Text>
-            <Text style={styles.paragraph}>
-              For example: "This device has not connected since yesterday at 1:45 PM."
-            </Text>
-            <Text style={styles.paragraph}>
-              This helps determine when the issue started and whether it is ongoing, assisting in faster troubleshooting and resolution.
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            พบปัญหาในการใช้งาน กรุณาติดต่อฝ่ายสนับสนุนของเราได้ที่
-          </Text>
-          <View style={styles.contactContainer}>
-            <Text style={styles.contactText}>
-              Email: support@smartiot.com
-            </Text>
-            <Text style={styles.contactText}>
-              Tell: 000-000-0000
-            </Text>
-          </View>
-        </View>
+        {/* Support Footer */}
+        <Support />
       </ScrollView>
     </SafeAreaView>
   );
@@ -177,4 +183,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default DeviceMonitorScreen;
+export default StatisticsScreen;
