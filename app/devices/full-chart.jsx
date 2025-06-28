@@ -22,7 +22,7 @@ import { API_ENDPOINTS, getAuthHeaders } from '../utils/config/api';
 const screenWidth = 300;
 
 const FullChart = () => {
-  const { data: initialData, color, type } = useLocalSearchParams();
+  const { data: initialData, color, type, deviceId } = useLocalSearchParams();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [sensorData, setSensorData] = useState(null);
@@ -35,12 +35,31 @@ const FullChart = () => {
       try {
         setLoading(true); 
         const token = await AsyncStorage.getItem('token');
-        const response = await fetch(API_ENDPOINTS.SENSOR_DATA, {
-          headers: { 'Authorization': `Bearer ${token}` },
+        
+        // Use new device data API if deviceId is available
+        let apiUrl = API_ENDPOINTS.SENSOR_DATA;
+        if (deviceId) {
+          apiUrl = `${API_ENDPOINTS.DEVICES}/${deviceId}/data?limit=1000`;
+        }
+
+        const response = await fetch(apiUrl, {
+          headers: getAuthHeaders(token),
         });
-        const data = await response.json();
-        if (data.data && data.data.length > 0) {
-          setSensorData(data.data);
+
+        const result = await response.json();
+        let data;
+
+        // Handle both old and new API response formats
+        if (deviceId && result.data) {
+          data = result.data;
+        } else if (result.data && Array.isArray(result.data)) {
+          data = result.data;
+        } else {
+          data = [];
+        }
+
+        if (data && data.length > 0) {
+          setSensorData(data);
         }
       } catch (error) {
         console.error('Error fetching full sensor data:', error);
@@ -49,7 +68,7 @@ const FullChart = () => {
       }
     };
     fetchFullSensorData();
-  }, []);
+  }, [deviceId]);
 
   const reloadDataForDate = () => {
     setLoading(true);

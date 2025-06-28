@@ -17,8 +17,6 @@ const getAuthToken = async () => {
     return token;
   } catch (error) {
     console.error('Error retrieving token:', error);
-    const navigation = useNavigation();
-    navigation.replace('/signin');
     throw error;
   }
 };
@@ -36,6 +34,7 @@ export default function DeviceMonitor() {
   const route = useRoute();
   
   const [deviceName, setDeviceName] = useState("Sensor Device");
+  const [deviceId, setDeviceId] = useState(null);
 
   useEffect(() => {
     if (route.params?.device) {
@@ -49,6 +48,9 @@ export default function DeviceMonitor() {
         
         if (device && device.name) {
           setDeviceName(device.name);
+        }
+        if (device && device._id) {
+          setDeviceId(device._id);
         }
       } catch (error) {
         console.error("Error parsing device data:", error);
@@ -64,8 +66,15 @@ export default function DeviceMonitor() {
     const fetchSensorData = async () => {
       try {
         const token = await getAuthToken();
-        const response = await fetch(API_ENDPOINTS.SENSOR_DATA, {
-          headers: { 'Authorization': `Bearer ${token}` },
+        
+        // Use new device data API if deviceId is available
+        let apiUrl = API_ENDPOINTS.SENSOR_DATA;
+        if (deviceId) {
+          apiUrl = `${API_ENDPOINTS.DEVICES}/${deviceId}/data?limit=20`;
+        }
+
+        const response = await fetch(apiUrl, {
+          headers: getAuthHeaders(token),
         });
 
         if (response.status === 401) {
@@ -74,7 +83,16 @@ export default function DeviceMonitor() {
           throw new Error('Session expired. Please log in again.');
         }
 
-        const data = await response.json();
+        const result = await response.json();
+        let data;
+
+        // Handle both old and new API response formats
+        if (deviceId && result.data) {
+          data = { data: result.data };
+        } else {
+          data = result;
+        }
+
         if (!data.data || data.data.length === 0) {
           setErrorMessage("No sensor data found");
           setSensorData({
@@ -131,7 +149,7 @@ export default function DeviceMonitor() {
           setLatestData(null);
           setErrorMessage("No active sensors");
         }
-      }  catch (error) {
+      } catch (error) {
         console.error("Error fetching sensor data:", error);
         setErrorMessage(error.message || "Failed to load sensor data");
         setSensorData({
@@ -147,8 +165,7 @@ export default function DeviceMonitor() {
     fetchSensorData();
     const interval = setInterval(fetchSensorData, DATA_REFRESH_INTERVAL); 
     return () => clearInterval(interval);
-  }, []);
-
+  }, [deviceId]);
 
   const renderChart = (data, color, type) => {
     if (!data || !data.labels.length) {

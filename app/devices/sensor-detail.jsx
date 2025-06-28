@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, Switch, TouchableOpacity, SafeAreaView, Dimensions, Platform, StatusBar, Alert } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, SafeAreaView, Dimensions, Platform, StatusBar, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -31,10 +31,11 @@ export default function SensorDetail() {
   const parsedLatestData = JSON.parse(latestData || '{}');
   
   const [deviceName, setDeviceName] = useState("Sensor Device");
+  const [deviceId, setDeviceId] = useState(null);
   
   const [currentIssues, setCurrentIssues] = useState([]);
   const [sensorEnabled, setSensorEnabled] = useState(true);
-  const [batteryStatus, setBatteryStatus] = useState('20%');
+  const [batteryStatus, setBatteryStatus] = useState('85%');
   const [deviceHealth, setDeviceHealth] = useState('Normal');
   const [wifiStatus, setWifiStatus] = useState('Connected');
   const [dataStatus, setDataStatus] = useState('Normal');
@@ -54,6 +55,9 @@ export default function SensorDetail() {
         
         if (deviceData && deviceData.name) {
           setDeviceName(deviceData.name);
+        }
+        if (deviceData && deviceData._id) {
+          setDeviceId(deviceData._id);
         }
       } catch (error) {
         console.error("Error parsing device data:", error);
@@ -87,7 +91,7 @@ export default function SensorDetail() {
       }
     } catch (error) {
       console.error('Error checking model status:', error);
-      Alert.alert('Error', 'Failed to check anomaly detection model status');
+      // Don't show alert for model status errors as this is optional functionality
     }
   };
 
@@ -96,10 +100,14 @@ export default function SensorDetail() {
       setIsLoading(true);
       const token = await getAuthToken();
       
-      const response = await fetch(API_ENDPOINTS.SENSOR_DATA, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+      // Use new device data API if deviceId is available
+      let apiUrl = API_ENDPOINTS.SENSOR_DATA;
+      if (deviceId) {
+        apiUrl = `${API_ENDPOINTS.DEVICES}/${deviceId}/data?limit=100`;
+      }
+      
+      const response = await fetch(apiUrl, {
+        headers: getAuthHeaders(token),
       });
 
       if (response.status === 401) {
@@ -108,8 +116,15 @@ export default function SensorDetail() {
         throw new Error('Session expired. Please log in again.');
       }
 
-      const data = await response.json();
-      console.log('Sensor data response:', data);
+      const result = await response.json();
+      let data;
+
+      // Handle both old and new API response formats
+      if (deviceId && result.data) {
+        data = { data: result.data };
+      } else {
+        data = result;
+      }
 
       if (!data.data || data.data.length === 0) {
         setIsLoading(false);
@@ -203,7 +218,7 @@ export default function SensorDetail() {
         setDeviceHealth('Error');
       }
 
-    }catch (error) {
+    } catch (error) {
       console.error("Error fetching sensor data:", error);
       Alert.alert('Error', error.message || 'Failed to fetch sensor data');
     } finally {
@@ -227,6 +242,7 @@ export default function SensorDetail() {
     
     try {
       const token = await getAuthToken();
+      // Note: This endpoint might need to be updated based on your new API structure
       const response = await fetch(`${API_ENDPOINTS.DEVICES}/toggle`, {
         method: 'POST',
         headers: {
@@ -258,7 +274,6 @@ export default function SensorDetail() {
           </View>
 
           <View style={styles.sensorContainer}>
-            {/* แก้ไขส่วนนี้เพื่อใช้ชื่ออุปกรณ์ที่ได้รับจาก Props */}
             <Text style={styles.sensorText}>{deviceName}</Text>
             {modelStatus && (
               <View style={styles.modelStatus}>
@@ -417,9 +432,6 @@ const styles = StyleSheet.create({
     fontSize: 24, 
     fontWeight: 'bold',
     flex: 1,
-    marginLeft: 10,
-  },
-  switch: {
     marginLeft: 10,
   },
   sensorContainer: { 

@@ -7,10 +7,10 @@ import {
   TouchableOpacity,
   Image,
   ScrollView,
-  Dimensions,
   Alert,
   Modal,
-  FlatList
+  FlatList,
+  RefreshControl
 } from "react-native";
 import axios from "axios";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -21,12 +21,19 @@ import { useTranslation } from "react-i18next";
 import { API_ENDPOINTS, API_TIMEOUT, getAuthHeaders } from '../utils/config/api';
 import WeatherWidget from "../components/WeatherWidget"; 
 
-const { width } = Dimensions.get("window");
+// Device images mapping - ใช้รูปจาก assets
+const deviceImages = {
+  "sensor.png": require("../assets/sensor.png"),
+  "sensor2.png": require("../assets/sensor2.png"),
+  "sensor3.png": require("../assets/sensor3.png"),
+  "sensor4.png": require("../assets/sensor4.png"),
+};
 
 export default function HomeScreen() {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [date, setDate] = useState("");
+  const [lastSyncTime, setLastSyncTime] = useState("");
   const router = useRouter();
   const [devices, setDevices] = useState([]);
   const [showDeleteOption, setShowDeleteOption] = useState(false);
@@ -44,10 +51,43 @@ export default function HomeScreen() {
     setShowDeleteOption(!showDeleteOption);
   };
 
+  // Get device image from local assets based on filename
+  const getDeviceImage = (imageFileName) => {
+    return deviceImages[imageFileName] || deviceImages["sensor.png"];
+  };
+
+  // Manual refresh function
+  const handleRefresh = async () => {
+    console.log("🔄 Manual refresh triggered");
+    if (hasSelectedZone && currentZone) {
+      await fetchDevices(currentZone._id);
+    } else {
+      await fetchDevices();
+    }
+  };
+
   useEffect(() => {
     updateDate();
     fetchZones();
   }, []);
+
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    let refreshInterval;
+    
+    if (hasSelectedZone && currentZone) {
+      refreshInterval = setInterval(() => {
+        console.log("🔄 Auto-refreshing devices data...");
+        fetchDevices(currentZone._id);
+      }, 30000); // 30 seconds
+    }
+
+    return () => {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+      }
+    };
+  }, [hasSelectedZone, currentZone]);
   
   const fetchZones = async () => {
     try {
@@ -125,17 +165,62 @@ export default function HomeScreen() {
       console.log("📡 Devices Data:", response.data);
 
       if (Array.isArray(response.data)) {
-        const connectedDevices = response.data.map(device => ({
-          ...device,
-          status: "Online",
-          battery: "85%"  
+        // ✅ ดึงข้อมูลล่าสุดจาก device data API แต่ละตัว
+        const connectedDevices = await Promise.all(response.data.map(async (device) => {
+          try {
+            // ดึงข้อมูลล่าสุดจาก device data API
+            const dataResponse = await axios.get(`${API_ENDPOINTS.DEVICES}/${device._id}/data?limit=1`, {
+              headers: getAuthHeaders(token),
+              timeout: API_TIMEOUT
+            });
+
+            console.log(`📊 Latest data for ${device.name}:`, dataResponse.data);
+
+            let latestReading = null;
+            let dataCount = 0;
+
+            if (dataResponse.data && dataResponse.data.data && dataResponse.data.data.length > 0) {
+              const latest = dataResponse.data.data[0];
+              latestReading = {
+                temperature: latest.temperature,
+                humidity: latest.humidity,
+                timestamp: latest.timestamp
+              };
+              dataCount = dataResponse.data.totalRecords || dataResponse.data.data.length;
+            }
+
+            return {
+              ...device,
+              status: device.status || "Online",
+              battery: device.battery || "85%",
+              dataCount: dataCount,
+              lastReading: latestReading // ✅ ข้อมูลล่าสุดจริงๆ
+            };
+          } catch (deviceError) {
+            console.error(`❌ Error fetching data for device ${device._id}:`, deviceError);
+            // Fallback to original device data if API call fails
+            return {
+              ...device,
+              status: device.status || "Online",
+              battery: device.battery || "85%",
+              dataCount: device.dataCount || 0,
+              lastReading: device.lastReading || null
+            };
+          }
         }));
+        
         setDevices(connectedDevices);
+        setLastSyncTime(new Date().toLocaleTimeString());
       } else {
         setDevices([]);
       }
     } catch (error) {
       console.error("❌ Error fetching devices:", error);
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        await AsyncStorage.removeItem("token");
+        Alert.alert("Session Expired", "Please log in again.");
+        router.replace("/auth/sign-in");
+      }
       setDevices([]);
     }
   };
@@ -241,7 +326,13 @@ export default function HomeScreen() {
       }
     } catch (error) {
       console.error("❌ Error deleting device:", error);
-      Alert.alert("Error", "Failed to remove device");
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        await AsyncStorage.removeItem("token");
+        Alert.alert("Session Expired", "Please log in again.");
+        router.replace("/auth/sign-in");
+      } else {
+        Alert.alert("Error", "Failed to remove device");
+      }
     }
   };
 
@@ -266,10 +357,8 @@ export default function HomeScreen() {
 
   const updateDate = () => {
     const now = new Date();
-    
     const options = { day: 'numeric', month: 'long', year: 'numeric' };
     const engDate = now.toLocaleDateString('en-EN', options);
-    
     setDate(engDate);
   };
   
@@ -369,7 +458,17 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={handleRefresh}
+            colors={['#3B82F6']}
+            tintColor="#3B82F6"
+          />
+        }
+      >
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity 
@@ -381,11 +480,23 @@ export default function HomeScreen() {
             </Text>
             <Ionicons name="chevron-down" size={20} color="#333" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push("/notifications/notification")}>
-            <Ionicons name="notifications-outline" size={24} color="black" />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity onPress={() => router.push("/notifications/notification")}>
+              <Ionicons name="notifications-outline" size={24} color="black" />
+            </TouchableOpacity>
+          </View>
         </View>
-        <Text style={styles.dateText}>{date}</Text>
+        
+        {/* Date and Sync Info */}
+        <View style={styles.syncInfo}>
+          <Text style={styles.dateText}>{date}</Text>
+          {lastSyncTime && (
+            <Text style={styles.syncText}>
+              Last sync: {lastSyncTime}
+            </Text>
+          )}
+        </View>
+        
         <WeatherWidget />
 
         {/* Your Device Section */}
@@ -426,7 +537,8 @@ export default function HomeScreen() {
                  </TouchableOpacity>
                )}
                
-               <Image source={{ uri: device.image }} style={styles.deviceImage} />
+               {/* ใช้รูปจาก assets แทน URL */}
+               <Image source={getDeviceImage(device.image)} style={styles.deviceImage} />
                
                <View style={styles.deviceContent}>
                  <View style={styles.deviceHeader}>
@@ -446,11 +558,23 @@ export default function HomeScreen() {
                    
                    <View style={styles.statusContainer}>
                      <View style={styles.statusDot} />
-                     <Text style={styles.statusText}>Online</Text>
+                     <Text style={styles.statusText}>{device.status}</Text>
                    </View>
                  </View>
                  
-                 <Text style={styles.deviceType}>Temperature and Humidity</Text>
+                 <View style={styles.deviceMetrics}>
+                   <Text style={styles.deviceType}>{device.type}</Text>
+                   {device.lastReading && (
+                     <View style={styles.lastReadingContainer}>
+                       <Text style={styles.lastReadingText}>
+                         Last: {device.lastReading.temperature}°C, {device.lastReading.humidity}%
+                       </Text>
+                       <Text style={styles.dataCountText}>
+                         {device.dataCount} readings
+                       </Text>
+                     </View>
+                   )}
+                 </View>
                </View>
              </TouchableOpacity>
             ))}
@@ -492,6 +616,10 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 10
   },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   zoneSelector: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -502,11 +630,21 @@ const styles = StyleSheet.create({
     marginRight: 4,
     color: "#333"
   },
+  syncInfo: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16
+  },
   dateText: { 
     fontSize: 16, 
     fontWeight: "500",
-    color: "#333", 
-    marginBottom: 16 
+    color: "#333"
+  },
+  syncText: {
+    fontSize: 12,
+    color: "#888",
+    fontStyle: "italic"
   },
   deviceSection: {
     flexDirection: "row",
@@ -619,6 +757,27 @@ const styles = StyleSheet.create({
     color: "#999",
     marginTop: 2,
   },
+  
+  deviceMetrics: {
+    marginTop: 4,
+  },
+  
+  lastReadingContainer: {
+    marginTop: 4,
+  },
+  
+  lastReadingText: {
+    fontSize: 12,
+    color: "#666",
+    fontWeight: "500",
+  },
+  
+  dataCountText: {
+    fontSize: 11,
+    color: "#999",
+    marginTop: 2,
+  },
+  
   deleteButton: {
     position: "absolute",
     top: -13,

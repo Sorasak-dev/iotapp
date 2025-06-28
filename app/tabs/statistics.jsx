@@ -47,7 +47,7 @@ export default function Statistics() {
   const { t } = useTranslation();
   const router = useRouter();
   const [selectedMetrics, setSelectedMetrics] = useState(["Temperature", "Humidity", "Dew Point", "VPD"]);
-  const [selectedZones, setSelectedZones] = useState([]); // Changed to array for multi-select
+  const [selectedZones, setSelectedZones] = useState([]);
   const [selectedSensors, setSelectedSensors] = useState([]);
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
@@ -130,8 +130,16 @@ export default function Statistics() {
   
       console.log("API Response:", response.data); 
   
-      const zonesData = Array.isArray(response.data) ? response.data : 
-                       (response.data && response.data.zones ? response.data.zones : []);
+      // 🔧 แก้ไขให้รองรับโครงสร้างข้อมูลทั้งสองแบบ
+      let zonesData = [];
+      
+      if (response.data && response.data.zones && Array.isArray(response.data.zones)) {
+        // กรณีข้อมูลมาในรูปแบบ { zones: [...], currentZoneId: "..." }
+        zonesData = response.data.zones.filter(zone => !zone.isDefault);
+      } else if (Array.isArray(response.data)) {
+        // กรณีข้อมูลมาในรูปแบบ array โดยตรง
+        zonesData = response.data.filter(zone => !zone.isDefault);
+      }
       
       if (zonesData.length > 0) {
         const zoneOptions = zonesData.map(zone => ({
@@ -140,13 +148,20 @@ export default function Statistics() {
         }));
         
         setZones(zoneOptions);
+        
+        // 🔧 ตั้งค่า default zone หากมี currentZoneId
+        if (response.data.currentZoneId && zonesData.length > 0) {
+          const currentZone = zonesData.find(z => z._id === response.data.currentZoneId);
+          if (currentZone) {
+            setSelectedZones([currentZone._id]);
+          }
+        }
       } else {
         setZones([]);
         setSelectedZones([]);
       }
     } catch (err) {
       console.error("Error fetching zones:", err);
-      console.log("Error details:", err.response ? err.response.data : "No response data");
       Alert.alert("Error", "Failed to fetch zones.");
       setZones([]);
     } finally {
@@ -154,7 +169,7 @@ export default function Statistics() {
     }
   };
 
-  // New method to fetch sensors for all selected zones
+  // Fetch sensors for all selected zones using new API
   const fetchSensorsForAllSelectedZones = async () => {
     try {
       setLoading(true);
@@ -167,7 +182,7 @@ export default function Statistics() {
 
       let allSensors = [];
 
-      // Fetch sensors for each selected zone
+      // Fetch sensors for each selected zone using new device API
       for (const zoneId of selectedZones) {
         try {
           const response = await axios.get(`${API_ENDPOINTS.DEVICES}?zoneId=${zoneId}`, {
@@ -203,6 +218,7 @@ export default function Statistics() {
     }
   };
 
+  // Updated to use new device data API
   const fetchSensorData = async (start, end) => {
     try {
       setLoading(true);
@@ -217,25 +233,30 @@ export default function Statistics() {
       let maxPoints = 0;
 
       for (const sensorId of selectedSensors) {
-        const response = await fetch(
-          `${API_ENDPOINTS.SENSOR_DATA}?sensorId=${sensorId}&startDate=${start}&endDate=${end}`, 
-          {
-            headers: getAuthHeaders(token),
-          }
-        );
+        try {
+          // Use new device data endpoint
+          const response = await axios.get(
+            `${API_ENDPOINTS.DEVICES}/${sensorId}/data?startDate=${start}&endDate=${end}&limit=1000`, 
+            {
+              headers: getAuthHeaders(token),
+              timeout: API_TIMEOUT
+            }
+          );
 
-        const result = await response.json();
-        if (response.ok && result.data && Array.isArray(result.data)) {
-          const sortedData = result.data.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-          const sensorName = zoneSensors.find(s => s.value === sensorId)?.label || sensorId;
-          newData[sensorId] = {
-            name: sensorName,
-            data: sortedData
-          };
-          
-          if (sortedData.length > maxPoints) {
-            maxPoints = sortedData.length;
+          if (response.data && response.data.data && Array.isArray(response.data.data)) {
+            const sortedData = response.data.data.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            const sensorName = zoneSensors.find(s => s.value === sensorId)?.label || sensorId;
+            newData[sensorId] = {
+              name: sensorName,
+              data: sortedData
+            };
+            
+            if (sortedData.length > maxPoints) {
+              maxPoints = sortedData.length;
+            }
           }
+        } catch (deviceError) {
+          console.error(`Error fetching data for device ${sensorId}:`, deviceError);
         }
       }
       
@@ -549,7 +570,7 @@ const prepareChartData = () => {
     <SafeAreaView style={styles.safeArea}>
        <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent} // ✅ เพิ่มตรงนี้
+        contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.headerContainer}>
           <Text style={styles.headerTitle}>{t("statistics")}</Text>
@@ -653,13 +674,13 @@ const prepareChartData = () => {
           <>
             <View style={styles.dateExportContainer}>
               <Text style={styles.dateRangeText}>{t("Select Date Range")}</Text>
-<TouchableOpacity 
-  style={styles.exportButton} 
-  onPress={() => router.push('/exportdata')} // ✅ ไปยัง exportdata/index.jsx
->
-  <FontAwesome5 name="download" size={16} color="#fff" style={styles.exportIcon} />
-  <Text style={styles.exportText}>{t("export_data")}</Text>
-</TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.exportButton} 
+                onPress={handleExportPress}
+              >
+                <FontAwesome5 name="download" size={16} color="#fff" style={styles.exportIcon} />
+                <Text style={styles.exportText}>{t("export_data")}</Text>
+              </TouchableOpacity>
             </View>
 
             <View style={styles.datePickerContainer}>
@@ -858,10 +879,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8FAFC",
     padding: 16,
   },
-    scrollContent: {
-  paddingHorizontal: 16, // ✔️ เพิ่ม padding ซ้าย-ขวาให้พอดีกับหน้าจอ
-  paddingBottom: 50, // เพื่อไม่ให้ข้อมูลด้านล่างถูกบัง
-},
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 50,
+  },
   headerContainer: {
     flexDirection: "row",
     alignItems: "center",

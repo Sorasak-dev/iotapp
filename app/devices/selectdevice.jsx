@@ -7,8 +7,6 @@ import {
   FlatList,
   Image,
   Modal,
-  Alert,
-  Platform,
   ActivityIndicator,
   Animated,
   Easing,
@@ -21,19 +19,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
 import { API_ENDPOINTS, API_TIMEOUT, getAuthHeaders } from '../utils/config/api';
 
+// Device images mapping
 const deviceImages = {
-  "sensor.png": "https://example.com/images/sensor.png",
-  "sensor2.png": "https://example.com/images/sensor2.png",
-  "sensor3.png": "https://example.com/images/sensor3.png",
-  "sensor4.png": "https://example.com/images/sensor4.png",
+  "sensor.png": require("../assets/sensor.png"),
+  "sensor2.png": require("../assets/sensor2.png"),
+  "sensor3.png": require("../assets/sensor3.png"),
+  "sensor4.png": require("../assets/sensor4.png"),
 };
-
-const devices = [
-  { id: "1", name: "E-MIB1", type: "Temperature & Humidity Sensor", image: require("../assets/sensor.png") },
-  { id: "2", name: "E-MIB2", type: "Temperature & Humidity Sensor", image: require("../assets/sensor2.png") },
-  { id: "3", name: "E-MIB3", type: "Temperature & Humidity Sensor", image: require("../assets/sensor3.png") },
-  { id: "4", name: "E-MIB4", type: "Temperature & Humidity Sensor", image: require("../assets/sensor4.png") },
-];
 
 export default function SelectDeviceScreen() {
   const router = useRouter();
@@ -41,6 +33,7 @@ export default function SelectDeviceScreen() {
   const [connected, setConnected] = useState(false);
   const [connectingDevice, setConnectingDevice] = useState(null);
   const [connectedDevices, setConnectedDevices] = useState([]);
+  const [availableDevices, setAvailableDevices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("All"); 
   const params = useLocalSearchParams();
@@ -48,9 +41,69 @@ export default function SelectDeviceScreen() {
   const [spinValue] = useState(new Animated.Value(0));
 
   useEffect(() => {
+    fetchAvailableDevices();
     fetchConnectedDevices();
   }, []);
 
+  // Fetch available device templates from API
+  const fetchAvailableDevices = async () => {
+    try {
+      const response = await axios.get(API_ENDPOINTS.DEVICE_TEMPLATES, {
+        timeout: API_TIMEOUT
+      });
+
+      if (response.data?.templates) {
+        // Map device templates to match UI format
+        const mappedDevices = response.data.templates.map(template => ({
+          id: template.id,
+          name: template.name,
+          type: template.type,
+          image: getDeviceImage(template.id),
+          description: template.description
+        }));
+        setAvailableDevices(mappedDevices);
+      }
+    } catch (error) {
+      console.error("Error fetching available devices:", error);
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Failed to fetch available devices.",
+      });
+      
+      // Fallback to default devices if API fails
+      setAvailableDevices([
+        { id: "1", name: "E-MIB1", type: "Temperature & Humidity Sensor", image: deviceImages["sensor.png"] },
+        { id: "2", name: "E-MIB2", type: "Temperature & Humidity Sensor", image: deviceImages["sensor2.png"] },
+        { id: "3", name: "E-MIB3", type: "Temperature & Humidity Sensor", image: deviceImages["sensor3.png"] },
+        { id: "4", name: "E-MIB4", type: "Temperature & Humidity Sensor", image: deviceImages["sensor4.png"] },
+      ]);
+    }
+  };
+
+  // Get device image based on device ID
+  const getDeviceImage = (deviceId) => {
+    const imageMap = {
+      "1": deviceImages["sensor.png"],
+      "2": deviceImages["sensor2.png"],
+      "3": deviceImages["sensor3.png"],
+      "4": deviceImages["sensor4.png"],
+    };
+    return imageMap[deviceId] || deviceImages["sensor.png"];
+  };
+
+  // Get image filename based on device ID (ส่งไปยัง API)
+  const getImageFileName = (deviceId) => {
+    const imageMap = {
+      "1": "sensor.png",
+      "2": "sensor2.png", 
+      "3": "sensor3.png",
+      "4": "sensor4.png",
+    };
+    return imageMap[deviceId] || "sensor.png";
+  };
+
+  // Fetch connected devices from API
   const fetchConnectedDevices = async () => {
     try {
       setLoading(true);
@@ -130,19 +183,17 @@ export default function SelectDeviceScreen() {
         return;
       }
 
-      const imageFileName = device.image?.default?.split("/").pop() || "";
-      const imageUrl = deviceImages[imageFileName] || "https://example.com/images/default.png";
-
+      // ส่งชื่อไฟล์รูปแทน URL
       const response = await axios.post(
         API_ENDPOINTS.DEVICES,
         {
           name: device.name,
           type: device.type,
-          image: imageUrl, 
+          image: getImageFileName(device.id), // ส่งชื่อไฟล์
           deviceId: device.id,
         },
         { 
-          headers: { Authorization: `Bearer ${token}` },
+          headers: getAuthHeaders(token),
           timeout: API_TIMEOUT 
         }
       );
@@ -161,9 +212,11 @@ export default function SelectDeviceScreen() {
           router.replace("/tabs/home");
         }
       }, 1500);
+
     } catch (error) {
       console.error("❌ Error connecting device:", error);
       setConnecting(false);
+      
       if (error.response?.status === 401 || error.response?.status === 403) {
         await AsyncStorage.removeItem("token");
         Toast.show({
@@ -172,6 +225,14 @@ export default function SelectDeviceScreen() {
           text2: "Please log in again.",
         });
         router.replace("/auth/sign-in");
+      } else if (error.response?.status === 409) {
+        Toast.show({
+          type: "error",
+          text1: "Device Already Connected",
+          text2: "This device is already connected to your account.",
+        });
+        // Update connected devices list
+        setConnectedDevices((prev) => [...prev, device.id]);
       } else {
         Toast.show({
           type: "error",
@@ -188,13 +249,13 @@ export default function SelectDeviceScreen() {
 
   const filteredDevices = () => {
     if (activeTab === "All") {
-      return devices;
+      return availableDevices;
     } else if (activeTab === "Sensors") {
-      return devices.filter((device) => device.type.includes("Sensor"));
+      return availableDevices.filter((device) => device.type.includes("Sensor"));
     } else if (activeTab === "Temperature") {
-      return devices.filter((device) => device.type.includes("Temperature"));
+      return availableDevices.filter((device) => device.type.includes("Temperature"));
     }
-    return devices;
+    return availableDevices;
   };
 
   if (loading) {
@@ -239,7 +300,7 @@ export default function SelectDeviceScreen() {
       </View>
 
       {/* Scanning Text */}
-      <Text style={styles.scanningText}>🔍 Scanning for devices...</Text>
+      <Text style={styles.scanningText}>🔍 Available devices...</Text>
 
       {/* Device List */}
       <FlatList
@@ -257,6 +318,9 @@ export default function SelectDeviceScreen() {
               <View style={styles.deviceInfo}>
                 <Text style={styles.deviceName}>{item.name}</Text>
                 <Text style={styles.deviceType}>{item.type}</Text>
+                {item.description && (
+                  <Text style={styles.deviceDescription}>{item.description}</Text>
+                )}
               </View>
               <TouchableOpacity
                 style={[
@@ -320,7 +384,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FFF",
     paddingHorizontal: 20,
-    paddingTop: Platform.select({ ios: 20, android: 20 }),
+    paddingTop: 20,
   },
   loadingContainer: {
     justifyContent: "center",
@@ -331,9 +395,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#666",
   },
-  header: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
-  headerTitle: { fontSize: 22, fontWeight: "bold", marginLeft: 10 },
-  tabs: { flexDirection: "row", marginBottom: 10 },
+  header: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    marginBottom: 20 
+  },
+  headerTitle: { 
+    fontSize: 22, 
+    fontWeight: "bold", 
+    marginLeft: 10 
+  },
+  tabs: { 
+    flexDirection: "row", 
+    marginBottom: 10 
+  },
   tab: {
     paddingVertical: 8,
     paddingHorizontal: 16,
@@ -341,10 +416,22 @@ const styles = StyleSheet.create({
     backgroundColor: "#EAEAEA",
     marginRight: 10,
   },
-  activeTab: { backgroundColor: "#007AFF" },
-  tabText: { fontSize: 14, color: "#333" },
-  activeTabText: { color: "#FFF", fontWeight: "bold" },
-  scanningText: { fontSize: 14, color: "#666", marginBottom: 10 },
+  activeTab: { 
+    backgroundColor: "#007AFF" 
+  },
+  tabText: { 
+    fontSize: 14, 
+    color: "#333" 
+  },
+  activeTabText: { 
+    color: "#FFF", 
+    fontWeight: "bold" 
+  },
+  scanningText: { 
+    fontSize: 14, 
+    color: "#666", 
+    marginBottom: 10 
+  },
   deviceItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -353,10 +440,30 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 12,
   },
-  deviceImage: { width: 50, height: 50, marginRight: 10 },
-  deviceInfo: { flex: 1 },
-  deviceName: { fontSize: 16, fontWeight: "bold", color: "#333" },
-  deviceType: { fontSize: 12, color: "#666" },
+  deviceImage: { 
+    width: 50, 
+    height: 50, 
+    marginRight: 10 
+  },
+  deviceInfo: { 
+    flex: 1 
+  },
+  deviceName: { 
+    fontSize: 16, 
+    fontWeight: "bold", 
+    color: "#333" 
+  },
+  deviceType: { 
+    fontSize: 12, 
+    color: "#666",
+    marginTop: 2
+  },
+  deviceDescription: {
+    fontSize: 11,
+    color: "#888",
+    marginTop: 2,
+    fontStyle: "italic"
+  },
   connectButton: {
     backgroundColor: "#007AFF",
     paddingVertical: 6,
@@ -377,6 +484,7 @@ const styles = StyleSheet.create({
   connectButtonText: {
     color: "#FFF",
     fontWeight: "bold",
+    fontSize: 12,
   },
   connectedIcon: {
     marginLeft: 4,

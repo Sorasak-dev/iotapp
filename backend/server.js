@@ -8,7 +8,7 @@ require("dotenv").config();
 
 const authenticateToken = require("./middleware/authMiddleware");
 const errorHandler = require("./middleware/errorHandler");
-const { userValidationSchema, userDataValidationSchema } = require("./validation/userValidation");
+const { userValidationSchema } = require("./validation/userValidation");
 const User = require("./models/User");
 const Device = require("./models/Device");
 const anomalyRoutes = require('./routes/anomaly');
@@ -36,8 +36,40 @@ mongoose
     process.exit(1);
   });
 
-// Simulate Sensor Data
-const generateMockSensorData = (date) => {
+// Available Device Templates (4 devices)
+const deviceTemplates = [
+  {
+    id: "1",
+    name: "E-MIB1",
+    type: "Temperature & Humidity Sensor",
+    image: "sensor.png",
+    description: "Advanced environmental monitoring sensor"
+  },
+  {
+    id: "2", 
+    name: "E-MIB2",
+    type: "Temperature & Humidity Sensor",
+    image: "sensor2.png",
+    description: "Precision climate monitoring device"
+  },
+  {
+    id: "3",
+    name: "E-MIB3", 
+    type: "Temperature & Humidity Sensor",
+    image: "sensor3.png",
+    description: "Industrial grade environmental sensor"
+  },
+  {
+    id: "4",
+    name: "E-MIB4",
+    type: "Temperature & Humidity Sensor", 
+    image: "sensor4.png",
+    description: "Smart wireless monitoring sensor"
+  }
+];
+
+// Simulate Sensor Data (without sensorId)
+const generateSensorData = (deviceId) => {
   const shouldBeNull = Math.random() < 0.1;
 
   const temperature = shouldBeNull ? null : parseFloat((Math.random() * (40 - 20) + 20).toFixed(2));
@@ -49,10 +81,12 @@ const generateMockSensorData = (date) => {
     ec = null;
     ph = null;
   } else {
-    humidity = parseFloat((Math.random() * (80 - 30) + 30).toFixed(2));
-    co2 = parseInt(Math.random() * (1000 - 200) + 200, 10);
-    ec = parseFloat((Math.random() * (2.0 - 0.5) + 0.5).toFixed(2));
-    ph = parseFloat((Math.random() * (9 - 4) + 4).toFixed(2));
+    // Add some variation based on deviceId for different readings
+    const deviceVariation = parseInt(deviceId) || 1;
+    humidity = parseFloat((Math.random() * (80 - 30) + 30 + deviceVariation).toFixed(2));
+    co2 = parseInt(Math.random() * (1000 - 200) + 200 + (deviceVariation * 50), 10);
+    ec = parseFloat((Math.random() * (2.0 - 0.5) + 0.5 + (deviceVariation * 0.1)).toFixed(2));
+    ph = parseFloat((Math.random() * (9 - 4) + 4 + (deviceVariation * 0.2)).toFixed(2));
   }
 
   let dewPoint = null, vpd = null;
@@ -69,7 +103,6 @@ const generateMockSensorData = (date) => {
   }
 
   return {
-    sensorId: 'AM2315',
     temperature,
     humidity,
     co2,
@@ -77,10 +110,11 @@ const generateMockSensorData = (date) => {
     ph,
     dew_point: dewPoint,
     vpd: vpd,
-    timestamp: date.toISOString(),
+    timestamp: new Date().toISOString(),
   };
 };
 
+// Create test user and initial setup
 const createTestUser = async () => {
   const testEmail = "test@example.com";
   let user = await User.findOne({ email: testEmail });
@@ -95,117 +129,65 @@ const createTestUser = async () => {
   return user._id;
 };
 
-const simulateInitialSensorData = async () => {
-  const userId = await createTestUser();
-
-  const device = await Device.findOne({ deviceId: 'AM2315' });
-  if (!device) {
-    const newDevice = new Device({
-      userId: userId,
-      name: 'Sensor IBS-TH3',
-      type: 'sensor',
-      image: 'https://example.com/sensor-image.png',
-      status: 'Connected',
-      deviceId: 'AM2315',
-      data: [],
-    });
-    await newDevice.save();
-    console.log("✅ Created new device: AM2315");
+// Simulate sensor data for all connected devices every hour
+const simulateSensorDataForAllDevices = async () => {
+  try {
+    const connectedDevices = await Device.find({ status: 'Connected' });
+    
+    for (const device of connectedDevices) {
+      const sensorData = generateSensorData(device.deviceId);
+      
+      // Add new data to device
+      device.data.push(sensorData);
+      
+      // Keep only last 1000 readings to prevent database bloat
+      if (device.data.length > 1000) {
+        device.data = device.data.slice(-1000);
+      }
+      
+      await device.save();
+      console.log(`📊 Generated sensor data for device ${device.name} (${device.deviceId})`);
+    }
+  } catch (error) {
+    console.error("❌ Error generating sensor data:", error);
   }
+};
 
+// Initialize historical data for new devices
+const initializeHistoricalData = async (device) => {
   const now = new Date();
-  const daysBack = 60;
-  const intervalHours = 4;
+  const daysBack = 30; // 30 days of historical data
+  const intervalHours = 4; // Data every 4 hours
   const totalRecords = daysBack * (24 / intervalHours);
 
   for (let i = 0; i < totalRecords; i++) {
     const pastDate = new Date(now.getTime() - i * intervalHours * 60 * 60 * 1000);
-    const sensorData = generateMockSensorData(pastDate);
-    try {
-      const existingDevice = await Device.findOne({ deviceId: 'AM2315' });
-      existingDevice.data.push(sensorData);
-      await existingDevice.save();
-      console.log(`Added historical data for ${pastDate}`);
-    } catch (err) {
-      console.error("Error saving initial sensor data:", err);
-    }
-  }
-
-  for (let i = 0; i < 5; i++) {
-    const recentDate = new Date(now.getTime() - i * 60 * 60 * 1000);
     const sensorData = {
-      sensorId: 'AM2315',
-      temperature: parseFloat((Math.random() * (40 - 20) + 20).toFixed(2)),
-      humidity: parseFloat((Math.random() * (80 - 30) + 30).toFixed(2)),
-      co2: parseInt(Math.random() * (1000 - 200) + 200, 10),
-      ec: parseFloat((Math.random() * (2.0 - 0.5) + 0.5).toFixed(2)),
-      ph: parseFloat((Math.random() * (9 - 4) + 4).toFixed(2)),
-      timestamp: recentDate.toISOString(),
+      ...generateSensorData(device.deviceId),
+      timestamp: pastDate.toISOString()
     };
-
-    const a = 17.27;
-    const b = 237.7;
-    const alpha = ((a * sensorData.temperature) / (b + sensorData.temperature)) + Math.log(sensorData.humidity / 100);
-    sensorData.dew_point = parseFloat(((b * alpha) / (a - alpha)).toFixed(2));
-    const saturationVaporPressure = 0.6108 * Math.exp((17.27 * sensorData.temperature) / (sensorData.temperature + 237.3));
-    const actualVaporPressure = saturationVaporPressure * (sensorData.humidity / 100);
-    sensorData.vpd = parseFloat((saturationVaporPressure - actualVaporPressure).toFixed(2));
-
-    try {
-      const existingDevice = await Device.findOne({ deviceId: 'AM2315' });
-      existingDevice.data.push(sensorData);
-      await existingDevice.save();
-      console.log(`Added recent data for ${recentDate}`);
-    } catch (err) {
-      console.error("Error saving recent sensor data:", err);
-    }
+    
+    device.data.push(sensorData);
   }
+
+  await device.save();
+  console.log(`✅ Initialized ${totalRecords} historical records for device ${device.name}`);
 };
 
-const simulateSensorData = async () => {
-  const sensorData = {
-    sensorId: 'AM2315',
-    temperature: parseFloat((Math.random() * (40 - 20) + 20).toFixed(2)),
-    humidity: parseFloat((Math.random() * (80 - 30) + 30).toFixed(2)),
-    co2: parseInt(Math.random() * (1000 - 200) + 200, 10),
-    ec: parseFloat((Math.random() * (2.0 - 0.5) + 0.5).toFixed(2)),
-    ph: parseFloat((Math.random() * (9 - 4) + 4).toFixed(2)),
-    timestamp: new Date().toISOString(),
-  };
-
-  const a = 17.27;
-  const b = 237.7;
-  const alpha = ((a * sensorData.temperature) / (b + sensorData.temperature)) + Math.log(sensorData.humidity / 100);
-  sensorData.dew_point = parseFloat(((b * alpha) / (a - alpha)).toFixed(2));
-  const saturationVaporPressure = 0.6108 * Math.exp((17.27 * sensorData.temperature) / (sensorData.temperature + 237.3));
-  const actualVaporPressure = saturationVaporPressure * (sensorData.humidity / 100);
-  sensorData.vpd = parseFloat((saturationVaporPressure - actualVaporPressure).toFixed(2));
-
-  console.log("Simulated Sensor Data:", sensorData);
-
-  try {
-    const device = await Device.findOne({ deviceId: 'AM2315' });
-    if (device) {
-      device.data.push(sensorData);
-      await device.save();
-      console.log("Sensor data saved to database:", sensorData);
-    } else {
-      console.log("Device not found for deviceId:", sensorData.sensorId);
-    }
-  } catch (err) {
-    console.error("Error saving sensor data:", err);
-  }
-};
-
-// Run the simulation every 1 hr
-simulateInitialSensorData().then(() => {
-  simulateSensorData();
-  setInterval(simulateSensorData, 3600000);
-});
+// Start sensor data simulation every 1 hour
+setInterval(simulateSensorDataForAllDevices, 3600000); // 1 hour = 3600000ms
 
 // Routes
 app.get('/', (req, res) => {
   res.send('Hello! Backend Server is running. 🚀');
+});
+
+// API: Get available device templates
+app.get("/api/device-templates", (req, res) => {
+  res.status(200).json({ 
+    message: "Available device templates",
+    templates: deviceTemplates 
+  });
 });
 
 // ✅ เชื่อม API อุปกรณ์เข้า Server
@@ -242,11 +224,11 @@ app.post("/api/signin", async (req, res, next) => {
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    console.log("Stored hashed password:", user.password); // Debug: ดูรหัสผ่านที่เก็บใน DB
-    console.log("Input password:", password); // Debug: ดูรหัสผ่านที่ผู้ใช้กรอก
+    console.log("Stored hashed password:", user.password);
+    console.log("Input password:", password);
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
-    console.log("Password comparison result:", isPasswordValid); // Debug: ผลการเปรียบเทียบ
+    console.log("Password comparison result:", isPasswordValid);
 
     if (!isPasswordValid) return res.status(401).json({ message: "Invalid password" });
 
@@ -258,48 +240,19 @@ app.post("/api/signin", async (req, res, next) => {
   }
 });
 
-// Add Sensor Data
-app.post('/api/user/sensor-data', authenticateToken, async (req, res, next) => {
-  const { error } = userDataValidationSchema.validate(req.body);
-  if (error) {
-    return res.status(400).json({ message: error.details[0].message });
-  }
-
-  try {
-    const device = await Device.findOne({ deviceId: 'AM2315' });
-    if (!device) {
-      return res.status(404).json({ message: 'Device not found' });
-    }
-
-    const newData = req.body.newData;
-
-    const isDuplicate = device.data.some(
-      (item) => item.sensorId === newData.sensorId && item.timestamp === newData.timestamp
-    );
-
-    if (isDuplicate) {
-      return res.status(409).json({ message: 'Duplicate data entry detected' });
-    }
-
-    device.data.push(newData);
-    await device.save();
-
-    res.status(200).json({ message: 'Sensor data added successfully!', data: device.data });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// Get Sensor Data
+// Legacy API: Get sensor data (for backward compatibility)
 app.get('/api/user/sensor-data', authenticateToken, async (req, res, next) => {
   try {
-    const device = await Device.findOne({ deviceId: 'AM2315' });
+    const userId = req.user.id;
+    const { startDate, endDate } = req.query;
+
+    // Get user's first device for backward compatibility
+    const device = await Device.findOne({ userId });
     if (!device) {
-      return res.status(404).json({ message: 'Device not found' });
+      return res.status(404).json({ message: 'No devices found' });
     }
 
     let filteredData = device.data;
-    const { startDate, endDate } = req.query;
 
     if (startDate && endDate) {
       filteredData = device.data.filter(item => {
@@ -312,10 +265,9 @@ app.get('/api/user/sensor-data', authenticateToken, async (req, res, next) => {
       const daysDiff = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
 
       if (daysDiff <= 2) {
-        console.log("Sending raw data for", daysDiff, "days:", filteredData);
         res.status(200).json({ data: filteredData });
       } else {
-        // คำนวณค่าเฉลี่ยวันละ 1 รายการ
+        // Calculate daily averages
         const dailyData = {};
         filteredData.forEach(item => {
           const date = new Date(item.timestamp).toISOString().split("T")[0];
@@ -325,7 +277,7 @@ app.get('/api/user/sensor-data', authenticateToken, async (req, res, next) => {
               humidity: { sum: 0, count: 0 },
               dew_point: { sum: 0, count: 0 },
               vpd: { sum: 0, count: 0 },
-              timestamp: item.timestamp, // ใช้ timestamp ล่าสุดของวัน
+              timestamp: item.timestamp,
             };
           }
           if (item.temperature !== null) {
@@ -344,14 +296,12 @@ app.get('/api/user/sensor-data', authenticateToken, async (req, res, next) => {
             dailyData[date].vpd.sum += item.vpd;
             dailyData[date].vpd.count += 1;
           }
-          // อัปเดต timestamp ให้เป็นรายการล่าสุดของวัน
           if (new Date(item.timestamp) > new Date(dailyData[date].timestamp)) {
             dailyData[date].timestamp = item.timestamp;
           }
         });
 
         const averagedData = Object.keys(dailyData).map(date => ({
-          sensorId: 'AM2315',
           temperature: dailyData[date].temperature.count > 0 
             ? parseFloat((dailyData[date].temperature.sum / dailyData[date].temperature.count).toFixed(2)) 
             : null,
@@ -367,11 +317,9 @@ app.get('/api/user/sensor-data', authenticateToken, async (req, res, next) => {
           timestamp: dailyData[date].timestamp,
         }));
 
-        console.log("Sending averaged data for", daysDiff, "days:", averagedData);
         res.status(200).json({ data: averagedData.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)) });
       }
     } else {
-      console.log("Sending all data:", filteredData);
       res.status(200).json({ data: filteredData });
     }
   } catch (err) {
@@ -382,5 +330,23 @@ app.get('/api/user/sensor-data', authenticateToken, async (req, res, next) => {
 // Global Error Handling Middleware
 app.use(errorHandler);
 
+// Initialize and start the server
+const initializeServer = async () => {
+  try {
+    // Create test user and start sensor simulation
+    await createTestUser();
+    
+    // Start sensor data generation immediately
+    setTimeout(simulateSensorDataForAllDevices, 5000); // Start after 5 seconds
+    
+    console.log("✅ Sensor data simulation started");
+  } catch (error) {
+    console.error("❌ Server initialization error:", error);
+  }
+};
+
 // Start the server
-app.listen(PORT, () => console.log(`✅ Server running on http://localhost:${PORT}`));
+app.listen(PORT, () => {
+  console.log(`✅ Server running on http://localhost:${PORT}`);
+  initializeServer();
+});
