@@ -1,4 +1,3 @@
-// cSpell: words ellipsize
 import React, { useState } from "react";
 import {
   View,

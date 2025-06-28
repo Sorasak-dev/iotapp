@@ -1,4 +1,3 @@
-// cSpell: words selectdevice
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -21,7 +20,7 @@ import { useTranslation } from "react-i18next";
 import { API_ENDPOINTS, API_TIMEOUT, getAuthHeaders } from '../utils/config/api';
 import WeatherWidget from "../components/WeatherWidget"; 
 
-// Device images mapping - ใช้รูปจาก assets
+// Device images mapping 
 const deviceImages = {
   "sensor.png": require("../assets/sensor.png"),
   "sensor2.png": require("../assets/sensor2.png"),
@@ -66,6 +65,28 @@ export default function HomeScreen() {
     }
   };
 
+  // Handle adding a new device
+  const handleAddDevice = () => {
+    if (zones.length === 0) {
+      Alert.alert(
+        "Zone Required",
+        "Please create a zone first before adding IoT devices. Zones help organize and manage your devices efficiently.",
+        [
+          {
+            text: "Cancel",
+            style: "cancel"
+          },
+          {
+            text: "Create Zone",
+            onPress: () => router.push("/features/add-zone")
+          }
+        ]
+      );
+    } else {
+      router.push("/devices/selectdevice");
+    }
+  };
+
   useEffect(() => {
     updateDate();
     fetchZones();
@@ -89,6 +110,13 @@ export default function HomeScreen() {
     };
   }, [hasSelectedZone, currentZone]);
   
+  // ✅ เพิ่ม console.log เพื่อ debug
+  console.log("🔍 Debug info:", {
+    zonesLength: zones.length,
+    hasSelectedZone: hasSelectedZone,
+    currentZone: currentZone?.name || "null"
+  });
+
   const fetchZones = async () => {
     try {
       setLoading(true);
@@ -165,10 +193,8 @@ export default function HomeScreen() {
       console.log("📡 Devices Data:", response.data);
 
       if (Array.isArray(response.data)) {
-        // ✅ ดึงข้อมูลล่าสุดจาก device data API แต่ละตัว
         const connectedDevices = await Promise.all(response.data.map(async (device) => {
           try {
-            // ดึงข้อมูลล่าสุดจาก device data API
             const dataResponse = await axios.get(`${API_ENDPOINTS.DEVICES}/${device._id}/data?limit=1`, {
               headers: getAuthHeaders(token),
               timeout: API_TIMEOUT
@@ -194,7 +220,7 @@ export default function HomeScreen() {
               status: device.status || "Online",
               battery: device.battery || "85%",
               dataCount: dataCount,
-              lastReading: latestReading // ✅ ข้อมูลล่าสุดจริงๆ
+              lastReading: latestReading 
             };
           } catch (deviceError) {
             console.error(`❌ Error fetching data for device ${device._id}:`, deviceError);
@@ -507,6 +533,22 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Alert if no zones are available */}
+        {zones.length === 0 && (
+          <View style={styles.noZoneAlert}>
+            <Ionicons name="information-circle-outline" size={24} color="#FF9500" />
+            <Text style={styles.noZoneAlertText}>
+              Create a zone first to organize your IoT devices efficiently
+            </Text>
+            <TouchableOpacity 
+              style={styles.createZoneButton}
+              onPress={() => router.push("/features/add-zone")}
+            >
+              <Text style={styles.createZoneButtonText}>Create Zone</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Device List */}
         {devices.length === 0 ? (
           <View style={styles.noDevice}>
@@ -537,7 +579,6 @@ export default function HomeScreen() {
                  </TouchableOpacity>
                )}
                
-               {/* ใช้รูปจาก assets แทน URL */}
                <Image source={getDeviceImage(device.image)} style={styles.deviceImage} />
                
                <View style={styles.deviceContent}>
@@ -581,10 +622,10 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Add Device Button */}
+        {/* Add Device button */}
         <TouchableOpacity
           style={styles.addDeviceButton}
-          onPress={() => router.push("/devices/selectdevice")}
+          onPress={handleAddDevice}
         >
           <Ionicons name="add" size={22} color="white" />
           <Text style={styles.addDeviceText}>{t("Add device")}</Text>
@@ -656,6 +697,34 @@ const styles = StyleSheet.create({
     fontSize: 18, 
     fontWeight: "600", 
     color: "#333" 
+  },
+  noZoneAlert: {
+    backgroundColor: "#FFF4E6",
+    borderLeftWidth: 4,
+    borderLeftColor: "#FF9500",
+    padding: 16,
+    marginBottom: 16,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  noZoneAlertText: {
+    flex: 1,
+    fontSize: 14,
+    color: "#D97706",
+    marginLeft: 12,
+    marginRight: 12,
+  },
+  createZoneButton: {
+    backgroundColor: "#FF9500",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  createZoneButtonText: {
+    color: "white",
+    fontSize: 12,
+    fontWeight: "600",
   },
   deviceList: {
     marginBottom: 20,
@@ -816,6 +885,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#777',
   },
+  // ✅ ลบ disabledButton style ออก
   addDeviceButton: {
     flexDirection: "row",
     backgroundColor: "#3B82F6",

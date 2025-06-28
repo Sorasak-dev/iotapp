@@ -1,4 +1,4 @@
-// D:\Y4\iotapp\backend\middleware\authMiddleware.js
+// File: backend/middleware/authMiddleware.js
 
 const jwt = require("jsonwebtoken");
 require("dotenv").config();

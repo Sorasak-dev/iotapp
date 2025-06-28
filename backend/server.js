@@ -190,7 +190,7 @@ app.get("/api/device-templates", (req, res) => {
   });
 });
 
-// ✅ เชื่อม API อุปกรณ์เข้า Server
+// API: Get all devices for a user
 app.use("/api/devices", require("./routes/deviceRoutes"));
 app.use("/api/zones", require("./routes/zoneRoutes"));
 

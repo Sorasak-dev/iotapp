@@ -1,4 +1,3 @@
-// cSpell: words datetimepicker
 import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
@@ -130,14 +129,11 @@ export default function Statistics() {
   
       console.log("API Response:", response.data); 
   
-      // 🔧 แก้ไขให้รองรับโครงสร้างข้อมูลทั้งสองแบบ
       let zonesData = [];
       
       if (response.data && response.data.zones && Array.isArray(response.data.zones)) {
-        // กรณีข้อมูลมาในรูปแบบ { zones: [...], currentZoneId: "..." }
         zonesData = response.data.zones.filter(zone => !zone.isDefault);
       } else if (Array.isArray(response.data)) {
-        // กรณีข้อมูลมาในรูปแบบ array โดยตรง
         zonesData = response.data.filter(zone => !zone.isDefault);
       }
       
@@ -149,7 +145,6 @@ export default function Statistics() {
         
         setZones(zoneOptions);
         
-        // 🔧 ตั้งค่า default zone หากมี currentZoneId
         if (response.data.currentZoneId && zonesData.length > 0) {
           const currentZone = zonesData.find(z => z._id === response.data.currentZoneId);
           if (currentZone) {

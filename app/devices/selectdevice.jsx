@@ -92,7 +92,7 @@ export default function SelectDeviceScreen() {
     return imageMap[deviceId] || deviceImages["sensor.png"];
   };
 
-  // Get image filename based on device ID (ส่งไปยัง API)
+  // Get image filename based on device ID 
   const getImageFileName = (deviceId) => {
     const imageMap = {
       "1": "sensor.png",
@@ -183,13 +183,13 @@ export default function SelectDeviceScreen() {
         return;
       }
 
-      // ส่งชื่อไฟล์รูปแทน URL
+      // Check if device is already connected
       const response = await axios.post(
         API_ENDPOINTS.DEVICES,
         {
           name: device.name,
           type: device.type,
-          image: getImageFileName(device.id), // ส่งชื่อไฟล์
+          image: getImageFileName(device.id), 
           deviceId: device.id,
         },
         { 
