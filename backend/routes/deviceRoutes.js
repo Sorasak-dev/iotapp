@@ -11,28 +11,28 @@ const deviceTemplates = [
     id: "1",
     name: "E-MIB1",
     type: "Temperature & Humidity Sensor",
-    image: "https://example.com/images/sensor.png",
+    image: "sensor.png",
     description: "Advanced environmental monitoring sensor"
   },
   {
     id: "2", 
     name: "E-MIB2",
     type: "Temperature & Humidity Sensor",
-    image: "https://example.com/images/sensor2.png",
+    image: "sensor2.png",
     description: "Precision climate monitoring device"
   },
   {
     id: "3",
     name: "E-MIB3", 
     type: "Temperature & Humidity Sensor",
-    image: "https://example.com/images/sensor3.png",
+    image: "sensor3.png",
     description: "Industrial grade environmental sensor"
   },
   {
     id: "4",
     name: "E-MIB4",
     type: "Temperature & Humidity Sensor", 
-    image: "https://example.com/images/sensor4.png",
+    image: "sensor4.png",
     description: "Smart wireless monitoring sensor"
   }
 ];
