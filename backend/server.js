@@ -4,6 +4,8 @@ const bcrypt = require("bcrypt");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const jwt = require("jsonwebtoken");
+const { spawn } = require('child_process');
+const path = require('path');
 require("dotenv").config();
 
 const authenticateToken = require("./middleware/authMiddleware");
@@ -11,8 +13,9 @@ const errorHandler = require("./middleware/errorHandler");
 const { userValidationSchema } = require("./validation/userValidation");
 const User = require("./models/User");
 const Device = require("./models/Device");
-const anomalyRoutes = require('./routes/anomaly');
+const Anomaly = require("./models/Anomaly");  
 const userRoutes = require('./routes/userRoutes'); 
+const anomalyDetectionRoutes = require('./routes/anomalyRoutes');  
 
 const app = express();
 
@@ -24,8 +27,8 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
-app.use(anomalyRoutes);
-app.use("/api/users", userRoutes); 
+app.use("/api/users", userRoutes);
+app.use("/api", anomalyDetectionRoutes);  
 
 // Connect to MongoDB
 mongoose
@@ -68,7 +71,7 @@ const deviceTemplates = [
   }
 ];
 
-// Simulate Sensor Data (without sensorId)
+// Simulate Sensor Data (เพิ่ม voltage และ battery_level)
 const generateSensorData = (deviceId) => {
   const shouldBeNull = Math.random() < 0.1;
 
@@ -102,6 +105,10 @@ const generateSensorData = (deviceId) => {
     vpd = parseFloat((saturationVaporPressure - actualVaporPressure).toFixed(2));
   }
 
+  // เพิ่ม voltage และ battery_level สำหรับ anomaly detection
+  const voltage = shouldBeNull ? null : parseFloat((Math.random() * (3.4 - 3.2) + 3.2).toFixed(2));
+  const battery_level = shouldBeNull ? null : parseInt(Math.random() * (100 - 80) + 80, 10);
+
   return {
     temperature,
     humidity,
@@ -110,6 +117,8 @@ const generateSensorData = (deviceId) => {
     ph,
     dew_point: dewPoint,
     vpd: vpd,
+    voltage,           // เพิ่มใหม่
+    battery_level,     // เพิ่มใหม่
     timestamp: new Date().toISOString(),
   };
 };
@@ -177,9 +186,112 @@ const initializeHistoricalData = async (device) => {
 // Start sensor data simulation every 1 hour
 setInterval(simulateSensorDataForAllDevices, 3600000); // 1 hour = 3600000ms
 
+// ===== เพิ่ม Anomaly Detection Service =====
+let anomalyMonitor = null;
+
+const startAnomalyMonitoring = () => {
+  const pythonPath = path.join(__dirname, 'anomaly-detection/integration_example.py');
+  const pythonDir = path.join(__dirname, 'anomaly-detection');
+  
+  console.log('🔄 Starting Anomaly Detection Service...');
+  console.log(`📁 Python script: ${pythonPath}`);
+  
+  // ตรวจสอบว่าไฟล์ Python มีอยู่หรือไม่
+  const fs = require('fs');
+  if (!fs.existsSync(pythonPath)) {
+    console.log('⚠️ Anomaly Detection script not found. Skipping...');
+    console.log(`📁 Expected path: ${pythonPath}`);
+    return null;
+  }
+  
+  const monitorProcess = spawn('python', [pythonPath, 'monitor'], {
+    cwd: pythonDir,
+    stdio: ['pipe', 'pipe', 'pipe']
+  });
+  
+  monitorProcess.stdout.on('data', (data) => {
+    console.log('🤖 Anomaly Monitor:', data.toString().trim());
+  });
+  
+  monitorProcess.stderr.on('data', (data) => {
+    const errorMsg = data.toString().trim();
+    if (errorMsg && !errorMsg.includes('WARNING')) {
+      console.error('⚠️ Anomaly Monitor Warning:', errorMsg);
+    }
+  });
+  
+  monitorProcess.on('close', (code) => {
+    console.log(`🛑 Anomaly Monitor stopped with code ${code}`);
+    
+    // Auto-restart หากหยุดทำงานโดยไม่คาดคิด (และไม่ใช่การ shutdown ปกติ)
+    if (code !== 0 && code !== null) {
+      console.log('🔄 Restarting Anomaly Monitor in 30 seconds...');
+      setTimeout(startAnomalyMonitoring, 30000);
+    }
+  });
+  
+  monitorProcess.on('error', (error) => {
+    console.error('❌ Anomaly Monitor Error:', error.message);
+    console.log('💡 Make sure Python environment is set up correctly');
+    console.log('💡 Run: cd anomaly-detection && python integration_example.py test');
+  });
+  
+  console.log('✅ Anomaly Detection Service started');
+  return monitorProcess;
+};
+
+// ===== Fixed Graceful shutdown =====
+const gracefulShutdown = async () => {
+  console.log('\n🛑 Shutting down server gracefully...');
+  
+  // หยุด Anomaly Monitor
+  if (anomalyMonitor) {
+    console.log('🛑 Stopping Anomaly Detection Service...');
+    try {
+      anomalyMonitor.kill('SIGTERM');
+      // รอให้ process หยุด
+      setTimeout(() => {
+        if (anomalyMonitor && !anomalyMonitor.killed) {
+          anomalyMonitor.kill('SIGKILL');
+        }
+      }, 5000);
+    } catch (error) {
+      console.error('⚠️ Error stopping anomaly monitor:', error.message);
+    }
+    anomalyMonitor = null;
+  }
+  
+  // ปิด MongoDB connection (ใช้ async/await แทน callback)
+  try {
+    await mongoose.connection.close();
+    console.log('📡 MongoDB connection closed');
+  } catch (error) {
+    console.error('⚠️ Error closing MongoDB connection:', error.message);
+  }
+  
+  // ปิด Express server
+  console.log('✅ Server shutdown complete');
+  process.exit(0);
+};
+
+// Handle shutdown signals
+process.on('SIGINT', gracefulShutdown);
+process.on('SIGTERM', gracefulShutdown);
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+  gracefulShutdown();
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  gracefulShutdown();
+});
+
 // Routes
 app.get('/', (req, res) => {
-  res.send('Hello! Backend Server is running. 🚀');
+  res.send('Hello! Backend Server with Anomaly Detection is running. 🚀🤖');
 });
 
 // API: Get available device templates
@@ -339,14 +451,31 @@ const initializeServer = async () => {
     // Start sensor data generation immediately
     setTimeout(simulateSensorDataForAllDevices, 5000); // Start after 5 seconds
     
-    console.log("✅ Sensor data simulation started");
+    // เริ่ม Anomaly Detection Service (รอให้ server เสถียรก่อน)
+    setTimeout(() => {
+      anomalyMonitor = startAnomalyMonitoring();
+    }, 15000); // รอ 15 วินาทีให้ server และ sensor simulation เสถียร
+    
+    console.log("✅ All services initialized");
   } catch (error) {
     console.error("❌ Server initialization error:", error);
   }
 };
 
-// Start the server
-app.listen(PORT, () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
-  initializeServer();
-});
+// Start the server with proper error handling
+let server;
+
+const startServer = () => {
+  server = app.listen(PORT, () => {
+    console.log(`✅ Server running on http://localhost:${PORT}`);
+    initializeServer();
+  });
+
+  // Handle server errors
+  server.on('error', (error) => {
+    console.error('❌ Server error:', error);
+    gracefulShutdown();
+  });
+};
+
+startServer();
