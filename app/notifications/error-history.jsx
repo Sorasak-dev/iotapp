@@ -9,12 +9,14 @@ import {
   Platform,
   StatusBar,
   ActivityIndicator,
+  Alert,
+  RefreshControl,
 } from "react-native";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
-import { ANOMALY_ENDPOINTS, getAuthHeaders, API_ENDPOINTS } from "../utils/config/api"; 
+import { ANOMALY_ENDPOINTS, getAuthHeaders, AnomalyService } from "../utils/config/api"; 
 
 const isIOS = Platform.OS === "ios";
 
@@ -27,8 +29,6 @@ const getAuthToken = async () => {
     return token;
   } catch (error) {
     console.error("Error retrieving token:", error);
-    const navigation = useNavigation();
-    navigation.replace("/signin");
     throw error;
   }
 };
@@ -37,12 +37,16 @@ export default function ErrorHistory() {
   const route = useRoute();
   const navigation = useNavigation();
   const { errorHistory } = route.params || {};
+  
   const [currentErrors, setCurrentErrors] = useState([]);
   const [historicalErrors, setHistoricalErrors] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState("all");
+  const [stats, setStats] = useState(null);
 
   useEffect(() => {
+    // Parse current errors from params (if any)
     if (errorHistory) {
       try {
         const parsedErrors = JSON.parse(errorHistory);
@@ -52,55 +56,148 @@ export default function ErrorHistory() {
       }
     }
 
-    fetchHistoricalErrors();
+    fetchData();
   }, [errorHistory]);
+
+  const fetchData = async () => {
+    await Promise.all([
+      fetchHistoricalErrors(),
+      fetchStats()
+    ]);
+  };
 
   const fetchHistoricalErrors = async () => {
     try {
       setLoading(true);
       const token = await getAuthToken();
 
-      const response = await fetch(ANOMALY_ENDPOINTS.HISTORY, {
-        headers: getAuthHeaders(token),
+      // Use new Anomaly Detection API
+      const data = await AnomalyService.getHistory(token, {
+        limit: 50,
+        page: 1
       });
 
-      if (response.status === 401) {
-        await AsyncStorage.removeItem("token");
-        navigation.replace("/signin");
-        throw new Error("Session expired. Please log in again.");
-      }
+      console.log('Anomaly history response:', data);
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch error history");
-      }
-
-      const data = await response.json();
-
-      const formattedHistory = data.history.map((item) => ({
-        type: item.anomaly_type || "Unknown anomaly",
+      // Transform API response to match UI format
+      const formattedHistory = data.anomalies.map((item) => ({
+        id: item._id,
+        type: item.anomalyType === 'ml_detected' ? 'AI Anomaly Detection' : formatAnomalyType(item.anomalyType),
         timestamp: item.timestamp,
-        details: item.details || "Anomaly detected in sensor data",
-        score: item.anomaly_score ? item.anomaly_score.toFixed(2) : undefined,
-        isAnomalyDetection: !!item.anomaly_score,
-        resolved: item.resolved || false,
+        details: item.message,
+        alertLevel: item.alertLevel,
+        detectionMethod: item.detectionMethod,
+        score: item.mlResults?.confidence ? item.mlResults.confidence.toFixed(2) : undefined,
+        isAnomalyDetection: item.detectionMethod === 'ml_based' || item.detectionMethod === 'hybrid',
+        resolved: item.resolved,
+        notes: item.notes,
+        deviceId: item.deviceId,
+        sensorData: item.sensorData
       }));
 
       setHistoricalErrors(formattedHistory);
+
     } catch (error) {
       console.error("Error fetching historical errors:", error);
+      
+      if (error.message.includes('401')) {
+        await AsyncStorage.removeItem("token");
+        navigation.replace("/signin");
+        return;
+      }
+      
+      Alert.alert(
+        'Error', 
+        'Failed to fetch error history. Please try again.',
+        [{ text: 'OK' }]
+      );
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchStats = async () => {
+    try {
+      const token = await getAuthToken();
+      const statsData = await AnomalyService.getStats(token, 7);
+      setStats(statsData);
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+      // Don't show error for stats as it's supplementary data
+    }
+  };
+
+  const formatAnomalyType = (type) => {
+    const typeMap = {
+      'sudden_drop': 'Sudden Value Drop',
+      'sudden_spike': 'Sudden Value Spike', 
+      'constant_value': 'Constant Values',
+      'missing_data': 'Missing Data',
+      'low_voltage': 'Low Voltage',
+      'high_fluctuation': 'High Fluctuation',
+      'vpd_too_low': 'VPD Too Low',
+      'dew_point_close': 'Dew Point Alert',
+      'battery_depleted': 'Battery Depleted',
+      'ml_detected': 'AI Anomaly Detection'
+    };
+    return typeMap[type] || type;
+  };
+
+  const handleResolveAnomaly = async (anomalyId) => {
+    try {
+      const token = await getAuthToken();
+      
+      Alert.prompt(
+        'Resolve Anomaly',
+        'Add a note about how this issue was resolved:',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Resolve', 
+            onPress: async (notes) => {
+              try {
+                await AnomalyService.resolveAnomaly(token, anomalyId, notes || 'Resolved by user');
+                
+                // Update local state
+                setHistoricalErrors(prev => 
+                  prev.map(error => 
+                    error.id === anomalyId 
+                      ? { ...error, resolved: true, notes: notes || 'Resolved by user' }
+                      : error
+                  )
+                );
+                
+                Alert.alert('Success', 'Anomaly marked as resolved');
+              } catch (error) {
+                console.error('Error resolving anomaly:', error);
+                Alert.alert('Error', 'Failed to resolve anomaly');
+              }
+            }
+          }
+        ],
+        'plain-text'
+      );
+    } catch (error) {
+      console.error('Error in resolve process:', error);
+    }
+  };
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await fetchData();
+    setRefreshing(false);
+  }, []);
+
   const handleGoBack = () => {
     navigation.goBack();
   };
 
+  // Combine and sort all errors
   const allErrors = [...currentErrors, ...historicalErrors].sort(
     (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
   );
 
+  // Filter errors based on selected filter
   const filteredErrors = allErrors.filter((error) => {
     if (filter === "all") return true;
     if (filter === "basic") return !error.isAnomalyDetection && !error.score;
@@ -110,15 +207,39 @@ export default function ErrorHistory() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.scrollContainer}>
+      <ScrollView 
+        style={styles.scrollContainer}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         <View style={styles.container}>
           <View style={styles.headerContainer}>
             <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
               <Ionicons name="arrow-back" size={24} color="black" />
             </TouchableOpacity>
-            <Text style={styles.header}>Error History</Text>
+            <Text style={styles.header}>Anomaly History</Text>
           </View>
 
+          {/* Stats Summary */}
+          {stats && (
+            <View style={styles.statsContainer}>
+              <Text style={styles.statsTitle}>Last 7 Days Summary</Text>
+              <View style={styles.statsGrid}>
+                {stats.alertStats.map((stat, index) => (
+                  <View key={index} style={[
+                    styles.statBox,
+                    { backgroundColor: stat._id === 'red' ? '#FFEBEE' : stat._id === 'yellow' ? '#FFF8E1' : '#E8F5E8' }
+                  ]}>
+                    <Text style={styles.statNumber}>{stat.count}</Text>
+                    <Text style={styles.statLabel}>{stat._id.toUpperCase()}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* Filters */}
           <View style={styles.filtersContainer}>
             <TouchableOpacity
               onPress={() => setFilter("all")}
@@ -133,7 +254,7 @@ export default function ErrorHistory() {
                   filter === "all" && styles.activeFilterText,
                 ]}
               >
-                All
+                All ({allErrors.length})
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -165,25 +286,27 @@ export default function ErrorHistory() {
                   filter === "anomaly" && styles.activeFilterText,
                 ]}
               >
-                Anomalies
+                AI Detected
               </Text>
             </TouchableOpacity>
           </View>
 
+          {/* Error List */}
           {loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color="#1976D2" />
-              <Text style={styles.loadingText}>Loading error history...</Text>
+              <Text style={styles.loadingText}>Loading anomaly history...</Text>
             </View>
           ) : filteredErrors.length > 0 ? (
             <>
               {filteredErrors.map((error, index) => (
                 <View
-                  key={index}
+                  key={error.id || index}
                   style={[
                     styles.errorItem,
                     error.resolved && styles.resolvedError,
                     error.isAnomalyDetection && styles.anomalyError,
+                    error.alertLevel === 'red' && styles.criticalError
                   ]}
                 >
                   <View style={styles.errorHeader}>
@@ -191,33 +314,64 @@ export default function ErrorHistory() {
                       <Icon
                         name={
                           error.isAnomalyDetection || error.score
-                            ? "warning"
-                            : "error"
+                            ? "analytics"
+                            : error.alertLevel === 'red' ? "error" : "warning"
                         }
                         size={24}
                         color={
                           error.isAnomalyDetection || error.score
                             ? "#FF9800"
-                            : "#D32F2F"
+                            : error.alertLevel === 'red' ? "#D32F2F" : "#FFA000"
                         }
                       />
-                      <Text style={styles.errorType}>{error.type}</Text>
-                    </View>
-                    {error.resolved && (
-                      <View style={styles.resolvedBadge}>
-                        <Text style={styles.resolvedText}>Resolved</Text>
+                      <View style={styles.errorTitleContainer}>
+                        <Text style={styles.errorType}>{error.type}</Text>
+                        {error.deviceId && (
+                          <Text style={styles.deviceId}>Device: {error.deviceId}</Text>
+                        )}
                       </View>
-                    )}
+                    </View>
+                    
+                    <View style={styles.errorBadges}>
+                      {error.alertLevel && (
+                        <View style={[
+                          styles.alertBadge,
+                          { backgroundColor: error.alertLevel === 'red' ? '#FF5252' : '#FFA726' }
+                        ]}>
+                          <Text style={styles.alertText}>{error.alertLevel.toUpperCase()}</Text>
+                        </View>
+                      )}
+                      {error.resolved && (
+                        <View style={styles.resolvedBadge}>
+                          <Text style={styles.resolvedText}>Resolved</Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
 
                   <Text style={styles.errorDetails}>{error.details}</Text>
+
+                  {error.score && (
+                    <Text style={styles.anomalyScore}>
+                      AI Confidence: {error.score}
+                    </Text>
+                  )}
+
+                  {error.notes && (
+                    <Text style={styles.errorNotes}>
+                      Resolution: {error.notes}
+                    </Text>
+                  )}
 
                   <Text style={styles.timestamp}>
                     {new Date(error.timestamp).toLocaleString()}
                   </Text>
 
-                  {!error.resolved && (
-                    <TouchableOpacity style={styles.actionButton}>
+                  {!error.resolved && error.id && (
+                    <TouchableOpacity 
+                      style={styles.actionButton}
+                      onPress={() => handleResolveAnomaly(error.id)}
+                    >
                       <Text style={styles.actionButtonText}>
                         Mark as Resolved
                       </Text>
@@ -229,9 +383,9 @@ export default function ErrorHistory() {
           ) : (
             <View style={styles.noErrorsContainer}>
               <Icon name="check-circle" size={48} color="#4CAF50" />
-              <Text style={styles.noErrorsText}>No errors found</Text>
+              <Text style={styles.noErrorsText}>No anomalies found</Text>
               <Text style={styles.noErrorsSubtext}>
-                There are no {filter !== "all" ? `${filter} ` : ""}errors in the
+                There are no {filter !== "all" ? `${filter} ` : ""}anomalies in the
                 history.
               </Text>
             </View>
@@ -240,9 +394,8 @@ export default function ErrorHistory() {
           <View style={styles.infoContainer}>
             <Icon name="info" size={20} color="#1976D2" />
             <Text style={styles.infoText}>
-              Basic Errors are detected directly by the system. Anomalies are
-              detected by our AI model based on unusual patterns in the sensor
-              data.
+              Basic Errors are detected by system rules. AI Detected anomalies use 
+              machine learning to identify unusual patterns in sensor data with 92%+ accuracy.
             </Text>
           </View>
         </View>
@@ -251,6 +404,7 @@ export default function ErrorHistory() {
   );
 }
 
+// Add new styles for the enhanced UI
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -280,6 +434,42 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     flex: 1,
     marginLeft: 10,
+  },
+  statsContainer: {
+    backgroundColor: "white",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  statsTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 12,
+  },
+  statsGrid: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+  },
+  statBox: {
+    alignItems: "center",
+    padding: 12,
+    borderRadius: 8,
+    minWidth: 60,
+  },
+  statNumber: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  statLabel: {
+    fontSize: 10,
+    color: "#666",
+    marginTop: 4,
   },
   filtersContainer: {
     flexDirection: "row",
@@ -330,21 +520,48 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: "#FF9800",
   },
+  criticalError: {
+    borderLeftWidth: 4,
+    borderLeftColor: "#D32F2F",
+  },
   errorHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     marginBottom: 8,
   },
   errorTypeContainer: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
+    flex: 1,
+  },
+  errorTitleContainer: {
+    marginLeft: 8,
+    flex: 1,
   },
   errorType: {
     fontSize: 16,
     fontWeight: "bold",
     color: "#333",
-    marginLeft: 8,
+  },
+  deviceId: {
+    fontSize: 12,
+    color: "#666",
+    marginTop: 2,
+  },
+  errorBadges: {
+    alignItems: "flex-end",
+  },
+  alertBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 4,
+  },
+  alertText: {
+    color: "white",
+    fontSize: 10,
+    fontWeight: "bold",
   },
   resolvedBadge: {
     backgroundColor: "#4CAF50",
@@ -359,6 +576,18 @@ const styles = StyleSheet.create({
   errorDetails: {
     fontSize: 14,
     color: "#555",
+    marginBottom: 8,
+  },
+  anomalyScore: {
+    fontSize: 14,
+    color: "#FF9800",
+    fontWeight: "500",
+    marginBottom: 8,
+  },
+  errorNotes: {
+    fontSize: 14,
+    color: "#4CAF50",
+    fontStyle: "italic",
     marginBottom: 8,
   },
   timestamp: {
