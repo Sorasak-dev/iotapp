@@ -59,3 +59,7 @@ yarn.lock
 
 # API configuration
 app/utils/config/api.js
+
+# Python virtual environments
+venv/
+backend/anomaly-detection/venv/
