@@ -277,27 +277,7 @@ export default function SelectDeviceScreen() {
         <Text style={styles.headerTitle}>Select Device</Text>
       </View>
 
-      {/* Tabs */}
-      <View style={styles.tabs}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === "All" ? styles.activeTab : null]}
-          onPress={() => setActiveTab("All")}
-        >
-          <Text style={[styles.tabText, activeTab === "All" ? styles.activeTabText : null]}>All</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === "Sensors" ? styles.activeTab : null]}
-          onPress={() => setActiveTab("Sensors")}
-        >
-          <Text style={[styles.tabText, activeTab === "Sensors" ? styles.activeTabText : null]}>Sensors</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === "Temperature" ? styles.activeTab : null]}
-          onPress={() => setActiveTab("Temperature")}
-        >
-          <Text style={[styles.tabText, activeTab === "Temperature" ? styles.activeTabText : null]}>Temperature</Text>
-        </TouchableOpacity>
-      </View>
+     
 
       {/* Scanning Text */}
       <Text style={styles.scanningText}>🔍 Available devices...</Text>
