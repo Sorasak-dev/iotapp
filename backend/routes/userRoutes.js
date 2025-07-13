@@ -1,6 +1,6 @@
 const express = require('express');
 
-const { getUser, addUserData, getUserData, changePassword } = require('../controllers/userController'); 
+const { getUser, addUserData, getUserData, changePassword, updateUserProfile } = require('../controllers/userController'); 
 const authenticateToken = require('../middleware/authMiddleware');
 
 // ======================= DEBUG ZONE =======================
@@ -23,5 +23,7 @@ router.post('/data', authenticateToken, addUserData);
 router.get('/data', authenticateToken, getUserData);
 
 router.patch('/change-password', authenticateToken, changePassword);
+
+router.patch('/profile', authenticateToken, updateUserProfile);
 
 module.exports = router;

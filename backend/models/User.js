@@ -1,3 +1,4 @@
+// D:\y3\งานจารออย\iotapp-2\backend\models\User.js
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
 
@@ -39,6 +40,13 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: [true, "Password is required"],
     },
+    // ✨ NEW: เพิ่ม fields สำหรับข้อมูลโปรไฟล์
+    name: { type: String, default: "" },
+    username: { type: String, default: "", unique: true, sparse: true, trim: true },
+    phone: { type: String, default: "" },
+    gender: { type: String, default: "" },
+    profileImageUrl: { type: String, default: "" },
+    
     zones: {
       type: [zoneSchema],
       default: [],

@@ -1,4 +1,4 @@
-const IP_ADDRESS = '192.168.1.123'; 
+const IP_ADDRESS = '192.168.1.184'; 
 const PORT = '3000';
 
 export const API_BASE_URL = `http://${IP_ADDRESS}:${PORT}`;
@@ -12,6 +12,7 @@ export const API_ENDPOINTS = {
   DEVICE_TEMPLATES: `${API_BASE_URL}/api/device-templates`,
   
   // Authentication endpoints
+  USERS: `${API_BASE_URL}/api/users`,
   SIGNIN: `${API_BASE_URL}/api/signin`,
   SIGNUP: `${API_BASE_URL}/api/signup`,
   FORGET_PASSWORD: `${API_BASE_URL}/api/forget-password`,
