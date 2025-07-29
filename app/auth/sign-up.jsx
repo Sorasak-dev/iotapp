@@ -241,19 +241,6 @@ export default function SignUp() {
         </TouchableOpacity>
       )}
       
-      <Text style={styles.orText}>or continue with</Text>
-      
-      <View style={styles.socialButtonsContainer}>
-        <TouchableOpacity style={styles.socialButton}>
-          <FontAwesome name="google" size={20} color="black" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.socialButton}>
-          <FontAwesome name="apple" size={20} color="black" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.socialButton}>
-          <FontAwesome name="facebook" size={20} color="black" />
-        </TouchableOpacity>
-      </View>
       
       <Text style={styles.loginText}>
         Already have an account?{" "}

@@ -143,22 +143,6 @@ export default function SignIn() {
         </TouchableOpacity>
       )}
       
-      <Text style={styles.orText}>Or continue with</Text>
-      
-      <TouchableOpacity style={styles.socialButton}>
-        <FontAwesome name="google" size={20} color="black" />
-        <Text style={styles.socialText}>Continue with Google</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity style={styles.socialButton}>
-        <FontAwesome name="phone" size={20} color="black" />
-        <Text style={styles.socialText}>Continue with Phone Number</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity style={styles.socialButton}>
-        <FontAwesome name="facebook" size={20} color="black" />
-        <Text style={styles.socialText}>Continue with Facebook</Text>
-      </TouchableOpacity>
       
       <TouchableOpacity onPress={() => router.push('/auth/sign-up')} disabled={loading}>
         <Text style={styles.signUpText}>
