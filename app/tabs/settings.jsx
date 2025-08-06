@@ -169,8 +169,9 @@ const SettingsScreen = () => {
           ),
           title: t('Privacy & Security'),
           hasArrow: true,
-          onPress: () => router.push("privacy"),
+          onPress: () => router.push("/privacy"),
         },
+       
         {
           icon: (
             <Svg width="19" height="19" viewBox="0 0 19 19" fill="none">
