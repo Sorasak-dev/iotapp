@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -8,54 +8,48 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
-  Modal,
   SafeAreaView,
   StatusBar,
-  Platform
+  Platform,
 } from "react-native";
 import { LineChart } from "react-native-chart-kit";
 import { MultiSelect } from "react-native-element-dropdown";
-import { FontAwesome5, Ionicons } from "@expo/vector-icons";
-import DateTimePicker from "@react-native-community/datetimepicker";
+import { FontAwesome5 } from "@expo/vector-icons";
+import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { useRouter, useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
 import axios from "axios";
 import { useTranslation } from "react-i18next";
-import { API_ENDPOINTS, API_TIMEOUT, getAuthHeaders } from '../utils/config/api';
+import { API_ENDPOINTS, API_TIMEOUT, getAuthHeaders } from "../utils/config/api";
 
 const windowWidth = Dimensions.get("window").width;
-const windowHeight = Dimensions.get("window").height;
-const isIOS = Platform.OS === 'ios';
+const isIOS = Platform.OS === "ios";
 
 const SENSOR_COLORS = [
-  "#FF6384", // Red
-  "#36A2EB", // Blue
-  "#4BC0C0", // Teal
-  "#22C55E", // Green
-  "#FFCE56", // Yellow
-  "#9966FF", // Purple
-  "#FF9F40", // Orange
-  "#20C997", // Mint
-  "#6C757D", // Gray
-  "#FD7E14"  // Dark Orange
+  "#FF6384", "#36A2EB", "#4BC0C0", "#22C55E", "#FFCE56",
+  "#9966FF", "#FF9F40", "#20C997", "#6C757D", "#FD7E14",
 ];
 
 export default function Statistics() {
   const { t } = useTranslation();
   const router = useRouter();
+
+  // selections
   const [selectedMetrics, setSelectedMetrics] = useState(["Temperature", "Humidity", "Dew Point", "VPD"]);
   const [selectedZones, setSelectedZones] = useState([]);
   const [selectedSensors, setSelectedSensors] = useState([]);
+
+  // dates
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
   const [tempStartDate, setTempStartDate] = useState(new Date());
   const [tempEndDate, setTempEndDate] = useState(new Date());
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
+
+  // data + ui
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [data, setData] = useState({});  
+  const [data, setData] = useState({});
   const [loading, setLoading] = useState(true);
   const [chartWidth, setChartWidth] = useState(windowWidth * 0.9);
   const [zones, setZones] = useState([]);
@@ -70,26 +64,21 @@ export default function Statistics() {
       setEndDate(today);
       setTempStartDate(today);
       setTempEndDate(today);
-      
       fetchZones();
-      
       return () => {};
     }, [])
   );
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentDate(new Date());
-    }, 1000);
-
-    return () => clearInterval(interval);
+    const timer = setInterval(() => setCurrentDate(new Date()), 1000);
+    return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
     if (selectedZones.length > 0) {
       fetchSensorsForAllSelectedZones();
-      setSelectedSensors([]); 
-      setData({}); 
+      setSelectedSensors([]);
+      setData({});
     } else {
       setZoneSensors([]);
     }
@@ -97,22 +86,21 @@ export default function Statistics() {
 
   useEffect(() => {
     if (selectedSensors.length > 0) {
-      fetchSensorData(startDate.toISOString().split("T")[0], endDate.toISOString().split("T")[0]);
+      fetchSensorData(
+        startDate.toISOString().split("T")[0],
+        endDate.toISOString().split("T")[0]
+      );
     } else {
       setData({});
     }
   }, [selectedSensors, startDate, endDate]);
 
   useEffect(() => {
-    updateChartWidth();
+    const minWidth = windowWidth * 0.9;
+    setChartWidth(Math.max(minWidth, maxDataPoints * 80));
   }, [maxDataPoints]);
 
-  const updateChartWidth = () => {
-    const minWidth = windowWidth * 0.9;
-    const calculatedWidth = Math.max(minWidth, maxDataPoints * 80);
-    setChartWidth(calculatedWidth);
-  };
-
+  // -------- API calls --------
   const fetchZones = async () => {
     try {
       setLoadingZones(true);
@@ -122,41 +110,28 @@ export default function Statistics() {
         setLoadingZones(false);
         return;
       }
-  
-      const response = await axios.get(API_ENDPOINTS.ZONES, {
-        headers: getAuthHeaders(token),
-      });
-  
-      console.log("API Response:", response.data); 
-  
+      const res = await axios.get(API_ENDPOINTS.ZONES, { headers: getAuthHeaders(token) });
+
       let zonesData = [];
-      
-      if (response.data && response.data.zones && Array.isArray(response.data.zones)) {
-        zonesData = response.data.zones.filter(zone => !zone.isDefault);
-      } else if (Array.isArray(response.data)) {
-        zonesData = response.data.filter(zone => !zone.isDefault);
+      if (res.data?.zones && Array.isArray(res.data.zones)) {
+        zonesData = res.data.zones.filter((z) => !z.isDefault);
+      } else if (Array.isArray(res.data)) {
+        zonesData = res.data.filter((z) => !z.isDefault);
       }
-      
-      if (zonesData.length > 0) {
-        const zoneOptions = zonesData.map(zone => ({
-          label: zone.name || "Unnamed Zone",
-          value: zone._id || zone.id
-        }));
-        
-        setZones(zoneOptions);
-        
-        if (response.data.currentZoneId && zonesData.length > 0) {
-          const currentZone = zonesData.find(z => z._id === response.data.currentZoneId);
-          if (currentZone) {
-            setSelectedZones([currentZone._id]);
-          }
+
+      if (zonesData.length) {
+        const opts = zonesData.map((z) => ({ label: z.name || "Unnamed Zone", value: z._id || z.id }));
+        setZones(opts);
+        if (res.data?.currentZoneId) {
+          const current = zonesData.find((z) => z._id === res.data.currentZoneId);
+          if (current) setSelectedZones([current._id]);
         }
       } else {
         setZones([]);
         setSelectedZones([]);
       }
-    } catch (err) {
-      console.error("Error fetching zones:", err);
+    } catch (e) {
+      console.error("fetchZones", e);
       Alert.alert("Error", "Failed to fetch zones.");
       setZones([]);
     } finally {
@@ -164,7 +139,6 @@ export default function Statistics() {
     }
   };
 
-  // Fetch sensors for all selected zones using new API
   const fetchSensorsForAllSelectedZones = async () => {
     try {
       setLoading(true);
@@ -174,38 +148,31 @@ export default function Statistics() {
         setLoading(false);
         return;
       }
-
-      let allSensors = [];
-
-      // Fetch sensors for each selected zone using new device API
+      let all = [];
       for (const zoneId of selectedZones) {
         try {
-          const response = await axios.get(`${API_ENDPOINTS.DEVICES}?zoneId=${zoneId}`, {
+          const res = await axios.get(`${API_ENDPOINTS.DEVICES}?zoneId=${zoneId}`, {
             headers: getAuthHeaders(token),
           });
-          
-          console.log(`Devices response for zone ${zoneId}:`, response.data);
-          
-          if (Array.isArray(response.data) && response.data.length > 0) {
-            const zoneName = zones.find(z => z.value === zoneId)?.label || "Unknown Zone";
-            
-            const zoneSensorsData = response.data.map(device => ({
-              label: `${zoneName} - ${device.name || "Unnamed Sensor"}`,
-              value: device._id,
-              zoneId: zoneId,
-              zoneName: zoneName
-            }));
-            
-            allSensors = [...allSensors, ...zoneSensorsData];
+          if (Array.isArray(res.data) && res.data.length) {
+            const zoneName = zones.find((z) => z.value === zoneId)?.label || "Unknown Zone";
+            all = [
+              ...all,
+              ...res.data.map((d) => ({
+                label: `${zoneName} - ${d.name || "Unnamed Sensor"}`,
+                value: d._id,
+                zoneId,
+                zoneName,
+              })),
+            ];
           }
         } catch (err) {
-          console.error(`Error fetching sensors for zone ${zoneId}:`, err);
+          console.log("fetch sensors zone", zoneId, err?.message);
         }
       }
-      
-      setZoneSensors(allSensors);
-    } catch (err) {
-      console.error("Error in fetchSensorsForAllSelectedZones:", err);
+      setZoneSensors(all);
+    } catch (e) {
+      console.error("fetchSensorsForAllSelectedZones", e);
       Alert.alert("Error", "Failed to fetch sensors for selected zones.");
       setZoneSensors([]);
     } finally {
@@ -213,7 +180,6 @@ export default function Statistics() {
     }
   };
 
-  // Updated to use new device data API
   const fetchSensorData = async (start, end) => {
     try {
       setLoading(true);
@@ -223,350 +189,222 @@ export default function Statistics() {
         setLoading(false);
         return;
       }
-
       const newData = {};
-      let maxPoints = 0;
+      let maxPts = 0;
 
       for (const sensorId of selectedSensors) {
         try {
-          // Use new device data endpoint
-          const response = await axios.get(
-            `${API_ENDPOINTS.DEVICES}/${sensorId}/data?startDate=${start}&endDate=${end}&limit=1000`, 
-            {
-              headers: getAuthHeaders(token),
-              timeout: API_TIMEOUT
-            }
+          const res = await axios.get(
+            `${API_ENDPOINTS.DEVICES}/${sensorId}/data?startDate=${start}&endDate=${end}&limit=1000`,
+            { headers: getAuthHeaders(token), timeout: API_TIMEOUT }
           );
-
-          if (response.data && response.data.data && Array.isArray(response.data.data)) {
-            const sortedData = response.data.data.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-            const sensorName = zoneSensors.find(s => s.value === sensorId)?.label || sensorId;
-            newData[sensorId] = {
-              name: sensorName,
-              data: sortedData
-            };
-            
-            if (sortedData.length > maxPoints) {
-              maxPoints = sortedData.length;
-            }
+          if (res.data?.data && Array.isArray(res.data.data)) {
+            const sorted = res.data.data.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            const name = zoneSensors.find((s) => s.value === sensorId)?.label || sensorId;
+            newData[sensorId] = { name, data: sorted };
+            if (sorted.length > maxPts) maxPts = sorted.length;
           }
         } catch (deviceError) {
-          console.error(`Error fetching data for device ${sensorId}:`, deviceError);
+          console.log("fetch device data", sensorId, deviceError?.message);
         }
       }
-      
+
       setData(newData);
-      setMaxDataPoints(maxPoints);
-    } catch (err) {
-      console.error("Network error:", err);
+      setMaxDataPoints(maxPts);
+    } catch (e) {
+      console.error("fetchSensorData", e);
       Alert.alert("Error", "Failed to fetch sensor data.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleExportPress = async () => {
-    if (Object.keys(data).length === 0) {
-      Alert.alert("Error", "No data available to export.");
+  // -------- Date pickers --------
+  const openStartPicker = () => {
+    if (Platform.OS === "web") {
+      Alert.alert("Not supported on Web", "Please run on Android/iOS.");
       return;
     }
-
-    let htmlContent = `
-      <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
-            h1 { text-align: center; color: #333; }
-            h2 { color: #555; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; margin-bottom: 30px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f2f2f2; }
-            .sensor-header { background-color: #e6f2ff; font-weight: bold; }
-            .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #888; }
-          </style>
-        </head>
-        <body>
-          <h1>Sensor Data Report</h1>
-          <p>Zones: ${selectedZones.map(zId => zones.find(z => z.value === zId)?.label || 'Unknown').join(', ')}</p>
-          <p>Date Range: ${formatDate(startDate)} - ${formatDate(endDate)}</p>
-    `;
-
-    for (const sensorId in data) {
-      const sensorData = data[sensorId];
-      
-      htmlContent += `
-        <h2>Sensor: ${sensorData.name}</h2>
-        <table>
-          <tr>
-            <th>Timestamp</th>
-            ${selectedMetrics.includes("Temperature") ? "<th>Temperature (°C)</th>" : ""}
-            ${selectedMetrics.includes("Humidity") ? "<th>Humidity (%)</th>" : ""}
-            ${selectedMetrics.includes("Dew Point") ? "<th>Dew Point (°C)</th>" : ""}
-            ${selectedMetrics.includes("VPD") ? "<th>VPD</th>" : ""}
-          </tr>
-          ${sensorData.data.map(item => `
-            <tr>
-              <td>${new Date(item.timestamp).toLocaleString('th-TH')}</td>
-              ${selectedMetrics.includes("Temperature") ? `<td>${item.temperature || "N/A"}</td>` : ""}
-              ${selectedMetrics.includes("Humidity") ? `<td>${item.humidity || "N/A"}</td>` : ""}
-              ${selectedMetrics.includes("Dew Point") ? `<td>${item.dew_point || "N/A"}</td>` : ""}
-              ${selectedMetrics.includes("VPD") ? `<td>${item.vpd || "N/A"}</td>` : ""}
-            </tr>
-          `).join('')}
-        </table>
-      `;
+    setShowStartPicker(true);
+  };
+  const openEndPicker = () => {
+    if (Platform.OS === "web") {
+      Alert.alert("Not supported on Web", "Please run on Android/iOS.");
+      return;
     }
-
-    htmlContent += `
-          <div class="footer">Generated on ${formatDate(new Date())} ${formatTime(new Date())}</div>
-        </body>
-      </html>
-    `;
-
-    try {
-      const { uri } = await Print.printToFileAsync({
-        html: htmlContent,
-        base64: false,
-      });
-
-      await Sharing.shareAsync(uri, {
-        mimeType: 'application/pdf',
-        dialogTitle: 'Share PDF Report',
-        UTI: 'com.adobe.pdf',
-      });
-
-      Alert.alert("Success", "PDF exported successfully!");
-    } catch (error) {
-      Alert.alert("Error", "Failed to export PDF: " + error.message);
-    }
-  };
-
-  const toggleMetric = (metric) => {
-    setSelectedMetrics((prev) =>
-      prev.includes(metric) ? prev.filter((m) => m !== metric) : [...prev, metric]
-    );
-  };
-
-  const onStartDateChange = (event, selectedDate) => {
-    const currentDate = selectedDate || tempStartDate;
-    setTempStartDate(currentDate);
-  };
-
-  const onEndDateChange = (event, selectedDate) => {
-    const currentDate = selectedDate || tempEndDate;
-    setTempEndDate(currentDate);
-  };
-
-  const confirmStartDate = () => {
-    setStartDate(tempStartDate);
-    setShowStartPicker(false);
     setShowEndPicker(true);
   };
 
-  const confirmEndDate = () => {
-    setEndDate(tempEndDate);
-    setShowEndPicker(false);
-  };
-
-  const cancelPicker = () => {
+  const onConfirmStart = (date) => {
+    setTempStartDate(date);
+    setStartDate(date);
     setShowStartPicker(false);
+    setShowEndPicker(true); // ต่อไปเลือก End ได้เลย
+  };
+  const onConfirmEnd = (date) => {
+    setTempEndDate(date);
+    setEndDate(date);
     setShowEndPicker(false);
   };
 
-const prepareChartData = () => {
-  let allTimestamps = [];
-  Object.values(data).forEach(sensorData => {
-    sensorData.data.forEach(item => {
-      allTimestamps.push(item.timestamp);
+  // -------- Chart data --------
+  const prepareChartData = () => {
+    let allTs = [];
+    Object.values(data).forEach((s) => s.data.forEach((it) => allTs.push(it.timestamp)));
+    allTs = [...new Set(allTs)].sort();
+
+    const labels = allTs.map((ts) => {
+      const d = new Date(ts);
+      const days =
+        Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) + 1;
+      return days <= 2
+        ? d.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })
+        : d.toLocaleDateString("th-TH", { day: "2-digit", month: "2-digit" });
     });
-  });
-  
-  allTimestamps = [...new Set(allTimestamps)].sort();
-  
-  const labels = allTimestamps.map(timestamp => {
-    const date = new Date(timestamp);
-    const daysDiff = Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) + 1;
-    return daysDiff <= 2
-      ? date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
-      : date.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit' });
-  });
-  
-  const datasets = [];
-  
-  Object.entries(data).forEach(([sensorId, sensorData], sensorIndex) => {
-    const dataByTimestamp = sensorData.data.reduce((acc, item) => {
-      acc[item.timestamp] = item;
-      return acc;
-    }, {});
-    
-    const sensorColorIndex = sensorIndex % SENSOR_COLORS.length;
-    
-    if (selectedMetrics.includes("Temperature")) {
-      datasets.push({
-        data: allTimestamps.map(timestamp => {
-          const item = dataByTimestamp[timestamp];
-          return item ? item.temperature || 0 : 0;
-        }),
-        color: (opacity = 1) => {
-          switch(sensorColorIndex) {
-            case 0: return `rgba(255, 99, 132, ${opacity})`; // #FF6384
-            case 1: return `rgba(54, 162, 235, ${opacity})`; // #36A2EB
-            case 2: return `rgba(75, 192, 192, ${opacity})`; // #4BC0C0
-            case 3: return `rgba(34, 197, 94, ${opacity})`; // #22C55E
-            case 4: return `rgba(255, 206, 86, ${opacity})`; // #FFCE56
-            case 5: return `rgba(153, 102, 255, ${opacity})`; // #9966FF
-            case 6: return `rgba(255, 159, 64, ${opacity})`; // #FF9F40
-            case 7: return `rgba(32, 201, 151, ${opacity})`; // #20C997
-            case 8: return `rgba(108, 117, 125, ${opacity})`; // #6C757D
-            case 9: return `rgba(253, 126, 20, ${opacity})`; // #FD7E14
-            default: return `rgba(0, 0, 0, ${opacity})`;
-          }
-        },
-        strokeWidth: 2,
-        withDots: true,
-        sensorName: sensorData.name,
-        metric: "Temperature"
-      });
-    }
-    
-    if (selectedMetrics.includes("Humidity")) {
-      datasets.push({
-        data: allTimestamps.map(timestamp => {
-          const item = dataByTimestamp[timestamp];
-          return item ? item.humidity || 0 : 0;
-        }),
-        color: (opacity = 1) => {
-          switch(sensorColorIndex) {
-            case 0: return `rgba(215, 59, 92, ${opacity})`; // Darker #FF6384
-            case 1: return `rgba(14, 122, 195, ${opacity})`; // Darker #36A2EB
-            case 2: return `rgba(35, 152, 152, ${opacity})`; // Darker #4BC0C0
-            case 3: return `rgba(0, 157, 54, ${opacity})`; // Darker #22C55E
-            case 4: return `rgba(215, 166, 46, ${opacity})`; // Darker #FFCE56
-            case 5: return `rgba(113, 62, 215, ${opacity})`; // Darker #9966FF
-            case 6: return `rgba(215, 119, 24, ${opacity})`; // Darker #FF9F40
-            case 7: return `rgba(0, 161, 111, ${opacity})`; // Darker #20C997
-            case 8: return `rgba(68, 77, 85, ${opacity})`; // Darker #6C757D
-            case 9: return `rgba(213, 86, 0, ${opacity})`; // Darker #FD7E14
-            default: return `rgba(80, 80, 80, ${opacity})`;
-          }
-        },
-        strokeWidth: 2,
-        withDots: true,
-        dashArray: [5, 5],
-        sensorName: sensorData.name,
-        metric: "Humidity"
-      });
-    }
-    
-    if (selectedMetrics.includes("Dew Point")) {
-      datasets.push({
-        data: allTimestamps.map(timestamp => {
-          const item = dataByTimestamp[timestamp];
-          return item ? item.dew_point || 0 : 0;
-        }),
-        color: (opacity = 1) => {
-          switch(sensorColorIndex) {
-            case 0: return `rgba(255, 139, 172, ${opacity})`; // Lighter #FF6384
-            case 1: return `rgba(94, 202, 255, ${opacity})`; // Lighter #36A2EB
-            case 2: return `rgba(115, 232, 232, ${opacity})`; // Lighter #4BC0C0
-            case 3: return `rgba(74, 237, 134, ${opacity})`; // Lighter #22C55E
-            case 4: return `rgba(255, 246, 126, ${opacity})`; // Lighter #FFCE56
-            case 5: return `rgba(193, 142, 255, ${opacity})`; // Lighter #9966FF
-            case 6: return `rgba(255, 199, 104, ${opacity})`; // Lighter #FF9F40
-            case 7: return `rgba(72, 241, 191, ${opacity})`; // Lighter #20C997
-            case 8: return `rgba(148, 157, 165, ${opacity})`; // Lighter #6C757D
-            case 9: return `rgba(255, 166, 60, ${opacity})`; // Lighter #FD7E14
-            default: return `rgba(180, 180, 180, ${opacity})`;
-          }
-        },
-        strokeWidth: 2,
-        withDots: true,
-        dashArray: [2, 2],
-        sensorName: sensorData.name,
-        metric: "Dew Point"
-      });
-    }
 
-    if (selectedMetrics.includes("VPD")) {
-      datasets.push({
-        data: allTimestamps.map(timestamp => {
-          const item = dataByTimestamp[timestamp];
-          return item ? item.vpd || 0 : 0;
-        }),
-        color: (opacity = 1) => {
-          switch(sensorColorIndex) {
-            case 0: return `rgba(255, 79, 112, ${opacity})`; // Orange tint #FF6384
-            case 1: return `rgba(34, 142, 215, ${opacity})`; // Orange tint #36A2EB
-            case 2: return `rgba(35, 172, 172, ${opacity})`; // Orange tint #4BC0C0
-            case 3: return `rgba(14, 177, 74, ${opacity})`; // Orange tint #22C55E
-            case 4: return `rgba(235, 186, 66, ${opacity})`; // Orange tint #FFCE56
-            case 5: return `rgba(133, 82, 235, ${opacity})`; // Orange tint #9966FF
-            case 6: return `rgba(235, 139, 60, ${opacity})`; // Orange tint #FF9F40
-            case 7: return `rgba(16, 182, 137, ${opacity})`; // Orange tint #20C997
-            case 8: return `rgba(88, 97, 105, ${opacity})`; // Orange tint #6C757D
-            case 9: return `rgba(233, 106, 0, ${opacity})`; // Orange tint #FD7E14
-            default: return `rgba(120, 120, 120, ${opacity})`;
-          }
-        },
-        strokeWidth: 2,
-        withDots: true,
-        dashArray: [5, 2, 2, 2], 
-        sensorName: sensorData.name,
-        metric: "VPD"
-      });
-    }
-  });
-  
-  return {
-    labels,
-    datasets: datasets.length > 0 ? datasets : [{ data: [0, 0, 0], color: () => "transparent" }]
-  };
-};
+    const datasets = [];
+    Object.entries(data).forEach(([_, sensorData], sensorIndex) => {
+      const map = sensorData.data.reduce((acc, it) => ((acc[it.timestamp] = it), acc), {});
+      const idx = sensorIndex % SENSOR_COLORS.length;
 
-  const chartData = Object.keys(data).length > 0 ? prepareChartData() : {
-    labels: ["No Data"],
-    datasets: [{ data: [0, 0, 0], color: () => "transparent" }]
+      const colorPick = (opacity, palette) => {
+        const set = {
+          base: [
+            "rgba(255, 99, 132, OP)", "rgba(54, 162, 235, OP)", "rgba(75, 192, 192, OP)",
+            "rgba(34, 197, 94, OP)", "rgba(255, 206, 86, OP)", "rgba(153, 102, 255, OP)",
+            "rgba(255, 159, 64, OP)", "rgba(32, 201, 151, OP)", "rgba(108, 117, 125, OP)",
+            "rgba(253, 126, 20, OP)",
+          ],
+          dark: [
+            "rgba(215, 59, 92, OP)", "rgba(14, 122, 195, OP)", "rgba(35, 152, 152, OP)",
+            "rgba(0, 157, 54, OP)", "rgba(215, 166, 46, OP)", "rgba(113, 62, 215, OP)",
+            "rgba(215, 119, 24, OP)", "rgba(0, 161, 111, OP)", "rgba(68, 77, 85, OP)",
+            "rgba(213, 86, 0, OP)",
+          ],
+          light: [
+            "rgba(255, 139, 172, OP)", "rgba(94, 202, 255, OP)", "rgba(115, 232, 232, OP)",
+            "rgba(74, 237, 134, OP)", "rgba(255, 246, 126, OP)", "rgba(193, 142, 255, OP)",
+            "rgba(255, 199, 104, OP)", "rgba(72, 241, 191, OP)", "rgba(148, 157, 165, OP)",
+            "rgba(255, 166, 60, OP)",
+          ],
+        };
+        return (set[palette][idx] || set.base[0]).replace("OP", String(opacity ?? 1));
+      };
+
+      if (selectedMetrics.includes("Temperature")) {
+        datasets.push({
+          data: allTs.map((ts) => map[ts]?.temperature ?? 0),
+          color: (o) => colorPick(o, "base"),
+          strokeWidth: 2,
+          withDots: true,
+          sensorName: sensorData.name,
+          metric: "Temperature",
+        });
+      }
+      if (selectedMetrics.includes("Humidity")) {
+        datasets.push({
+          data: allTs.map((ts) => map[ts]?.humidity ?? 0),
+          color: (o) => colorPick(o, "dark"),
+          strokeWidth: 2,
+          withDots: true,
+          dashArray: [5, 5],
+          sensorName: sensorData.name,
+          metric: "Humidity",
+        });
+      }
+      if (selectedMetrics.includes("Dew Point")) {
+        datasets.push({
+          data: allTs.map((ts) => map[ts]?.dew_point ?? 0),
+          color: (o) => colorPick(o, "light"),
+          strokeWidth: 2,
+          withDots: true,
+          dashArray: [2, 2],
+          sensorName: sensorData.name,
+          metric: "Dew Point",
+        });
+      }
+      if (selectedMetrics.includes("VPD")) {
+        datasets.push({
+          data: allTs.map((ts) => map[ts]?.vpd ?? 0),
+          color: (o) => colorPick(o, "dark"),
+          strokeWidth: 2,
+          withDots: true,
+          dashArray: [5, 2, 2, 2],
+          sensorName: sensorData.name,
+          metric: "VPD",
+        });
+      }
+    });
+
+    return {
+      labels,
+      datasets: datasets.length ? datasets : [{ data: [0, 0, 0], color: () => "transparent" }],
+    };
   };
+
+  const chartData =
+    Object.keys(data).length > 0
+      ? prepareChartData()
+      : { labels: ["No Data"], datasets: [{ data: [0, 0, 0], color: () => "transparent" }] };
 
   const formatDate = (date) => {
     if (!date) return "";
     const thaiYear = date.getFullYear() + 543;
-    return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${thaiYear} BE`;
+    return `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}/${thaiYear} BE`;
+  };
+  const formatTime = (date) => (date ? date.toLocaleTimeString() : "");
+
+  // -------- Render helpers --------
+  const toggleMetric = (metric) => {
+    setSelectedMetrics((prev) => (prev.includes(metric) ? prev.filter((m) => m !== metric) : [...prev, metric]));
   };
 
-  const formatTime = (date) => {
-    if (!date) return "";
-    return date.toLocaleTimeString();
-  };
+  const renderZoneItem = (item) => (
+    <View style={styles.item}>
+      <Text style={styles.textItem}>{item.label}</Text>
+      {selectedZones.includes(item.value) && <FontAwesome5 name="check" size={16} color="#007AFF" />}
+    </View>
+  );
+  const renderSensorItem = (item) => (
+    <View style={styles.item}>
+      <Text style={styles.textItem}>{item.label}</Text>
+      {selectedSensors.includes(item.value) && <FontAwesome5 name="check" size={16} color="#007AFF" />}
+    </View>
+  );
 
-  const renderZoneItem = (item) => {
-    return (
-      <View style={styles.item}>
-        <Text style={styles.textItem}>{item.label}</Text>
-        {selectedZones.includes(item.value) && (
-          <FontAwesome5 name="check" size={16} color="#007AFF" />
-        )}
-      </View>
-    );
-  };
+  // -------- Navigate to Export screen --------
+  const goToExport = () => {
+    if (selectedSensors.length === 0) {
+      Alert.alert("Please select at least one sensor");
+      return;
+    }
+    const sensorPayload = selectedSensors.map((id) => ({
+      id,
+      name: zoneSensors.find((s) => s.value === id)?.label || id,
+    }));
+    const zonePayload = selectedZones.map((zid) => ({
+      id: zid,
+      name: zones.find((z) => z.value === zid)?.label || zid,
+    }));
 
-  const renderSensorItem = (item) => {
-    return (
-      <View style={styles.item}>
-        <Text style={styles.textItem}>{item.label}</Text>
-        {selectedSensors.includes(item.value) && (
-          <FontAwesome5 name="check" size={16} color="#007AFF" />
-        )}
-      </View>
-    );
+    router.push({
+      pathname: "/exportdata",
+      params: {
+        sensors: JSON.stringify(sensorPayload),
+        zones: JSON.stringify(zonePayload),
+        metrics: JSON.stringify(selectedMetrics),
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+      },
+    });
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-      >
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <View style={styles.headerContainer}>
           <Text style={styles.headerTitle}>{t("statistics")}</Text>
           <View style={styles.placeholder} />
@@ -576,7 +414,7 @@ const prepareChartData = () => {
           {t("current_date_and_time")}: {formatDate(currentDate)} {formatTime(currentDate)}
         </Text>
 
-        {/* Zone Multi-Selection */}
+        {/* Zone select */}
         <View style={styles.dropdownContainer}>
           {loadingZones ? (
             <View style={styles.loadingSection}>
@@ -586,10 +424,7 @@ const prepareChartData = () => {
           ) : zones.length === 0 ? (
             <View style={styles.noDevicesWarning}>
               <Text style={styles.noDeviceText}>{t("No Zones Found Please Add A Zone First")}</Text>
-              <TouchableOpacity
-                style={styles.addDeviceButton}
-                onPress={() => router.push("/features/add-zone")}
-              >
+              <TouchableOpacity style={styles.addDeviceButton} onPress={() => router.push("/features/add-zone")}>
                 <Text style={styles.addDeviceButtonText}>{t("add_zone")}</Text>
               </TouchableOpacity>
             </View>
@@ -609,9 +444,7 @@ const prepareChartData = () => {
                 placeholder={t("select_zones")}
                 searchPlaceholder={t("search...")}
                 value={selectedZones}
-                onChange={item => {
-                  setSelectedZones(item);
-                }}
+                onChange={setSelectedZones}
                 renderItem={renderZoneItem}
                 selectedStyle={styles.selectedStyle}
                 renderSelectedItem={(item, unSelect) => (
@@ -627,7 +460,7 @@ const prepareChartData = () => {
           )}
         </View>
 
-        {/* Sensor Selection (MultiSelect) */}
+        {/* Sensor select */}
         {selectedZones.length > 0 && (
           <View style={styles.dropdownContainer}>
             <Text style={styles.dropdownLabel}>{t("Sensors")}</Text>
@@ -647,9 +480,7 @@ const prepareChartData = () => {
                 placeholder={t("select_sensors")}
                 searchPlaceholder={t("search...")}
                 value={selectedSensors}
-                onChange={item => {
-                  setSelectedSensors(item);
-                }}
+                onChange={setSelectedSensors}
                 renderItem={renderSensorItem}
                 selectedStyle={styles.selectedStyle}
                 renderSelectedItem={(item, unSelect) => (
@@ -669,76 +500,42 @@ const prepareChartData = () => {
           <>
             <View style={styles.dateExportContainer}>
               <Text style={styles.dateRangeText}>{t("Select Date Range")}</Text>
-              <TouchableOpacity 
-                style={styles.exportButton} 
-                onPress={handleExportPress}
-              >
-                <FontAwesome5 name="download" size={16} color="#fff" style={styles.exportIcon} />
-                <Text style={styles.exportText}>{t("export_data")}</Text>
+
+              {/* ปุ่มไปหน้า Export */}
+              <TouchableOpacity style={styles.exportButton} onPress={goToExport}>
+                <FontAwesome5 name="external-link-alt" size={16} color="#fff" style={styles.exportIcon} />
+                <Text style={styles.exportText}>Export Data</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.datePickerContainer}>
-              <TouchableOpacity
-                style={styles.datePickerButton}
-                onPress={() => setShowStartPicker(true)}
-              >
+              <TouchableOpacity style={styles.datePickerButton} onPress={openStartPicker}>
                 <FontAwesome5 name="calendar" size={16} color="#1E90FF" style={styles.calendarIcon} />
                 <Text style={styles.dateText}>{formatDate(startDate)}</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.datePickerButton}
-                onPress={() => setShowEndPicker(true)}
-              >
+              <TouchableOpacity style={styles.datePickerButton} onPress={openEndPicker}>
                 <FontAwesome5 name="calendar" size={16} color="#1E90FF" style={styles.calendarIcon} />
                 <Text style={styles.dateText}>{formatDate(endDate)}</Text>
               </TouchableOpacity>
             </View>
 
-            <Modal visible={showStartPicker} transparent animationType="slide">
-              <View style={styles.modalContainer}>
-                <View style={styles.pickerContainer}>
-                  <Text style={styles.pickerTitle}>{t("Select Start Date")}</Text>
-                  <DateTimePicker
-                    value={tempStartDate}
-                    mode="date"
-                    display="default"
-                    onChange={onStartDateChange}
-                  />
-                  <View style={styles.buttonContainer}>
-                    <TouchableOpacity style={styles.cancelButton} onPress={cancelPicker}>
-                      <Text style={styles.buttonText}>{t("cancel")}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.confirmButton} onPress={confirmStartDate}>
-                      <Text style={styles.buttonText}>{t("confirm")}</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            </Modal>
+            {/* Date pickers */}
+            <DateTimePickerModal
+              isVisible={showStartPicker}
+              mode="date"
+              date={tempStartDate}
+              onConfirm={onConfirmStart}
+              onCancel={() => setShowStartPicker(false)}
+            />
+            <DateTimePickerModal
+              isVisible={showEndPicker}
+              mode="date"
+              date={tempEndDate}
+              onConfirm={onConfirmEnd}
+              onCancel={() => setShowEndPicker(false)}
+            />
 
-            <Modal visible={showEndPicker} transparent animationType="slide">
-              <View style={styles.modalContainer}>
-                <View style={styles.pickerContainer}>
-                  <Text style={styles.pickerTitle}>{t("Select End Date")}</Text>
-                  <DateTimePicker
-                    value={tempEndDate}
-                    mode="date"
-                    display="default"
-                    onChange={onEndDateChange}
-                  />
-                  <View style={styles.buttonContainer}>
-                    <TouchableOpacity style={styles.cancelButton} onPress={cancelPicker}>
-                      <Text style={styles.buttonText}>{t("cancel")}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.confirmButton} onPress={confirmEndDate}>
-                      <Text style={styles.buttonText}>{t("confirm")}</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            </Modal>
-
+            {/* Metric toggles */}
             <View style={styles.metricContainer}>
               {["Temperature", "Humidity", "Dew Point", "VPD"].map((metric) => (
                 <TouchableOpacity
@@ -751,7 +548,7 @@ const prepareChartData = () => {
                         metric === "Temperature"
                           ? "#FF6384"
                           : metric === "Humidity"
-                          ? "#36A2EB" 
+                          ? "#36A2EB"
                           : metric === "Dew Point"
                           ? "#4BC0C0"
                           : "#22C55E",
@@ -777,6 +574,7 @@ const prepareChartData = () => {
               ))}
             </View>
 
+            {/* Chart */}
             {loading ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#007AFF" />
@@ -784,20 +582,20 @@ const prepareChartData = () => {
               </View>
             ) : Object.keys(data).length === 0 ? (
               <Text style={styles.noDataText}>
-                {selectedSensors.length === 0 
-                  ? t("Please Select At Least One Sensor") 
+                {selectedSensors.length === 0
+                  ? t("Please Select At Least One Sensor")
                   : t("No Data Available For The Selected Date Range")}
               </Text>
             ) : (
               <View style={styles.chartOuterContainer}>
-                <ScrollView 
-                  horizontal 
+                <ScrollView
+                  horizontal
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.chartScrollContainer}
                 >
                   <LineChart
                     data={chartData}
-                    width={Math.max(chartWidth, maxDataPoints * 80)}
+                    width={chartWidth}
                     height={220}
                     chartConfig={{
                       backgroundColor: "#ffffff",
@@ -810,47 +608,40 @@ const prepareChartData = () => {
                       propsForDots: { r: "5", strokeWidth: "2", stroke: "#fff" },
                       propsForBackgroundLines: { strokeDasharray: "5, 5", strokeWidth: 1, stroke: "#e0e0e0" },
                       propsForLabels: { fontSize: 10, fontWeight: "bold" },
-                      formatYLabel: (value) => value,
                     }}
                     bezier
                     style={styles.chart}
-                    withInnerLines={true}
+                    withInnerLines
                     withOuterLines={false}
-                    withVerticalLines={true}
-                    withHorizontalLines={true}
-                    withDots={true}
+                    withVerticalLines
+                    withHorizontalLines
+                    withDots
                     withShadow={false}
                     segments={5}
-                    fromZero={false}
-                    yAxisInterval={5}
-                    yAxisSuffix=""
-                    yAxisLabel=""
-                    legendStyle={styles.chartLegend}
                   />
                 </ScrollView>
-                
-                {/* Enhanced Legend */}
+
+                {/* Legend */}
                 <View style={styles.legendContainer}>
-                  {chartData.datasets.filter(dataset => dataset.sensorName).map((dataset, index) => (
-                    <View key={index} style={styles.legendItem}>
-                      <View 
-                        style={[
-                          styles.legendColor, 
-                          { 
-                            backgroundColor: dataset.color(1),
-                            borderStyle: dataset.dashArray ? 'dashed' : 'solid'
-                          }
-                        ]}
-                      />
-                      <Text style={styles.legendText}>
-                        {dataset.sensorName} - {dataset.metric}
-                      </Text>
-                    </View>
-                  ))}
+                  {chartData.datasets
+                    .filter((d) => d.sensorName)
+                    .map((d, i) => (
+                      <View key={i} style={styles.legendItem}>
+                        <View
+                          style={[
+                            styles.legendColor,
+                            { backgroundColor: d.color(1), borderStyle: d.dashArray ? "dashed" : "solid" },
+                          ]}
+                        />
+                        <Text style={styles.legendText}>
+                          {d.sensorName} - {d.metric}
+                        </Text>
+                      </View>
+                    ))}
                 </View>
               </View>
             )}
-            
+
             <View style={styles.footer}>
               <Text style={styles.footerText}>
                 {t("swipe_the_graph_horizontally_to_view_more_data")}
@@ -864,325 +655,61 @@ const prepareChartData = () => {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#F8FAFC",
-    paddingTop: isIOS ? 0 : StatusBar.currentHeight,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: "#F8FAFC",
-    padding: 16,
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 50,
-  },
-  headerContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-    paddingTop: 10,
-  },
-  headerTitle: {
-    fontSize: 26,
-    fontWeight: "bold",
-    flex: 1,
-    textAlign: "left",
-  },
-  placeholder: {
-    width: 44,
-  },
-  currentDateText: {
-    fontSize: 14,
-    marginBottom: 16,
-    color: "#555",
-  },
-  dropdownLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 8,
-    color: "#333",
-  },
+  safeArea: { flex: 1, backgroundColor: "#F8FAFC", paddingTop: isIOS ? 0 : StatusBar.currentHeight },
+  scrollContent: { paddingHorizontal: 16, paddingBottom: 50 },
+  headerContainer: { flexDirection: "row", alignItems: "center", marginBottom: 16, paddingTop: 10 },
+  headerTitle: { fontSize: 26, fontWeight: "bold", flex: 1, textAlign: "left" },
+  placeholder: { width: 44 },
+  currentDateText: { fontSize: 14, marginBottom: 16, color: "#555" },
+  dropdownLabel: { fontSize: 14, fontWeight: "600", marginBottom: 8, color: "#333" },
   dropdownContainer: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: "#fff", borderRadius: 12, padding: 16, marginBottom: 20,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2,
   },
-  dropdown: {
-    height: 50,
-    backgroundColor: "#f9f9f9",
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-  },
-  dropdownPlaceholder: {
-    color: "#666",
-  },
-  dropdownSelectedText: {
-    color: "#000",
-    fontWeight: "500",
-  },
-  dropdownInputSearch: {
-    height: 40,
-    fontSize: 16,
-  },
+  dropdown: { height: 50, backgroundColor: "#f9f9f9", borderRadius: 10, paddingHorizontal: 10, borderWidth: 1, borderColor: "#e0e0e0" },
+  dropdownPlaceholder: { color: "#666" },
+  dropdownSelectedText: { color: "#000", fontWeight: "500" },
+  dropdownInputSearch: { height: 40, fontSize: 16 },
   selectedItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 8,  
-    marginRight: 8, 
-    marginBottom: 8,  
-    marginVertical: 4,  
-    backgroundColor: "#007AFF",
-    borderRadius: 14,
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+    paddingHorizontal: 10, paddingVertical: 8, marginRight: 8, marginBottom: 8, marginVertical: 4,
+    backgroundColor: "#007AFF", borderRadius: 14,
   },
-  selectedText: {
-    color: "#fff",
-    marginRight: 6,
-    fontSize: 12,
-  },
-  selectedStyle: {
-    borderRadius: 10,
-    backgroundColor: "#f0f0f0",
-    paddingVertical: 4,
-  },
-  item: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  textItem: {
-    fontSize: 14,
-  },
-  dateExportContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  dateRangeText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#333",
-  },
-  exportButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#28A745",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-  },
-  exportIcon: {
-    marginRight: 6,
-  },
-  exportText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  datePickerContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 16,
-  },
+  selectedText: { color: "#fff", marginRight: 6, fontSize: 12 },
+  selectedStyle: { borderRadius: 10, backgroundColor: "#f0f0f0", paddingVertical: 4 },
+  item: { padding: 12, borderBottomWidth: 1, borderBottomColor: "#e0e0e0", flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  textItem: { fontSize: 14 },
+  dateExportContainer: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  dateRangeText: { fontSize: 15, fontWeight: "600", color: "#333" },
+  exportButton: { flexDirection: "row", alignItems: "center", backgroundColor: "#3B82F6", paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8 },
+  exportIcon: { marginRight: 6 },
+  exportText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  datePickerContainer: { flexDirection: "row", justifyContent: "space-between", marginBottom: 16 },
   datePickerButton: {
-    flex: 1,
-    backgroundColor: "#fff",
-    padding: 12,
-    borderRadius: 12,
-    marginHorizontal: 4,
-    flexDirection: "row",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    flex: 1, backgroundColor: "#fff", padding: 12, borderRadius: 12, marginHorizontal: 4, flexDirection: "row", alignItems: "center",
+    shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2,
   },
-  dateText: {
-    fontSize: 13,
-  },
-  calendarIcon: {
-    marginRight: 8,
-  },
-  metricContainer: {
-    flexDirection: "row",
-    marginBottom: 16,
-    justifyContent: "center",
-    flexWrap: "wrap",
-  },
-  metricButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    marginHorizontal: 4,
-    marginBottom: 8,
-    borderRadius: 24,
-    backgroundColor: "#E5E7EB",
-  },
-  metricIcon: {
-    marginRight: 6,
-  },
-  metricText: {
-    color: "#fff",
-    fontWeight: "600",
-    fontSize: 13,
-  },
-  chartOuterContainer: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 10,
-    marginTop: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  chartScrollContainer: {
-    paddingBottom: 10,
-  },
-  chart: {
-    borderRadius: 16,
-    marginTop: 8,
-  },
-  chartLegend: {
-    display: "none",
-  },
-  legendContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 12,
-    marginBottom: 8,
-    flexWrap: "wrap",
-  },
-  legendItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginHorizontal: 8,
-    marginBottom: 8,
-  },
-  legendColor: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 5,
-    borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.1)",
-  },
-  legendText: {
-    fontSize: 11,
-    color: "#444",
-  },
-  loadingContainer: {
-    marginTop: 40,
-    alignItems: "center",
-  },
-  loadingText: {
-    marginTop: 10,
-    color: "#555",
-    marginLeft: 8,
-  },
-  noDataText: {
-    textAlign: 'center',
-    marginVertical: 16,
-    color: 'gray',
-  },
-  footer: {
-    marginTop: 16,
-    marginBottom: 24,
-    alignItems: "center",
-  },
-  footerText: {
-    fontSize: 12,
-    color: "#888",
-    fontStyle: "italic",
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-  },
-  pickerContainer: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 20,
-    width: "80%",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  pickerTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 10,
-  },
-  buttonContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: "100%",
-    marginTop: 20,
-  },
-  cancelButton: {
-    backgroundColor: "#FF3B30",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-  },
-  confirmButton: {
-    backgroundColor: "#007AFF",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-  },
-  buttonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  noDevicesWarning: {
-    alignItems: 'center',
-    padding: 10,
-  },
-  noDeviceText: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  addDeviceButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-  },
-  addDeviceButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  loadingSection: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 10,
-  },
+  dateText: { fontSize: 13 },
+  calendarIcon: { marginRight: 8 },
+  metricContainer: { flexDirection: "row", marginBottom: 16, justifyContent: "center", flexWrap: "wrap" },
+  metricButton: { flexDirection: "row", alignItems: "center", paddingVertical: 10, paddingHorizontal: 16, marginHorizontal: 4, marginBottom: 8, borderRadius: 24, backgroundColor: "#E5E7EB" },
+  metricIcon: { marginRight: 6 },
+  metricText: { color: "#fff", fontWeight: "600", fontSize: 13 },
+  chartOuterContainer: { backgroundColor: "#fff", borderRadius: 16, padding: 10, marginTop: 16, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 3 },
+  chartScrollContainer: { paddingBottom: 10 },
+  chart: { borderRadius: 16, marginTop: 8 },
+  legendContainer: { flexDirection: "row", justifyContent: "center", marginTop: 12, marginBottom: 8, flexWrap: "wrap" },
+  legendItem: { flexDirection: "row", alignItems: "center", marginHorizontal: 8, marginBottom: 8 },
+  legendColor: { width: 12, height: 12, borderRadius: 6, marginRight: 5, borderWidth: 1, borderColor: "rgba(0,0,0,0.1)" },
+  legendText: { fontSize: 11, color: "#444" },
+  loadingContainer: { marginTop: 40, alignItems: "center" },
+  loadingText: { marginTop: 10, color: "#555", marginLeft: 8 },
+  noDataText: { textAlign: "center", marginVertical: 16, color: "gray" },
+  footer: { marginTop: 16, marginBottom: 24, alignItems: "center" },
+  footerText: { fontSize: 12, color: "#888", fontStyle: "italic" },
+  noDevicesWarning: { alignItems: "center", padding: 10 },
+  noDeviceText: { fontSize: 14, color: "#666", marginBottom: 10, textAlign: "center" },
+  addDeviceButton: { backgroundColor: "#007AFF", paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8 },
+  addDeviceButtonText: { color: "#fff", fontWeight: "bold" },
+  loadingSection: { flexDirection: "row", justifyContent: "center", alignItems: "center", padding: 10 },
 });
