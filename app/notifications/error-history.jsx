@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   StyleSheet,
   Text,
@@ -33,6 +33,48 @@ const getAuthToken = async () => {
   }
 };
 
+// Enhanced unique key generator with collision detection
+const generateUniqueKey = (item, index, prefix = 'item', existingKeys = new Set()) => {
+  let baseKey = item?.id || item?._id;
+  
+  // If no ID exists, create one from available data
+  if (!baseKey) {
+    const timestamp = item?.timestamp ? new Date(item.timestamp).getTime() : Date.now();
+    const deviceId = item?.deviceId || 'unknown';
+    const type = item?.anomalyType || item?.type || 'unknown';
+    baseKey = `${prefix}-${timestamp}-${deviceId}-${type}-${index}`;
+  }
+  
+  // Ensure the key is unique by adding a suffix if needed
+  let uniqueKey = baseKey;
+  let suffix = 0;
+  while (existingKeys.has(uniqueKey)) {
+    suffix++;
+    uniqueKey = `${baseKey}-${suffix}`;
+  }
+  
+  existingKeys.add(uniqueKey);
+  return uniqueKey;
+};
+
+// Deduplication function
+const deduplicateErrors = (errors) => {
+  const seen = new Map();
+  const unique = [];
+  
+  for (const error of errors) {
+    // Create a dedup key based on multiple fields to identify true duplicates
+    const dedupKey = `${error.timestamp}-${error.type}-${error.deviceId}-${error.details}`;
+    
+    if (!seen.has(dedupKey)) {
+      seen.set(dedupKey, true);
+      unique.push(error);
+    }
+  }
+  
+  return unique;
+};
+
 export default function ErrorHistory() {
   const route = useRoute();
   const navigation = useNavigation();
@@ -50,9 +92,18 @@ export default function ErrorHistory() {
     if (errorHistory) {
       try {
         const parsedErrors = JSON.parse(errorHistory);
-        setCurrentErrors(parsedErrors);
+        const existingKeys = new Set();
+        
+        // Ensure each error has a unique ID and deduplicate
+        const errorsWithUniqueIds = parsedErrors.map((error, index) => ({
+          ...error,
+          id: generateUniqueKey(error, index, 'current', existingKeys)
+        }));
+        
+        setCurrentErrors(deduplicateErrors(errorsWithUniqueIds));
       } catch (error) {
         console.error("Error parsing error history:", error);
+        setCurrentErrors([]);
       }
     }
 
@@ -71,7 +122,6 @@ export default function ErrorHistory() {
       setLoading(true);
       const token = await getAuthToken();
 
-      // Use new Anomaly Detection API
       const data = await AnomalyService.getHistory(token, {
         limit: 50,
         page: 1
@@ -79,28 +129,52 @@ export default function ErrorHistory() {
 
       console.log('Anomaly history response:', data);
 
-      // Transform API response to match UI format
-      const formattedHistory = data.anomalies.map((item) => ({
-        id: item._id,
-        type: item.anomalyType === 'ml_detected' ? 'AI Anomaly Detection' : formatAnomalyType(item.anomalyType),
-        timestamp: item.timestamp,
-        details: item.message,
-        alertLevel: item.alertLevel,
-        detectionMethod: item.detectionMethod,
-        score: item.mlResults?.confidence ? item.mlResults.confidence.toFixed(2) : undefined,
-        isAnomalyDetection: item.detectionMethod === 'ml_based' || item.detectionMethod === 'hybrid',
-        resolved: item.resolved,
-        notes: item.notes,
-        deviceId: item.deviceId,
-        sensorData: item.sensorData
+      // Robust handling of different response structures with proper null checks
+      let anomaliesArray = [];
+      
+      if (data?.data?.anomalies && Array.isArray(data.data.anomalies)) {
+        // Handle the actual API structure: data.data.anomalies
+        anomaliesArray = data.data.anomalies;
+      } else if (data?.anomalies && Array.isArray(data.anomalies)) {
+        // Handle legacy structure: data.anomalies
+        anomaliesArray = data.anomalies;
+      } else if (Array.isArray(data)) {
+        // Handle case where API returns array directly
+        anomaliesArray = data;
+      } else if (data?.data && Array.isArray(data.data)) {
+        // Handle case where data is nested in data property as array
+        anomaliesArray = data.data;
+      } else {
+        console.warn('Unexpected API response structure:', data);
+        anomaliesArray = [];
+      }
+
+      const existingKeys = new Set();
+
+      // Transform API response to match UI format with guaranteed unique IDs
+      const formattedHistory = anomaliesArray.map((item, index) => ({
+        id: generateUniqueKey(item, index, 'historical', existingKeys),
+        type: item?.anomalyType === 'ml_detected' ? 'AI Anomaly Detection' : formatAnomalyType(item?.anomalyType || 'unknown'),
+        timestamp: item?.timestamp || new Date().toISOString(),
+        details: item?.message || 'No details available',
+        alertLevel: item?.alertLevel || 'yellow',
+        detectionMethod: item?.detectionMethod || 'unknown',
+        score: item?.mlResults?.confidence ? item.mlResults.confidence.toFixed(2) : undefined,
+        isAnomalyDetection: item?.detectionMethod === 'ml_based' || item?.detectionMethod === 'hybrid',
+        resolved: item?.resolved || false,
+        notes: item?.notes || null,
+        deviceId: item?.deviceId || 'Unknown',
+        sensorData: item?.sensorData || null
       }));
 
-      setHistoricalErrors(formattedHistory);
+      // Deduplicate the formatted history
+      setHistoricalErrors(deduplicateErrors(formattedHistory));
 
     } catch (error) {
       console.error("Error fetching historical errors:", error);
+      setHistoricalErrors([]);
       
-      if (error.message.includes('401')) {
+      if (error.message && error.message.includes('401')) {
         await AsyncStorage.removeItem("token");
         navigation.replace("/signin");
         return;
@@ -192,18 +266,31 @@ export default function ErrorHistory() {
     navigation.goBack();
   };
 
-  // Combine and sort all errors
-  const allErrors = [...currentErrors, ...historicalErrors].sort(
-    (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
-  );
+  // Memoize the combined and deduplicated errors to prevent unnecessary re-renders
+  const allErrors = useMemo(() => {
+    const combined = [...currentErrors, ...historicalErrors];
+    const deduplicated = deduplicateErrors(combined);
+    return deduplicated.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  }, [currentErrors, historicalErrors]);
 
   // Filter errors based on selected filter
-  const filteredErrors = allErrors.filter((error) => {
-    if (filter === "all") return true;
-    if (filter === "basic") return !error.isAnomalyDetection && !error.score;
-    if (filter === "anomaly") return error.isAnomalyDetection || !!error.score;
-    return true;
-  });
+  const filteredErrors = useMemo(() => {
+    return allErrors.filter((error) => {
+      if (filter === "all") return true;
+      if (filter === "basic") return !error.isAnomalyDetection && !error.score;
+      if (filter === "anomaly") return error.isAnomalyDetection || !!error.score;
+      return true;
+    });
+  }, [allErrors, filter]);
+
+  // Generate keys for rendering with collision detection
+  const errorsWithRenderKeys = useMemo(() => {
+    const existingKeys = new Set();
+    return filteredErrors.map((error, index) => ({
+      ...error,
+      renderKey: generateUniqueKey(error, index, 'render', existingKeys)
+    }));
+  }, [filteredErrors]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -222,19 +309,22 @@ export default function ErrorHistory() {
           </View>
 
           {/* Stats Summary */}
-          {stats && (
+          {stats?.alertStats && Array.isArray(stats.alertStats) && (
             <View style={styles.statsContainer}>
               <Text style={styles.statsTitle}>Last 7 Days Summary</Text>
               <View style={styles.statsGrid}>
-                {stats.alertStats.map((stat, index) => (
-                  <View key={index} style={[
-                    styles.statBox,
-                    { backgroundColor: stat._id === 'red' ? '#FFEBEE' : stat._id === 'yellow' ? '#FFF8E1' : '#E8F5E8' }
-                  ]}>
-                    <Text style={styles.statNumber}>{stat.count}</Text>
-                    <Text style={styles.statLabel}>{stat._id.toUpperCase()}</Text>
-                  </View>
-                ))}
+                {stats.alertStats.map((stat, index) => {
+                  const existingKeys = new Set();
+                  return (
+                    <View key={generateUniqueKey(stat, index, 'stat', existingKeys)} style={[
+                      styles.statBox,
+                      { backgroundColor: stat._id === 'red' ? '#FFEBEE' : stat._id === 'yellow' ? '#FFF8E1' : '#E8F5E8' }
+                    ]}>
+                      <Text style={styles.statNumber}>{stat.count}</Text>
+                      <Text style={styles.statLabel}>{stat._id?.toUpperCase() || 'UNKNOWN'}</Text>
+                    </View>
+                  );
+                })}
               </View>
             </View>
           )}
@@ -297,11 +387,11 @@ export default function ErrorHistory() {
               <ActivityIndicator size="large" color="#1976D2" />
               <Text style={styles.loadingText}>Loading anomaly history...</Text>
             </View>
-          ) : filteredErrors.length > 0 ? (
+          ) : errorsWithRenderKeys.length > 0 ? (
             <>
-              {filteredErrors.map((error, index) => (
+              {errorsWithRenderKeys.map((error) => (
                 <View
-                  key={error.id || index}
+                  key={error.renderKey}
                   style={[
                     styles.errorItem,
                     error.resolved && styles.resolvedError,
@@ -404,7 +494,7 @@ export default function ErrorHistory() {
   );
 }
 
-// Add new styles for the enhanced UI
+// Styles remain the same
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,

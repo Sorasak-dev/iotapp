@@ -16,14 +16,14 @@ import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getAuthHeaders, AnomalyService, API_ENDPOINTS } from '../utils/config/api';
+import notificationService from '../utils/NotificationService';
+import NotificationSettings from '../components/NotificationSettings';
 
 const filters = [
   { id: "all", label: "All", icon: "layers-outline" },
   { id: "critical", label: "Critical", icon: "warning-outline" },
-  { id: "high", label: "High", icon: "alert-outline" },
-  { id: "medium", label: "Medium", icon: "alert-circle-outline" },
-  { id: "low", label: "Low", icon: "information-circle-outline" },
-  { id: "unresolved", label: "Unresolved", icon: "time-outline" },
+  { id: "warning", label: "Warning", icon: "alert-outline" },
+  { id: "info", label: "Info", icon: "information-circle-outline" },
 ];
 
 const getAuthToken = async () => {
@@ -45,14 +45,35 @@ export default function NotificationScreen() {
   const [notifications, setNotifications] = useState([]);
   const [editMode, setEditMode] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
+  const [settingsVisible, setSettingsVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [anomalyStats, setAnomalyStats] = useState(null);
+  const [pushToken, setPushToken] = useState(null);
 
   useEffect(() => {
     loadNotifications();
     loadAnomalyStats();
+    checkPushToken();
+    
+    // Listen for new notifications
+    const subscription = notificationService.setupNotificationListeners();
+    
+    return () => {
+      if (subscription) {
+        subscription();
+      }
+    };
   }, []);
+
+  const checkPushToken = async () => {
+    try {
+      const token = await notificationService.getCurrentToken();
+      setPushToken(token);
+    } catch (error) {
+      console.error('Error getting push token:', error);
+    }
+  };
 
   const loadAnomalyStats = async () => {
     try {
@@ -84,7 +105,7 @@ export default function NotificationScreen() {
           title: getAnomalyTitle(anomaly.type),
           message: anomaly.description || `${anomaly.type} detected on ${anomaly.device_name || 'Unknown Device'}`,
           location: anomaly.device_name || "Unknown Device",
-          type: anomaly.severity || 'medium',
+          type: getSeverityType(anomaly.severity),
           time: formatTime(anomaly.timestamp),
           date: formatDate(anomaly.timestamp),
           isRead: anomaly.status === 'resolved',
@@ -96,36 +117,87 @@ export default function NotificationScreen() {
           resolved_at: anomaly.resolved_at,
           resolved_by: anomaly.resolved_by,
           resolution_notes: anomaly.resolution_notes,
-          timestamp: anomaly.timestamp
+          timestamp: anomaly.timestamp,
+          isPushNotification: false // Mark as server notification
         }));
         
-        setNotifications(formattedNotifications);
+        // Merge with local push notifications
+        const localNotifications = await getLocalNotifications();
+        const allNotifications = [...formattedNotifications, ...localNotifications]
+          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        
+        setNotifications(allNotifications);
       } else {
-        // Fallback to empty array if no anomalies
-        setNotifications([]);
+        // Load local notifications only
+        const localNotifications = await getLocalNotifications();
+        setNotifications(localNotifications);
       }
     } catch (error) {
       console.error('Error loading notifications:', error);
       Alert.alert('Error', 'Failed to load notifications');
+      
+      // Load local notifications as fallback
+      try {
+        const localNotifications = await getLocalNotifications();
+        setNotifications(localNotifications);
+      } catch (localError) {
+        console.error('Error loading local notifications:', localError);
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
+  const getSeverityType = (severity) => {
+    switch (severity) {
+      case 'critical':
+      case 'high':
+        return 'critical';
+      case 'medium':
+        return 'warning';
+      case 'low':
+      default:
+        return 'info';
+    }
+  };
+
+  const getLocalNotifications = async () => {
+    try {
+      const storedNotifications = await AsyncStorage.getItem('localNotifications');
+      if (storedNotifications) {
+        const localNotifs = JSON.parse(storedNotifications);
+        return localNotifs.map(notif => ({
+          ...notif,
+          isPushNotification: true,
+          type: getSeverityType(notif.data?.severity || 'medium'),
+          severity: notif.data?.severity || 'medium',
+          time: formatTime(notif.timestamp),
+          date: formatDate(notif.timestamp),
+          location: notif.data?.device_name || 'Push Notification',
+          isRead: notif.read || false
+        }));
+      }
+    } catch (error) {
+      console.error('Error loading local notifications:', error);
+    }
+    return [];
+  };
+
   const getAnomalyTitle = (type) => {
     const titleMap = {
-      'temperature_high': 'High Temperature Alert',
-      'temperature_low': 'Low Temperature Alert',
-      'humidity_high': 'High Humidity Alert',
-      'humidity_low': 'Low Humidity Alert',
+      'temperature_high': 'WiFi Connection Lost',
+      'temperature_low': 'Battery Low',
+      'humidity_high': 'Backup Completed',
+      'humidity_low': 'Data Error',
       'sensor_malfunction': 'Sensor Malfunction',
-      'data_anomaly': 'Data Anomaly Detected',
+      'data_anomaly': 'Data Error "IBS-TH3"',
       'pattern_deviation': 'Pattern Deviation',
-      'connection_lost': 'Connection Lost',
-      'battery_low': 'Battery Low'
+      'connection_lost': 'WiFi Connection Lost',
+      'battery_low': 'Battery Low',
+      'test': 'Test Notification'
     };
     
-    return titleMap[type] || 'Anomaly Detected';
+    return titleMap[type] || 'WiFi Connection Lost';
   };
 
   const formatTime = (timestamp) => {
@@ -137,10 +209,10 @@ export default function NotificationScreen() {
       return `${diffInMinutes} minutes ago`;
     } else if (diffInMinutes < 1440) {
       const hours = Math.floor(diffInMinutes / 60);
-      return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+      return `${hours} hours ago`;
     } else {
       const days = Math.floor(diffInMinutes / 1440);
-      return `${days} day${days > 1 ? 's' : ''} ago`;
+      return `${days} days ago`;
     }
   };
 
@@ -162,57 +234,41 @@ export default function NotificationScreen() {
     setRefreshing(true);
     await loadNotifications();
     await loadAnomalyStats();
+    await checkPushToken();
     setRefreshing(false);
   }, []);
 
   const filteredNotifications = notifications.filter(item => {
     if (selectedFilter === "all") return true;
-    if (selectedFilter === "unresolved") return item.status !== 'resolved';
-    return item.type === selectedFilter || item.severity === selectedFilter;
+    return item.type === selectedFilter;
   });
 
-  const getBackgroundColor = (type, isRead, status) => {
-    if (isRead || status === 'resolved') return "#F5F5F5";
+  const getBackgroundColor = (type, isRead) => {
+    if (isRead) return "#FFFFFF";
     
     switch (type) {
       case "critical":
-        return "#FDEDED";
-      case "high":
-        return "#FFF0E0";
-      case "medium":
-        return "#FFF8E1";
-      case "low":
+        return "#FFEBEE";
+      case "warning":
+        return "#FFF3E0";
+      case "info":
         return "#E3F2FD";
       default:
         return "#FFFFFF";
     }
   };
 
-  const getSeverityColor = (severity) => {
-    switch (severity) {
-      case 'critical': return '#D32F2F';
-      case 'high': return '#F57C00';
-      case 'medium': return '#FFA000';
-      case 'low': return '#388E3C';
-      default: return '#666';
-    }
-  };
-
-  const getIcon = (title, type, severity) => {
-    const color = getSeverityColor(severity);
-    
-    if (title.includes("Temperature")) {
-      return <Ionicons name="thermometer" size={24} color={color} />;
-    } else if (title.includes("Humidity")) {
-      return <Ionicons name="water" size={24} color={color} />;
+  const getIcon = (title, type) => {
+    if (title.includes("WiFi") || title.includes("Connection")) {
+      return <Ionicons name="wifi" size={24} color="#FF5722" />;
     } else if (title.includes("Battery")) {
-      return <Ionicons name="battery-half" size={24} color={color} />;
-    } else if (title.includes("Connection") || title.includes("WiFi")) {
-      return <Ionicons name="wifi" size={24} color={color} />;
-    } else if (title.includes("Malfunction")) {
-      return <Ionicons name="alert-circle" size={24} color={color} />;
+      return <Ionicons name="battery-half" size={24} color="#FF9800" />;
+    } else if (title.includes("Backup")) {
+      return <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />;
+    } else if (title.includes("Data") || title.includes("Error")) {
+      return <Ionicons name="close-circle" size={24} color="#2196F3" />;
     } else {
-      return <Ionicons name="warning" size={24} color={color} />;
+      return <Ionicons name="warning" size={24} color="#FF5722" />;
     }
   };
 
@@ -221,10 +277,16 @@ export default function NotificationScreen() {
     setMenuVisible(false);
   };
   
-  const handleResolveNotification = async (id) => {
+  const handleResolveNotification = async (id, isPushNotification) => {
     try {
-      const token = await getAuthToken();
-      await AnomalyService.resolveAnomaly(token, id, 'Resolved by user');
+      if (isPushNotification) {
+        // Mark local push notification as read
+        await markLocalNotificationAsRead(id);
+      } else {
+        // Resolve server anomaly
+        const token = await getAuthToken();
+        await AnomalyService.resolveAnomaly(token, id, 'Resolved by user');
+      }
       
       // Update local state
       setNotifications(notifications.map(notification => 
@@ -233,14 +295,29 @@ export default function NotificationScreen() {
           : notification
       ));
       
-      Alert.alert('Success', 'Anomaly marked as resolved');
+      Alert.alert('Success', 'Notification marked as resolved');
     } catch (error) {
-      console.error('Error resolving anomaly:', error);
-      Alert.alert('Error', 'Failed to resolve anomaly');
+      console.error('Error resolving notification:', error);
+      Alert.alert('Error', 'Failed to resolve notification');
     }
   };
 
-  const handleDeleteNotification = (id) => {
+  const markLocalNotificationAsRead = async (id) => {
+    try {
+      const storedNotifications = await AsyncStorage.getItem('localNotifications');
+      if (storedNotifications) {
+        const notifications = JSON.parse(storedNotifications);
+        const updatedNotifications = notifications.map(notif => 
+          notif.id === id ? { ...notif, read: true } : notif
+        );
+        await AsyncStorage.setItem('localNotifications', JSON.stringify(updatedNotifications));
+      }
+    } catch (error) {
+      console.error('Error marking local notification as read:', error);
+    }
+  };
+
+  const handleDeleteNotification = (id, isPushNotification) => {
     Alert.alert(
       "Delete Notification",
       "Are you sure you want to delete this notification?",
@@ -251,7 +328,10 @@ export default function NotificationScreen() {
         },
         {
           text: "Delete",
-          onPress: () => {
+          onPress: async () => {
+            if (isPushNotification) {
+              await deleteLocalNotification(id);
+            }
             setNotifications(notifications.filter(item => item.id !== id));
           },
           style: "destructive"
@@ -260,9 +340,30 @@ export default function NotificationScreen() {
     );
   };
 
+  const deleteLocalNotification = async (id) => {
+    try {
+      const storedNotifications = await AsyncStorage.getItem('localNotifications');
+      if (storedNotifications) {
+        const notifications = JSON.parse(storedNotifications);
+        const updatedNotifications = notifications.filter(notif => notif.id !== id);
+        await AsyncStorage.setItem('localNotifications', JSON.stringify(updatedNotifications));
+      }
+    } catch (error) {
+      console.error('Error deleting local notification:', error);
+    }
+  };
+
   const markAllAsRead = async () => {
     try {
-      // In a real implementation, you might want to call an API to mark all as read
+      // Mark all local notifications as read
+      const storedNotifications = await AsyncStorage.getItem('localNotifications');
+      if (storedNotifications) {
+        const localNotifications = JSON.parse(storedNotifications);
+        const updatedLocalNotifications = localNotifications.map(notif => ({ ...notif, read: true }));
+        await AsyncStorage.setItem('localNotifications', JSON.stringify(updatedLocalNotifications));
+      }
+      
+      // Update state
       setNotifications(
         notifications.map(notification => ({
           ...notification,
@@ -288,9 +389,15 @@ export default function NotificationScreen() {
         },
         {
           text: "Delete All",
-          onPress: () => {
-            setNotifications([]);
-            setMenuVisible(false);
+          onPress: async () => {
+            try {
+              // Clear local notifications
+              await AsyncStorage.setItem('localNotifications', JSON.stringify([]));
+              setNotifications([]);
+              setMenuVisible(false);
+            } catch (error) {
+              console.error('Error deleting all notifications:', error);
+            }
           },
           style: "destructive"
         }
@@ -299,14 +406,40 @@ export default function NotificationScreen() {
   };
 
   const handleNotificationPress = (notification) => {
-    // Navigate to detailed view or device details
-    router.push({
-      pathname: "/sensor-detail",
-      params: {
-        deviceId: notification.device_id,
-        anomalyId: notification.id
+    if (notification.isPushNotification) {
+      // Handle push notification tap
+      if (notification.data?.anomalyId) {
+        router.push({
+          pathname: "/sensor-detail",
+          params: {
+            deviceId: notification.data.deviceId,
+            anomalyId: notification.data.anomalyId
+          }
+        });
+      } else {
+        // Just mark as read
+        handleResolveNotification(notification.id, true);
       }
-    });
+    } else {
+      // Navigate to device details for server notifications
+      router.push({
+        pathname: "/sensor-detail",
+        params: {
+          deviceId: notification.device_id,
+          anomalyId: notification.id
+        }
+      });
+    }
+  };
+
+  const sendTestPushNotification = async () => {
+    try {
+      await notificationService.sendTestNotification();
+      Alert.alert('Test Sent', 'Local test notification sent');
+    } catch (error) {
+      console.error('Error sending test notification:', error);
+      Alert.alert('Error', 'Failed to send test notification');
+    }
   };
   
   const renderNotificationItem = ({ item }) => (
@@ -314,55 +447,45 @@ export default function NotificationScreen() {
       onPress={() => handleNotificationPress(item)}
       style={[
         styles.notificationContainer,
-        { backgroundColor: getBackgroundColor(item.type, item.isRead, item.status) },
+        { backgroundColor: getBackgroundColor(item.type, item.isRead) },
       ]}
     >
       <View style={styles.notificationIcon}>
-        {getIcon(item.title, item.type, item.severity)}
+        {getIcon(item.title, item.type)}
       </View>
       <View style={styles.notificationText}>
-        <View style={styles.titleRow}>
-          <Text style={styles.notificationTitle} numberOfLines={1} ellipsizeMode="tail">
-            {item.title}
-          </Text>
-          {item.status === 'resolved' && (
-            <View style={styles.resolvedBadge}>
-              <Text style={styles.resolvedBadgeText}>RESOLVED</Text>
-            </View>
-          )}
-        </View>
-        <Text style={styles.notificationMessage} numberOfLines={2} ellipsizeMode="tail">
-          {item.message}
+        <Text style={styles.notificationTitle} numberOfLines={1} ellipsizeMode="tail">
+          {item.title}
+        </Text>
+        <Text style={styles.notificationMessage} numberOfLines={1} ellipsizeMode="tail">
+          {item.message || item.body}
         </Text>
         <View style={styles.notificationFooter}>
-          <Ionicons name="location-outline" size={16} color="gray" />
+          <Ionicons name="location-outline" size={12} color="gray" />
           <Text style={styles.notificationLocation} numberOfLines={1} ellipsizeMode="tail">
             {item.location}
           </Text>
-          <Text style={styles.notificationTime}>{item.time}</Text>
         </View>
-        {item.confidence_score && (
-          <Text style={styles.confidenceScore}>
-            Confidence: {parseFloat(item.confidence_score).toFixed(2)}
-          </Text>
-        )}
       </View>
       
-      {!item.isRead && item.status !== 'resolved' && <View style={styles.unreadDot} />}
+      <View style={styles.rightSection}>
+        <Text style={styles.notificationTime}>{item.time}</Text>
+        {!item.isRead && item.status !== 'resolved' && <View style={styles.unreadDot} />}
+      </View>
       
       {editMode && (
         <View style={styles.actionButtons}>
-          {item.status !== 'resolved' && (
+          {(!item.isRead && item.status !== 'resolved') && (
             <TouchableOpacity 
               style={styles.resolveButton}
-              onPress={() => handleResolveNotification(item.id)}
+              onPress={() => handleResolveNotification(item.id, item.isPushNotification)}
             >
               <Ionicons name="checkmark-circle-outline" size={24} color="green" />
             </TouchableOpacity>
           )}
           <TouchableOpacity 
             style={styles.deleteButton}
-            onPress={() => handleDeleteNotification(item.id)}
+            onPress={() => handleDeleteNotification(item.id, item.isPushNotification)}
           >
             <Ionicons name="trash-outline" size={24} color="red" />
           </TouchableOpacity>
@@ -379,41 +502,14 @@ export default function NotificationScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="black" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Anomaly Notifications</Text>
+          <Text style={styles.headerTitle}>Notification</Text>
           <TouchableOpacity style={styles.moreOptions} onPress={() => setMenuVisible(true)}>
-            <MaterialIcons name="more-vert" size={24} color="black" />
+            <MaterialIcons name="more-horiz" size={24} color="black" />
           </TouchableOpacity>
         </View>
 
-        {/* Stats Summary */}
-        {anomalyStats && (
-          <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{anomalyStats.total_anomalies || 0}</Text>
-              <Text style={styles.statLabel}>Total</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={[styles.statNumber, {color: '#D32F2F'}]}>
-                {anomalyStats.unresolved_count || 0}
-              </Text>
-              <Text style={styles.statLabel}>Unresolved</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={[styles.statNumber, {color: '#4CAF50'}]}>
-                {anomalyStats.resolved_count || 0}
-              </Text>
-              <Text style={styles.statLabel}>Resolved</Text>
-            </View>
-          </View>
-        )}
-
         {/* Filter Tabs */}
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          style={styles.filterScroll}
-          contentContainerStyle={styles.filterContainer}
-        >
+        <View style={styles.filterContainer}>
           {filters.map((filter) => (
             <TouchableOpacity
               key={filter.id}
@@ -427,19 +523,21 @@ export default function NotificationScreen() {
               <Ionicons
                 name={filter.icon}
                 size={16}
-                color={selectedFilter === filter.id ? "white" : "black"}
+                color={selectedFilter === filter.id ? "white" : "#666"}
               />
               <Text
                 style={[
                   styles.filterText,
                   selectedFilter === filter.id && { color: "white" },
                 ]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
               >
                 {filter.label}
               </Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </View>
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
@@ -465,6 +563,14 @@ export default function NotificationScreen() {
                     : `No ${selectedFilter} notifications`
                   }
                 </Text>
+                <TouchableOpacity 
+                  style={styles.enableNotificationsButton}
+                  onPress={() => setSettingsVisible(true)}
+                >
+                  <Text style={styles.enableNotificationsText}>
+                    Configure Notifications
+                  </Text>
+                </TouchableOpacity>
               </View>
             }
           />
@@ -493,10 +599,29 @@ export default function NotificationScreen() {
               
               <TouchableOpacity
                 style={styles.menuItem}
+                onPress={() => {
+                  setMenuVisible(false);
+                  setSettingsVisible(true);
+                }}
+              >
+                <Ionicons name="settings-outline" size={20} color="black" />
+                <Text style={styles.menuItemText}>Settings</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.menuItem}
                 onPress={markAllAsRead}
               >
                 <Ionicons name="checkmark-circle-outline" size={20} color="black" />
                 <Text style={styles.menuItemText}>Mark All as Read</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={sendTestPushNotification}
+              >
+                <Ionicons name="send-outline" size={20} color="blue" />
+                <Text style={[styles.menuItemText, { color: "blue" }]}>Send Test</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
@@ -520,6 +645,16 @@ export default function NotificationScreen() {
             </View>
           </TouchableOpacity>
         </Modal>
+
+        {/* Notification Settings Modal */}
+        <Modal
+          visible={settingsVisible}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setSettingsVisible(false)}
+        >
+          <NotificationSettings onClose={() => setSettingsVisible(false)} />
+        </Modal>
       </View>
     </SafeAreaView>
   );
@@ -540,7 +675,7 @@ const styles = StyleSheet.create({
     flexDirection: "row", 
     alignItems: "center", 
     justifyContent: "space-between", 
-    marginVertical: 10, 
+    marginVertical: 16, 
   },
 
   backButton: {
@@ -552,40 +687,11 @@ const styles = StyleSheet.create({
   },
 
   headerTitle: { 
-    fontSize: 22, 
-    fontWeight: "bold",
+    fontSize: 24, 
+    fontWeight: "600",
     flex: 1,
     marginLeft: 8,
-  },
-
-  statsContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#FFF',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-    justifyContent: 'space-around',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-
-  statItem: {
-    alignItems: 'center',
-  },
-
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-
-  statLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
+    color: "#000",
   },
 
   filterScroll: {
@@ -594,23 +700,41 @@ const styles = StyleSheet.create({
   
   filterContainer: {
     flexDirection: "row",
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#DADADA",
-    marginBottom: 12,
+    paddingBottom: 16,
+    marginBottom: 16,
+    justifyContent: "space-between",
+    paddingHorizontal: 2,
   },
 
   filterButton: { 
     flexDirection: "row", 
     alignItems: "center", 
-    padding: 10,
-    marginRight: 10, 
-    borderRadius: 20, 
-    backgroundColor: "#E0E0E0",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16, 
+    backgroundColor: "#F0F0F0",
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    minWidth: 70,
+    maxWidth: 85,
+    justifyContent: "center",
+    flex: 1,
+    marginHorizontal: 2,
   },
 
-  selectedFilter: { backgroundColor: "#007BFF" },
-  filterText: { marginLeft: 4, fontSize: 14 },
+  selectedFilter: { 
+    backgroundColor: "#007BFF",
+    borderColor: "#007BFF",
+  },
+  
+  filterText: { 
+    marginLeft: 4, 
+    fontSize: 12,
+    color: "#666",
+    fontWeight: "500",
+    textAlign: "center",
+    numberOfLines: 1,
+  },
   
   listContent: {
     paddingBottom: 20,
@@ -642,86 +766,86 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'center',
   },
+
+  enableNotificationsButton: {
+    marginTop: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: '#007BFF',
+    borderRadius: 8,
+  },
+
+  enableNotificationsText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
   
   notificationContainer: { 
     flexDirection: "row", 
-    padding: 12, 
-    borderRadius: 8, 
-    marginBottom: 10, 
+    padding: 16, 
+    borderRadius: 12, 
+    marginBottom: 8, 
     alignItems: "flex-start",
+    backgroundColor: "#FFFFFF",
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
   },
   
   notificationIcon: { 
-    marginRight: 10,
-    width: 32,
+    marginRight: 12,
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 2,
+    backgroundColor: "#F5F5F5",
+    borderRadius: 20,
   },
 
-  notificationText: { flex: 1 },
-
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
+  notificationText: { 
+    flex: 1,
+    paddingRight: 8,
   },
 
   notificationTitle: { 
-    fontWeight: "bold", 
+    fontWeight: "600", 
     fontSize: 16,
-    flex: 1,
-  },
-
-  resolvedBadge: {
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
-    marginLeft: 8,
-  },
-
-  resolvedBadgeText: {
-    color: '#FFF',
-    fontSize: 10,
-    fontWeight: 'bold',
+    color: "#000",
+    marginBottom: 4,
   },
 
   notificationMessage: { 
     fontSize: 14, 
-    color: "gray",
-    marginBottom: 6,
+    color: "#666",
+    marginBottom: 8,
+    lineHeight: 18,
   },
 
   notificationFooter: { 
     flexDirection: "row", 
-    alignItems: "center", 
-    marginBottom: 4,
+    alignItems: "center",
   },
 
   notificationLocation: { 
     marginLeft: 4, 
     fontSize: 12, 
-    color: "gray", 
+    color: "#888", 
     flex: 1,
   },
 
-  notificationTime: { 
-    marginLeft: "auto", 
-    fontSize: 12, 
-    color: "gray",
+  rightSection: {
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    minHeight: 60,
   },
 
-  confidenceScore: {
-    fontSize: 12,
-    color: '#666',
-    fontStyle: 'italic',
+  notificationTime: { 
+    fontSize: 12, 
+    color: "#999",
+    marginBottom: 4,
   },
 
   unreadDot: { 
@@ -729,7 +853,6 @@ const styles = StyleSheet.create({
     height: 8, 
     borderRadius: 4, 
     backgroundColor: "#007BFF",
-    marginTop: 8,
   },
 
   actionButtons: {

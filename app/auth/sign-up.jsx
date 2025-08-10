@@ -19,7 +19,6 @@ export default function SignUp() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-
   const validateEmail = (value) => {
     if (!value) {
       setEmailError('Email is required');
@@ -75,6 +74,15 @@ export default function SignUp() {
       text1: title,
       text2: message,
     });
+  };
+
+  // Navigation handlers for Terms and Privacy Policy
+  const handleTermsPress = () => {
+    router.push('/auth/termsofservice'); // เส้นทางที่ถูกต้องสำหรับไฟล์ในโฟลเดอร์ auth
+  };
+
+  const handlePrivacyPress = () => {
+    router.push('/auth/privacypolicy'); // เส้นทางที่ถูกต้องสำหรับไฟล์ในโฟลเดอร์ auth
   };
 
   const handleSignUp = async () => {
@@ -160,55 +168,55 @@ export default function SignUp() {
       />
       {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
       
- <Text style={styles.label}>Create your password</Text>
-<View style={styles.passwordContainer}>
-  <TextInput 
-    style={[styles.input, passwordError ? styles.inputError : null]} 
-    placeholder="Enter your password"
-    secureTextEntry={!showPassword}
-    value={password}
-    onChangeText={(value) => {
-      setPassword(value);
-      validatePassword(value);
-    }}
-  />
-  <TouchableOpacity
-    style={styles.eyeIcon}
-    onPress={() => setShowPassword(!showPassword)}
-  >
-    <MaterialIcons 
-      name={showPassword ? "visibility" : "visibility-off"} 
-      size={22} 
-      color="gray" 
-    />
-  </TouchableOpacity>
-</View>
-{passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
+      <Text style={styles.label}>Create your password</Text>
+      <View style={styles.passwordContainer}>
+        <TextInput 
+          style={[styles.input, passwordError ? styles.inputError : null]} 
+          placeholder="Enter your password"
+          secureTextEntry={!showPassword}
+          value={password}
+          onChangeText={(value) => {
+            setPassword(value);
+            validatePassword(value);
+          }}
+        />
+        <TouchableOpacity
+          style={styles.eyeIcon}
+          onPress={() => setShowPassword(!showPassword)}
+        >
+          <MaterialIcons 
+            name={showPassword ? "visibility" : "visibility-off"} 
+            size={22} 
+            color="gray" 
+          />
+        </TouchableOpacity>
+      </View>
+      {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
 
-  <Text style={styles.label}>Confirm your password</Text>
-  <View style={styles.passwordContainer}>
-  <TextInput 
-    style={[styles.input, confirmPasswordError ? styles.inputError : null]} 
-    placeholder="Enter your password"
-    secureTextEntry={!showConfirmPassword}
-    value={confirmPassword}
-    onChangeText={(value) => {
-      setConfirmPassword(value);
-      validateConfirmPassword(value);
-    }}
-  />
-  <TouchableOpacity
-    style={styles.eyeIcon}
-    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-  >
-    <MaterialIcons 
-      name={showConfirmPassword ? "visibility" : "visibility-off"} 
-      size={22} 
-      color="gray" 
-    />
-  </TouchableOpacity>
-</View>
-{confirmPasswordError ? <Text style={styles.errorText}>{confirmPasswordError}</Text> : null}
+      <Text style={styles.label}>Confirm your password</Text>
+      <View style={styles.passwordContainer}>
+        <TextInput 
+          style={[styles.input, confirmPasswordError ? styles.inputError : null]} 
+          placeholder="Enter your password"
+          secureTextEntry={!showConfirmPassword}
+          value={confirmPassword}
+          onChangeText={(value) => {
+            setConfirmPassword(value);
+            validateConfirmPassword(value);
+          }}
+        />
+        <TouchableOpacity
+          style={styles.eyeIcon}
+          onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+        >
+          <MaterialIcons 
+            name={showConfirmPassword ? "visibility" : "visibility-off"} 
+            size={22} 
+            color="gray" 
+          />
+        </TouchableOpacity>
+      </View>
+      {confirmPasswordError ? <Text style={styles.errorText}>{confirmPasswordError}</Text> : null}
       
       <View style={styles.termsContainer}>
         <Switch 
@@ -219,8 +227,14 @@ export default function SignUp() {
           }} 
         />
         <Text style={styles.termsText}>
-          I agree to the <Text style={styles.linkText}>Terms of Service</Text> and{" "}
-          <Text style={styles.linkText}>Privacy Policy</Text>
+          I agree to the{" "}
+          <Text style={styles.linkText} onPress={handleTermsPress}>
+            Terms of Service
+          </Text>{" "}
+          and{" "}
+          <Text style={styles.linkText} onPress={handlePrivacyPress}>
+            Privacy Policy
+          </Text>
         </Text>
       </View>
       {termsError ? <Text style={styles.errorText}>{termsError}</Text> : null}
@@ -240,7 +254,6 @@ export default function SignUp() {
           <Text style={styles.signUpText}>Sign Up</Text>
         </TouchableOpacity>
       )}
-      
       
       <Text style={styles.loginText}>
         Already have an account?{" "}
@@ -324,6 +337,7 @@ const styles = StyleSheet.create({
   },
   linkText: {
     color: "blue",
+    textDecorationLine: 'underline', // Optional: adds underline to make it look more like a link
   },
   signUpButton: {
     width: "100%",
@@ -373,12 +387,12 @@ const styles = StyleSheet.create({
     color: '#555',
   },
   passwordContainer: {
-  position: 'relative',
-  justifyContent: 'center',
-},
-eyeIcon: {
-  position: 'absolute',
-  right: 15,
-  top: '35%',
-},
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  eyeIcon: {
+    position: 'absolute',
+    right: 15,
+    top: '35%',
+  },
 });

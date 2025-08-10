@@ -11,30 +11,35 @@
     "anomaly-check": "cd anomaly-detection && source venv/bin/activate && python integration_example.py check",
     "anomaly-test": "cd anomaly-detection && source venv/bin/activate && python integration_example.py test",
     "anomaly-train": "cd anomaly-detection && source venv/bin/activate && python train_models.py",
-    "setup-anomaly": "cd anomaly-detection && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt"
+    "setup-anomaly": "cd anomaly-detection && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt",
+    "cleanup-notifications": "node scripts/cleanupNotifications.js",
+    "test-push": "node scripts/testPushNotifications.js"
   },
   "keywords": [
     "iot",
     "sensor",
     "anomaly-detection",
+    "push-notifications",
     "express"
   ],
   "author": "",
   "license": "ISC",
-  "description": "IoT Backend with Anomaly Detection",
+  "description": "IoT Backend with Anomaly Detection and Push Notifications",
   "dependencies": {
     "bcrypt": "^5.1.1",
     "bcryptjs": "^3.0.2",
     "body-parser": "^1.20.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
+    "expo-server-sdk": "^3.15.0",
     "express": "^4.21.2",
     "gridfs-stream": "^1.1.1",
     "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.10.0",
     "multer": "^1.4.4",
-    "multer-gridfs-storage": "^5.0.2"
+    "multer-gridfs-storage": "^5.0.2",
+    "node-cron": "^3.0.3"
   },
   "devDependencies": {
     "concurrently": "^7.6.0",
