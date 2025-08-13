@@ -1,265 +1,243 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    StyleSheet,
-    SafeAreaView,
-    ActivityIndicator,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  SafeAreaView,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
-import { API_BASE_URL } from '../utils/config/api'; 
+import { MaterialIcons } from '@expo/vector-icons'; // ✅ เพิ่มไอคอนลูกตา
+import { API_BASE_URL } from '../utils/config/api';
 
-const ChangePasswordScreen = () => {
-    const router = useRouter();
-    const [formData, setFormData] = useState({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-    });
-    const [loading, setLoading] = useState(false);
-    const [errorMessage, setErrorMessage] = useState('');
+export default function ChangePasswordScreen() {
+  const router = useRouter();
 
-    const isValidNewPassword = formData.newPassword.length >= 8;
-    const isValidConfirmPassword = formData.newPassword === formData.confirmPassword
-        && formData.confirmPassword.length > 0;
+  const [form, setForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [show, setShow] = useState({
+    current: false,
+    newPw: false,
+    confirm: false,
+  });
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(null);
 
-    const handleSave = async () => {
-        setErrorMessage('');
-        if (!formData.currentPassword) {
-            setErrorMessage('Please enter your current password');
-            return;
-        }
-        if (!isValidNewPassword) {
-            setErrorMessage('New password must be at least 8 characters');
-            return;
-        }
-        if (!isValidConfirmPassword) {
-            setErrorMessage('New password and confirm password do not match');
-            return;
-        }
+  const isValidCurrent = form.currentPassword.trim().length > 0;
+  const isValidNew =
+    form.newPassword.length >= 8 && form.newPassword !== form.currentPassword;
+  const isValidConfirm =
+    form.confirmPassword.length > 0 && form.newPassword === form.confirmPassword;
 
-        setLoading(true);
-        try {
-            const token = await AsyncStorage.getItem('token');
-            if (!token) {
-                throw new Error('No token found. Please log in again.');
-            }
+  const isFormValid = useMemo(
+    () => isValidCurrent && isValidNew && isValidConfirm,
+    [isValidCurrent, isValidNew, isValidConfirm]
+  );
 
-            const response = await fetch(`${API_BASE_URL}/api/users/change-password`, { 
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    oldPassword: formData.currentPassword,
-                    newPassword: formData.newPassword,
-                }),
-            });
+  const setField = (key, value) => setForm((s) => ({ ...s, [key]: value }));
 
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                const text = await response.text();
-                throw new Error(`Unexpected response format: ${text.substring(0, 50)}...`);
-            }
+  const handleSave = async () => {
+    setErrorMessage(null);
 
-            const data = await response.json();
+    if (!isValidCurrent) {
+      setErrorMessage('Please enter your current password');
+      return;
+    }
+    if (!isValidNew) {
+      setErrorMessage(
+        form.newPassword === form.currentPassword
+          ? 'New password must be different from current password'
+          : 'New password must be at least 8 characters'
+      );
+      return;
+    }
+    if (!isValidConfirm) {
+      setErrorMessage('New password and confirm password do not match');
+      return;
+    }
 
-            if (response.ok) {
-                Toast.show({
-                    type: 'success',
-                    text1: 'Success',
-                    text2: 'Password changed successfully',
-                });
-                router.back();
-            } else {
-                throw new Error(data.message || 'Error changing password');
-            }
-        } catch (error) {
-            const message = error.message || 'Failed to connect to the server';
-            setErrorMessage(message);
-            Toast.show({
-                type: 'error',
-                text1: 'Error',
-                text2: message,
-            });
-        } finally {
-            setLoading(false);
-        }
-    };
+    setLoading(true);
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) throw new Error('No token found. Please log in again.');
 
-    return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.content}>
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.push('/tabs/settings')}>
-                        <Text style={styles.backButton}>←</Text>
-                    </TouchableOpacity>
-                </View>
-                <Text style={styles.headerTitle}>Password</Text>
-                {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
-                <View style={styles.formContainer}>
-                    <View style={styles.inputContainer}>
-                        <Text style={styles.label}>Current Password</Text>
-                        <TextInput
-                            style={styles.input}
-                            secureTextEntry
-                            value={formData.currentPassword}
-                            onChangeText={(text) => setFormData({ ...formData, currentPassword: text })}
-                            placeholder="Enter current password"
-                            placeholderTextColor="#999"
-                        />
-                    </View>
+      const res = await fetch(`${API_BASE_URL}/api/users/change-password`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          oldPassword: form.currentPassword,
+          newPassword: form.newPassword,
+        }),
+      });
 
-                    <View style={styles.inputContainer}>
-                        <Text style={styles.label}>New Password</Text>
-                        <View style={styles.inputWithIcon}>
-                            <TextInput
-                                style={[styles.input, styles.inputFlex]}
-                                secureTextEntry
-                                value={formData.newPassword}
-                                onChangeText={(text) => setFormData({ ...formData, newPassword: text })}
-                                placeholder="Enter new password"
-                                placeholderTextColor="#999"
-                            />
-                            {isValidNewPassword && (
-                                <Text style={styles.checkIcon}>✓</Text>
-                            )}
-                        </View>
-                    </View>
+      const contentType = res.headers.get('content-type') || '';
+      const payload = contentType.includes('application/json')
+        ? await res.json()
+        : null;
 
-                    <View style={styles.inputContainer}>
-                        <Text style={styles.label}>Confirm New Password</Text>
-                        <View style={styles.inputWithIcon}>
-                            <TextInput
-                                style={[styles.input, styles.inputFlex]}
-                                secureTextEntry
-                                value={formData.confirmPassword}
-                                onChangeText={(text) => setFormData({ ...formData, confirmPassword: text })}
-                                placeholder="Confirm new password"
-                                placeholderTextColor="#999"
-                            />
-                            {isValidConfirmPassword && (
-                                <Text style={styles.checkIcon}>✓</Text>
-                            )}
-                        </View>
-                    </View>
+      if (!res.ok) {
+        const msg =
+          (payload && (payload.message || payload.error)) ||
+          `Error changing password (status ${res.status})`;
+        throw new Error(msg);
+      }
 
-                    <TouchableOpacity onPress={() => router.push('/auth/forgot_password')}>
-                        <Text style={styles.forgotText}>Forget Password</Text>
-                    </TouchableOpacity>
-                </View>
+      Toast.show({
+        type: 'success',
+        text1: 'Success',
+        text2: 'Password changed successfully',
+      });
+      router.back();
+    } catch (err) {
+      const msg = err?.message || 'Failed to change password';
+      setErrorMessage(msg);
+      Toast.show({ type: 'error', text1: 'Error', text2: msg });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-                <TouchableOpacity
-                    style={[
-                        styles.saveButton,
-                        (!isValidNewPassword || !isValidConfirmPassword) && styles.saveButtonDisabled
-                    ]}
-                    onPress={handleSave}
-                    disabled={loading || !isValidNewPassword || !isValidConfirmPassword}
-                >
-                    {loading ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                        <Text style={styles.saveButtonText}>Save</Text>
-                    )}
-                </TouchableOpacity>
-            </View>
-            <Toast />
-        </SafeAreaView>
-    );
-};
+  const renderEyeIcon = (isVisible, toggleFn) => (
+    <TouchableOpacity onPress={toggleFn}>
+      <MaterialIcons
+        name={isVisible ? 'visibility' : 'visibility-off'}
+        size={22}
+        color="#a8a8a8ff"
+      />
+    </TouchableOpacity>
+  );
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+      >
+        <View style={styles.headerRow}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Text style={styles.backIcon}>←</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.title}>Password</Text>
+        {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+
+        {/* Current Password */}
+        <View style={styles.section}>
+          <Text style={styles.label}>Current Password</Text>
+          <View style={styles.inputRow}>
+            <TextInput
+              style={[styles.input, styles.inputFlex]}
+              placeholder="Enter current password"
+              placeholderTextColor="#d3d3d3ff"
+              value={form.currentPassword}
+              secureTextEntry={!show.current}
+              onChangeText={(t) => setField('currentPassword', t)}
+            />
+            {renderEyeIcon(show.current, () =>
+              setShow((s) => ({ ...s, current: !s.current }))
+            )}
+          </View>
+        </View>
+
+        {/* New Password */}
+        <View style={styles.section}>
+          <Text style={styles.label}>New Password</Text>
+          <View style={styles.inputRow}>
+            <TextInput
+              style={[styles.input, styles.inputFlex]}
+              placeholder="Enter new password"
+              placeholderTextColor="#d3d3d3ff"
+              value={form.newPassword}
+              secureTextEntry={!show.newPw}
+              onChangeText={(t) => setField('newPassword', t)}
+            />
+            {renderEyeIcon(show.newPw, () =>
+              setShow((s) => ({ ...s, newPw: !s.newPw }))
+            )}
+          </View>
+          <Text style={styles.hint}>
+            Must be at least 8 characters
+            {form.newPassword === form.currentPassword
+              ? ' • must differ from current password'
+              : ''}
+          </Text>
+        </View>
+
+        {/* Confirm New Password */}
+        <View style={styles.section}>
+          <Text style={styles.label}>Confirm New Password</Text>
+          <View style={styles.inputRow}>
+            <TextInput
+              style={[styles.input, styles.inputFlex]}
+              placeholder="Confirm new password"
+              placeholderTextColor="#d3d3d3ff"
+              value={form.confirmPassword}
+              secureTextEntry={!show.confirm}
+              onChangeText={(t) => setField('confirmPassword', t)}
+            />
+            {renderEyeIcon(show.confirm, () =>
+              setShow((s) => ({ ...s, confirm: !s.confirm }))
+            )}
+          </View>
+        </View>
+
+        <TouchableOpacity onPress={() => router.push('/auth/forgot_password')}>
+          <Text style={styles.link}>Forget Password</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.saveBtn, (!isFormValid || loading) && styles.saveBtnDisabled]}
+          disabled={!isFormValid || loading}
+          onPress={handleSave}
+        >
+          {loading ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.saveTxt}>Save</Text>
+          )}
+        </TouchableOpacity>
+      </KeyboardAvoidingView>
+
+      <Toast />
+    </SafeAreaView>
+  );
+}
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#fff',
-    },
-    content: {
-        flex: 1,
-        padding: 16,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 10,
-    },
-    backButton: {
-        fontSize: 24,
-        fontWeight: 'bold',
-    },
-    headerTitle: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginLeft: 16,
-        marginBottom: 24,
-    },
-    formContainer: {
-        gap: 20,
-    },
-    inputContainer: {
-        gap: 8,
-        marginLeft: 24,
-        marginRight: 24,
-    },
-    label: {
-        fontSize: 14,
-        color: '#666',
-    },
-    input: {
-        borderBottomWidth: 1,
-        borderBottomColor: '#E5E5E5',
-        paddingVertical: 8,
-        fontSize: 16,
-    },
-    inputWithIcon: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    inputFlex: {
-        flex: 1,
-    },
-    checkIcon: {
-        color: '#4CD964',
-        fontSize: 20,
-        fontWeight: 'bold',
-    },
-    forgotText: {
-        color: '#2D7CFF',
-        fontSize: 14,
-        marginLeft: 24,
-        marginRight: 24,
-    },
-    saveButton: {
-        display: 'flex',
-        backgroundColor: '#2D7CFF',
-        padding: 16,
-        borderRadius: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginTop: 32,
-        width: '50%',
-        alignSelf: 'center',
-    },
-    saveButtonDisabled: {
-        backgroundColor: '#B3D4FF',
-    },
-    saveButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    errorText: {
-        color: 'red',
-        fontSize: 14,
-        marginBottom: 10,
-        marginLeft: 24,
-    },
+  container: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 16 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4, marginBottom: 8 },
+  backIcon: { fontSize: 24, fontWeight: 'bold' },
+  title: { fontSize: 28, fontWeight: '800', marginLeft: 16, marginBottom: 24 },
+  section: { marginHorizontal: 24, marginBottom: 20 },
+  label: { fontSize: 15, color: '#5F6368', marginBottom: 6 },
+  inputRow: { flexDirection: 'row', alignItems: 'center' },
+  input: { borderBottomWidth: 1, borderBottomColor: '#E5E5E5', paddingVertical: 10, fontSize: 16 },
+  inputFlex: { flex: 1 },
+  link: { color: '#2D7CFF', fontSize: 14, marginLeft: 24, marginTop: 2 },
+  hint: { fontSize: 12, color: '#8A8A8A', marginTop: 6 },
+  saveBtn: {
+    backgroundColor: '#2D7CFF',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 28,
+    width: '55%',
+    alignSelf: 'center',
+  },
+  saveBtnDisabled: { backgroundColor: '#B3D4FF' },
+  saveTxt: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  errorText: { color: 'red', fontSize: 14, marginLeft: 24, marginBottom: 10 },
 });
-
-export default ChangePasswordScreen;
