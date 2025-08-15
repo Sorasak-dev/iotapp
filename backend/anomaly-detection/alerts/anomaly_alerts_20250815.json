@@ -1,0 +1,770 @@
+[
+  {
+    "deviceId": "1",
+    "timestamp": "2025-08-15T10:33:43.239159",
+    "anomalyResults": {
+      "rule_based_detection": [
+        {
+          "is_anomaly": false,
+          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
+        }
+      ],
+      "ml_detection": [
+        {
+          "is_anomaly": true,
+          "confidence": 1.0,
+          "model_used": "ensemble",
+          "timestamp": "2025-08-15T10:33:43.231320",
+          "batch_index": 0
+        }
+      ],
+      "summary": {
+        "rule_anomalies_found": false,
+        "ml_anomalies_found": true,
+        "total_anomalies": 1,
+        "alert_level": "yellow",
+        "priority_score": 1,
+        "confidence_scores": {
+          "rule_based": 0,
+          "ml_based": 1.0,
+          "combined": 1.0
+        },
+        "recommendations": [
+          {
+            "type": "general_anomaly",
+            "message": "Machine learning model detected unusual patterns",
+            "priority": "medium",
+            "action": "Monitor system closely and check for patterns"
+          }
+        ]
+      },
+      "performance": {
+        "response_time": 0.006894826889038086,
+        "models_available": true,
+        "data_points_processed": 1
+      },
+      "timestamp": "2025-08-15T10:33:43.231391"
+    },
+    "alertLevel": "yellow"
+  },
+  {
+    "deviceId": "2",
+    "timestamp": "2025-08-15T10:33:44.264338",
+    "anomalyResults": {
+      "rule_based_detection": [
+        {
+          "is_anomaly": false,
+          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
+        }
+      ],
+      "ml_detection": [
+        {
+          "is_anomaly": true,
+          "confidence": 1.0,
+          "model_used": "ensemble",
+          "timestamp": "2025-08-15T10:33:44.259962",
+          "batch_index": 0
+        }
+      ],
+      "summary": {
+        "rule_anomalies_found": false,
+        "ml_anomalies_found": true,
+        "total_anomalies": 1,
+        "alert_level": "yellow",
+        "priority_score": 1,
+        "confidence_scores": {
+          "rule_based": 0,
+          "ml_based": 1.0,
+          "combined": 1.0
+        },
+        "recommendations": [
+          {
+            "type": "general_anomaly",
+            "message": "Machine learning model detected unusual patterns",
+            "priority": "medium",
+            "action": "Monitor system closely and check for patterns"
+          }
+        ]
+      },
+      "performance": {
+        "response_time": 0.010568857192993164,
+        "models_available": true,
+        "data_points_processed": 1
+      },
+      "timestamp": "2025-08-15T10:33:44.260054"
+    },
+    "alertLevel": "yellow"
+  },
+  {
+    "deviceId": "3",
+    "timestamp": "2025-08-15T10:33:45.274516",
+    "anomalyResults": {
+      "rule_based_detection": [
+        {
+          "is_anomaly": false,
+          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
+        }
+      ],
+      "ml_detection": [
+        {
+          "is_anomaly": true,
+          "confidence": 1.0,
+          "model_used": "ensemble",
+          "timestamp": "2025-08-15T10:33:45.272394",
+          "batch_index": 0
+        }
+      ],
+      "summary": {
+        "rule_anomalies_found": false,
+        "ml_anomalies_found": true,
+        "total_anomalies": 1,
+        "alert_level": "yellow",
+        "priority_score": 1,
+        "confidence_scores": {
+          "rule_based": 0,
+          "ml_based": 1.0,
+          "combined": 1.0
+        },
+        "recommendations": [
+          {
+            "type": "general_anomaly",
+            "message": "Machine learning model detected unusual patterns",
+            "priority": "medium",
+            "action": "Monitor system closely and check for patterns"
+          }
+        ]
+      },
+      "performance": {
+        "response_time": 0.004042148590087891,
+        "models_available": true,
+        "data_points_processed": 1
+      },
+      "timestamp": "2025-08-15T10:33:45.272458"
+    },
+    "alertLevel": "yellow"
+  },
+  {
+    "deviceId": "4",
+    "timestamp": "2025-08-15T10:33:46.301739",
+    "anomalyResults": {
+      "rule_based_detection": [
+        {
+          "is_anomaly": false,
+          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
+        }
+      ],
+      "ml_detection": [
+        {
+          "is_anomaly": true,
+          "confidence": 1.0,
+          "model_used": "ensemble",
+          "timestamp": "2025-08-15T10:33:46.298348",
+          "batch_index": 0
+        }
+      ],
+      "summary": {
+        "rule_anomalies_found": false,
+        "ml_anomalies_found": true,
+        "total_anomalies": 1,
+        "alert_level": "yellow",
+        "priority_score": 1,
+        "confidence_scores": {
+          "rule_based": 0,
+          "ml_based": 1.0,
+          "combined": 1.0
+        },
+        "recommendations": [
+          {
+            "type": "general_anomaly",
+            "message": "Machine learning model detected unusual patterns",
+            "priority": "medium",
+            "action": "Monitor system closely and check for patterns"
+          }
+        ]
+      },
+      "performance": {
+        "response_time": 0.009532928466796875,
+        "models_available": true,
+        "data_points_processed": 1
+      },
+      "timestamp": "2025-08-15T10:33:46.298430"
+    },
+    "alertLevel": "yellow"
+  },
+  {
+    "deviceId": "1",
+    "timestamp": "2025-08-15T10:38:47.347678",
+    "anomalyResults": {
+      "rule_based_detection": [
+        {
+          "is_anomaly": false,
+          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
+        }
+      ],
+      "ml_detection": [
+        {
+          "is_anomaly": true,
+          "confidence": 1.0,
+          "model_used": "ensemble",
+          "timestamp": "2025-08-15T10:38:47.344522",
+          "batch_index": 0
+        }
+      ],
+      "summary": {
+        "rule_anomalies_found": false,
+        "ml_anomalies_found": true,
+        "total_anomalies": 1,
+        "alert_level": "yellow",
+        "priority_score": 1,
+        "confidence_scores": {
+          "rule_based": 0,
+          "ml_based": 1.0,
+          "combined": 1.0
+        },
+        "recommendations": [
+          {
+            "type": "general_anomaly",
+            "message": "Machine learning model detected unusual patterns",
+            "priority": "medium",
+            "action": "Monitor system closely and check for patterns"
+          }
+        ]
+      },
+      "performance": {
+        "response_time": 0.013334989547729492,
+        "models_available": true,
+        "data_points_processed": 1
+      },
+      "timestamp": "2025-08-15T10:38:47.344602"
+    },
+    "alertLevel": "yellow"
+  },
+  {
+    "deviceId": "2",
+    "timestamp": "2025-08-15T10:38:48.366843",
+    "anomalyResults": {
+      "rule_based_detection": [
+        {
+          "is_anomaly": false,
+          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
+        }
+      ],
+      "ml_detection": [
+        {
+          "is_anomaly": true,
+          "confidence": 1.0,
+          "model_used": "ensemble",
+          "timestamp": "2025-08-15T10:38:48.364105",
+          "batch_index": 0
+        }
+      ],
+      "summary": {
+        "rule_anomalies_found": false,
+        "ml_anomalies_found": true,
+        "total_anomalies": 1,
+        "alert_level": "yellow",
+        "priority_score": 1,
+        "confidence_scores": {
+          "rule_based": 0,
+          "ml_based": 1.0,
+          "combined": 1.0
+        },
+        "recommendations": [
+          {
+            "type": "general_anomaly",
+            "message": "Machine learning model detected unusual patterns",
+            "priority": "medium",
+            "action": "Monitor system closely and check for patterns"
+          }
+        ]
+      },
+      "performance": {
+        "response_time": 0.006683826446533203,
+        "models_available": true,
+        "data_points_processed": 1
+      },
+      "timestamp": "2025-08-15T10:38:48.364169"
+    },
+    "alertLevel": "yellow"
+  },
+  {
+    "deviceId": "3",
+    "timestamp": "2025-08-15T10:38:49.393847",
+    "anomalyResults": {
+      "rule_based_detection": [
+        {
+          "is_anomaly": false,
+          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
+        }
+      ],
+      "ml_detection": [
+        {
+          "is_anomaly": true,
+          "confidence": 1.0,
+          "model_used": "ensemble",
+          "timestamp": "2025-08-15T10:38:49.389873",
+          "batch_index": 0
+        }
+      ],
+      "summary": {
+        "rule_anomalies_found": false,
+        "ml_anomalies_found": true,
+        "total_anomalies": 1,
+        "alert_level": "yellow",
+        "priority_score": 1,
+        "confidence_scores": {
+          "rule_based": 0,
+          "ml_based": 1.0,
+          "combined": 1.0
+        },
+        "recommendations": [
+          {
+            "type": "general_anomaly",
+            "message": "Machine learning model detected unusual patterns",
+            "priority": "medium",
+            "action": "Monitor system closely and check for patterns"
+          }
+        ]
+      },
+      "performance": {
+        "response_time": 0.01204991340637207,
+        "models_available": true,
+        "data_points_processed": 1
+      },
+      "timestamp": "2025-08-15T10:38:49.390025"
+    },
+    "alertLevel": "yellow"
+  },
+  {
+    "deviceId": "4",
+    "timestamp": "2025-08-15T10:38:50.422537",
+    "anomalyResults": {
+      "rule_based_detection": [
+        {
+          "is_anomaly": false,
+          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
+        }
+      ],
+      "ml_detection": [
+        {
+          "is_anomaly": true,
+          "confidence": 1.0,
+          "model_used": "ensemble",
+          "timestamp": "2025-08-15T10:38:50.418856",
+          "batch_index": 0
+        }
+      ],
+      "summary": {
+        "rule_anomalies_found": false,
+        "ml_anomalies_found": true,
+        "total_anomalies": 1,
+        "alert_level": "yellow",
+        "priority_score": 1,
+        "confidence_scores": {
+          "rule_based": 0,
+          "ml_based": 1.0,
+          "combined": 1.0
+        },
+        "recommendations": [
+          {
+            "type": "general_anomaly",
+            "message": "Machine learning model detected unusual patterns",
+            "priority": "medium",
+            "action": "Monitor system closely and check for patterns"
+          }
+        ]
+      },
+      "performance": {
+        "response_time": 0.011111974716186523,
+        "models_available": true,
+        "data_points_processed": 1
+      },
+      "timestamp": "2025-08-15T10:38:50.418986"
+    },
+    "alertLevel": "yellow"
+  },
+  {
+    "deviceId": "1",
+    "timestamp": "2025-08-15T10:43:51.460911",
+    "anomalyResults": {
+      "rule_based_detection": [
+        {
+          "is_anomaly": false,
+          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
+        }
+      ],
+      "ml_detection": [
+        {
+          "is_anomaly": true,
+          "confidence": 1.0,
+          "model_used": "ensemble",
+          "timestamp": "2025-08-15T10:43:51.456610",
+          "batch_index": 0
+        }
+      ],
+      "summary": {
+        "rule_anomalies_found": false,
+        "ml_anomalies_found": true,
+        "total_anomalies": 1,
+        "alert_level": "yellow",
+        "priority_score": 1,
+        "confidence_scores": {
+          "rule_based": 0,
+          "ml_based": 1.0,
+          "combined": 1.0
+        },
+        "recommendations": [
+          {
+            "type": "general_anomaly",
+            "message": "Machine learning model detected unusual patterns",
+            "priority": "medium",
+            "action": "Monitor system closely and check for patterns"
+          }
+        ]
+      },
+      "performance": {
+        "response_time": 0.009962797164916992,
+        "models_available": true,
+        "data_points_processed": 1
+      },
+      "timestamp": "2025-08-15T10:43:51.456699"
+    },
+    "alertLevel": "yellow"
+  },
+  {
+    "deviceId": "2",
+    "timestamp": "2025-08-15T10:43:52.480149",
+    "anomalyResults": {
+      "rule_based_detection": [
+        {
+          "is_anomaly": false,
+          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
+        }
+      ],
+      "ml_detection": [
+        {
+          "is_anomaly": true,
+          "confidence": 1.0,
+          "model_used": "ensemble",
+          "timestamp": "2025-08-15T10:43:52.477500",
+          "batch_index": 0
+        }
+      ],
+      "summary": {
+        "rule_anomalies_found": false,
+        "ml_anomalies_found": true,
+        "total_anomalies": 1,
+        "alert_level": "yellow",
+        "priority_score": 1,
+        "confidence_scores": {
+          "rule_based": 0,
+          "ml_based": 1.0,
+          "combined": 1.0
+        },
+        "recommendations": [
+          {
+            "type": "general_anomaly",
+            "message": "Machine learning model detected unusual patterns",
+            "priority": "medium",
+            "action": "Monitor system closely and check for patterns"
+          }
+        ]
+      },
+      "performance": {
+        "response_time": 0.006916999816894531,
+        "models_available": true,
+        "data_points_processed": 1
+      },
+      "timestamp": "2025-08-15T10:43:52.477561"
+    },
+    "alertLevel": "yellow"
+  },
+  {
+    "deviceId": "3",
+    "timestamp": "2025-08-15T10:43:53.508542",
+    "anomalyResults": {
+      "rule_based_detection": [
+        {
+          "is_anomaly": false,
+          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
+        }
+      ],
+      "ml_detection": [
+        {
+          "is_anomaly": true,
+          "confidence": 1.0,
+          "model_used": "ensemble",
+          "timestamp": "2025-08-15T10:43:53.505213",
+          "batch_index": 0
+        }
+      ],
+      "summary": {
+        "rule_anomalies_found": false,
+        "ml_anomalies_found": true,
+        "total_anomalies": 1,
+        "alert_level": "yellow",
+        "priority_score": 1,
+        "confidence_scores": {
+          "rule_based": 0,
+          "ml_based": 1.0,
+          "combined": 1.0
+        },
+        "recommendations": [
+          {
+            "type": "general_anomaly",
+            "message": "Machine learning model detected unusual patterns",
+            "priority": "medium",
+            "action": "Monitor system closely and check for patterns"
+          }
+        ]
+      },
+      "performance": {
+        "response_time": 0.009774208068847656,
+        "models_available": true,
+        "data_points_processed": 1
+      },
+      "timestamp": "2025-08-15T10:43:53.505291"
+    },
+    "alertLevel": "yellow"
+  },
+  {
+    "deviceId": "4",
+    "timestamp": "2025-08-15T10:43:54.535808",
+    "anomalyResults": {
+      "rule_based_detection": [
+        {
+          "is_anomaly": false,
+          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
+        }
+      ],
+      "ml_detection": [
+        {
+          "is_anomaly": true,
+          "confidence": 1.0,
+          "model_used": "ensemble",
+          "timestamp": "2025-08-15T10:43:54.532524",
+          "batch_index": 0
+        }
+      ],
+      "summary": {
+        "rule_anomalies_found": false,
+        "ml_anomalies_found": true,
+        "total_anomalies": 1,
+        "alert_level": "yellow",
+        "priority_score": 1,
+        "confidence_scores": {
+          "rule_based": 0,
+          "ml_based": 1.0,
+          "combined": 1.0
+        },
+        "recommendations": [
+          {
+            "type": "general_anomaly",
+            "message": "Machine learning model detected unusual patterns",
+            "priority": "medium",
+            "action": "Monitor system closely and check for patterns"
+          }
+        ]
+      },
+      "performance": {
+        "response_time": 0.011456727981567383,
+        "models_available": true,
+        "data_points_processed": 1
+      },
+      "timestamp": "2025-08-15T10:43:54.532648"
+    },
+    "alertLevel": "yellow"
+  },
+  {
+    "deviceId": "1",
+    "timestamp": "2025-08-15T10:48:02.666575",
+    "anomalyResults": {
+      "rule_based_detection": [
+        {
+          "is_anomaly": false,
+          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
+        }
+      ],
+      "ml_detection": [
+        {
+          "is_anomaly": true,
+          "confidence": 1.0,
+          "model_used": "ensemble",
+          "timestamp": "2025-08-15T10:48:02.659317",
+          "batch_index": 0
+        }
+      ],
+      "summary": {
+        "rule_anomalies_found": false,
+        "ml_anomalies_found": true,
+        "total_anomalies": 1,
+        "alert_level": "yellow",
+        "priority_score": 1,
+        "confidence_scores": {
+          "rule_based": 0,
+          "ml_based": 1.0,
+          "combined": 1.0
+        },
+        "recommendations": [
+          {
+            "type": "general_anomaly",
+            "message": "Machine learning model detected unusual patterns",
+            "priority": "medium",
+            "action": "Monitor system closely and check for patterns"
+          }
+        ]
+      },
+      "performance": {
+        "response_time": 0.005249977111816406,
+        "models_available": true,
+        "data_points_processed": 1
+      },
+      "timestamp": "2025-08-15T10:48:02.659364"
+    },
+    "alertLevel": "yellow"
+  },
+  {
+    "deviceId": "2",
+    "timestamp": "2025-08-15T10:48:03.696636",
+    "anomalyResults": {
+      "rule_based_detection": [
+        {
+          "is_anomaly": false,
+          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
+        }
+      ],
+      "ml_detection": [
+        {
+          "is_anomaly": true,
+          "confidence": 1.0,
+          "model_used": "ensemble",
+          "timestamp": "2025-08-15T10:48:03.691877",
+          "batch_index": 0
+        }
+      ],
+      "summary": {
+        "rule_anomalies_found": false,
+        "ml_anomalies_found": true,
+        "total_anomalies": 1,
+        "alert_level": "yellow",
+        "priority_score": 1,
+        "confidence_scores": {
+          "rule_based": 0,
+          "ml_based": 1.0,
+          "combined": 1.0
+        },
+        "recommendations": [
+          {
+            "type": "general_anomaly",
+            "message": "Machine learning model detected unusual patterns",
+            "priority": "medium",
+            "action": "Monitor system closely and check for patterns"
+          }
+        ]
+      },
+      "performance": {
+        "response_time": 0.010179996490478516,
+        "models_available": true,
+        "data_points_processed": 1
+      },
+      "timestamp": "2025-08-15T10:48:03.691974"
+    },
+    "alertLevel": "yellow"
+  },
+  {
+    "deviceId": "3",
+    "timestamp": "2025-08-15T10:48:04.728098",
+    "anomalyResults": {
+      "rule_based_detection": [
+        {
+          "is_anomaly": false,
+          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
+        }
+      ],
+      "ml_detection": [
+        {
+          "is_anomaly": true,
+          "confidence": 1.0,
+          "model_used": "ensemble",
+          "timestamp": "2025-08-15T10:48:04.723358",
+          "batch_index": 0
+        }
+      ],
+      "summary": {
+        "rule_anomalies_found": false,
+        "ml_anomalies_found": true,
+        "total_anomalies": 1,
+        "alert_level": "yellow",
+        "priority_score": 1,
+        "confidence_scores": {
+          "rule_based": 0,
+          "ml_based": 1.0,
+          "combined": 1.0
+        },
+        "recommendations": [
+          {
+            "type": "general_anomaly",
+            "message": "Machine learning model detected unusual patterns",
+            "priority": "medium",
+            "action": "Monitor system closely and check for patterns"
+          }
+        ]
+      },
+      "performance": {
+        "response_time": 0.012720108032226562,
+        "models_available": true,
+        "data_points_processed": 1
+      },
+      "timestamp": "2025-08-15T10:48:04.723505"
+    },
+    "alertLevel": "yellow"
+  },
+  {
+    "deviceId": "4",
+    "timestamp": "2025-08-15T10:48:05.758410",
+    "anomalyResults": {
+      "rule_based_detection": [
+        {
+          "is_anomaly": false,
+          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
+        }
+      ],
+      "ml_detection": [
+        {
+          "is_anomaly": true,
+          "confidence": 1.0,
+          "model_used": "ensemble",
+          "timestamp": "2025-08-15T10:48:05.753943",
+          "batch_index": 0
+        }
+      ],
+      "summary": {
+        "rule_anomalies_found": false,
+        "ml_anomalies_found": true,
+        "total_anomalies": 1,
+        "alert_level": "yellow",
+        "priority_score": 1,
+        "confidence_scores": {
+          "rule_based": 0,
+          "ml_based": 1.0,
+          "combined": 1.0
+        },
+        "recommendations": [
+          {
+            "type": "general_anomaly",
+            "message": "Machine learning model detected unusual patterns",
+            "priority": "medium",
+            "action": "Monitor system closely and check for patterns"
+          }
+        ]
+      },
+      "performance": {
+        "response_time": 0.013429880142211914,
+        "models_available": true,
+        "data_points_processed": 1
+      },
+      "timestamp": "2025-08-15T10:48:05.754080"
+    },
+    "alertLevel": "yellow"
+  }
+]
