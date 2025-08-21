@@ -408,10 +408,11 @@ app.use("/api/notifications", notificationRoutes);
 // Connect to MongoDB with enhanced error handling
 mongoose
   .connect(mongoURI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
     serverSelectionTimeoutMS: 5000,
     socketTimeoutMS: 45000,
+    maxPoolSize: 10,        
+    minPoolSize: 5,
+    maxIdleTimeMS: 30000,
   })
   .then(() => {
     console.log("✅ Connected to MongoDB");

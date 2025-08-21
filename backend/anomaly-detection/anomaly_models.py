@@ -11,7 +11,10 @@ import seaborn as sns
 from datetime import datetime, timedelta
 import os
 import warnings
+import logging
+
 warnings.filterwarnings('ignore')
+logger = logging.getLogger(__name__)
 
 class AnomalyDetectionModels:
     """คลาสสำหรับโมเดล Machine Learning ตรวจจับความผิดปกติ"""
@@ -234,7 +237,7 @@ class AnomalyDetectionModels:
             print("❌ ไม่พบไฟล์โมเดล")
 
 class RuleBasedAnomalyDetector:
-    """โมเดลตรวจจับความผิดปกติตามกฎที่กำหนด"""
+    """โมเดลตรวจจับความผิดปกติตามกฎที่กำหนด - แก้ไขแล้ว"""
     
     def __init__(self):
         # กฎการตรวจจับตามตารางที่คุณให้มา
@@ -271,100 +274,235 @@ class RuleBasedAnomalyDetector:
             }
         }
     
+    def detect_anomalies(self, sensor_data, data_history=None):
+        """
+        ✅ แก้ไขแล้ว: รองรับ 2 parameters (sensor_data, data_history)
+        
+        Args:
+            sensor_data: ข้อมูลเซ็นเซอร์ปัจจุบัน (dict หรือ list)
+            data_history: ข้อมูลประวัติ (list, optional)
+        
+        Returns:
+            list: รายการความผิดปกติที่พบ
+        """
+        try:
+            anomalies = []
+            
+            # จัดการ input data
+            if isinstance(sensor_data, dict):
+                current_data = sensor_data
+                data_stream = [sensor_data]
+            elif isinstance(sensor_data, list):
+                if len(sensor_data) == 0:
+                    return []
+                current_data = sensor_data[-1]
+                data_stream = sensor_data
+            else:
+                logger.error(f"Invalid sensor_data type: {type(sensor_data)}")
+                return []
+            
+            # ใช้ data_history ถ้ามี, ไม่งั้นใช้ data_stream
+            if data_history and len(data_history) > 0:
+                # ใช้ข้อมูลจาก history
+                if len(data_history) > 1:
+                    previous_data = data_history[-2]
+                else:
+                    previous_data = None
+                full_data_stream = data_history
+            else:
+                # ใช้ข้อมูลจาก sensor_data
+                if len(data_stream) > 1:
+                    previous_data = data_stream[-2]
+                else:
+                    previous_data = None
+                full_data_stream = data_stream
+            
+            # ตรวจสอบความผิดปกติตามกฎ
+            for rule_name, rule_config in self.rules.items():
+                try:
+                    is_anomaly = rule_config['condition'](current_data, previous_data)
+                    
+                    if is_anomaly:
+                        anomaly_info = {
+                            'type': rule_name,
+                            'alert_level': rule_config['alert_level'],
+                            'message': rule_config['message'],
+                            'timestamp': current_data.get('timestamp', datetime.now().isoformat()),
+                            'confidence': 0.9,  # ความเชื่อมั่นสูงสำหรับ rule-based
+                            'data': current_data.copy()
+                        }
+                        
+                        # เพิ่มข้อมูลเปรียบเทียบถ้ามี
+                        if previous_data:
+                            anomaly_info['previous_data'] = previous_data.copy()
+                        
+                        anomalies.append(anomaly_info)
+                        
+                except Exception as rule_error:
+                    # ถ้า rule ใดใด error ไม่ให้หยุดการทำงานทั้งหมด
+                    logger.error(f"Error in rule {rule_name}: {rule_error}")
+                    continue
+            
+            return anomalies
+            
+        except Exception as e:
+            logger.error(f"Error in detect_anomalies: {e}")
+            return []
+    
     def _check_sudden_drop(self, current_data, previous_data):
         """ตรวจสอบการลดลงอย่างรวดเร็ว"""
-        if previous_data is None:
-            return False
-        
-        # อุณหภูมิลดลง > 5°C ใน 10 นาที
-        if (current_data.get('temperature') is not None and 
-            previous_data.get('temperature') is not None):
-            temp_diff = previous_data['temperature'] - current_data['temperature']
-            if temp_diff > 5:
+        try:
+            if previous_data is None:
+                return False
+            
+            # อุณหภูมิลดลง > 5°C ใน 10 นาที
+            if (current_data.get('temperature') is not None and 
+                previous_data.get('temperature') is not None):
+                temp_diff = previous_data['temperature'] - current_data['temperature']
+                if temp_diff > 5:
+                    return True
+            
+            # Voltage ลดลงต่ำกว่า 2.8V
+            if current_data.get('voltage') is not None and current_data['voltage'] < 2.8:
                 return True
-        
-        # Voltage ลดลงต่ำกว่า 2.8V
-        if current_data.get('voltage') is not None and current_data['voltage'] < 2.8:
-            return True
-        
-        return False
+            
+            # ความชื้นลดลงอย่างรวดเร็ว > 20%
+            if (current_data.get('humidity') is not None and 
+                previous_data.get('humidity') is not None):
+                humidity_diff = previous_data['humidity'] - current_data['humidity']
+                if humidity_diff > 20:
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error in _check_sudden_drop: {e}")
+            return False
     
     def _check_sudden_spike(self, current_data, previous_data):
         """ตรวจสอบการเพิ่มขึ้นอย่างรวดเร็ว"""
-        if previous_data is None:
-            return False
-        
-        # อุณหภูมิเพิ่มขึ้น > 5°C ใน 10 นาที
-        if (current_data.get('temperature') is not None and 
-            previous_data.get('temperature') is not None):
-            temp_diff = current_data['temperature'] - previous_data['temperature']
-            if temp_diff > 5:
+        try:
+            if previous_data is None:
+                return False
+            
+            # อุณหภูมิเพิ่มขึ้น > 5°C ใน 10 นาที
+            if (current_data.get('temperature') is not None and 
+                previous_data.get('temperature') is not None):
+                temp_diff = current_data['temperature'] - previous_data['temperature']
+                if temp_diff > 5:
+                    return True
+            
+            # Voltage สูงกว่า 3.5V
+            if current_data.get('voltage') is not None and current_data['voltage'] > 3.5:
                 return True
-        
-        # Voltage สูงกว่า 3.5V
-        if current_data.get('voltage') is not None and current_data['voltage'] > 3.5:
-            return True
-        
-        return False
+            
+            # อุณหภูมิสูงผิดปกติ > 40°C
+            if current_data.get('temperature') is not None and current_data['temperature'] > 40:
+                return True
+            
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error in _check_sudden_spike: {e}")
+            return False
     
     def _check_vpd_too_low(self, current_data, previous_data):
         """ตรวจสอบ VPD ต่ำเกินไป"""
-        if current_data.get('vpd') is not None and current_data['vpd'] < 0.5:
-            return True
-        return False
+        try:
+            if current_data.get('vpd') is not None and current_data['vpd'] < 0.5:
+                return True
+            
+            # คำนวณ VPD ถ้าไม่มีค่าจากเซ็นเซอร์
+            temp = current_data.get('temperature')
+            humidity = current_data.get('humidity')
+            
+            if temp is not None and humidity is not None:
+                # คำนวณ VPD แบบง่าย
+                saturation_vapor_pressure = 0.6108 * np.exp((17.27 * temp) / (temp + 237.3))
+                actual_vapor_pressure = saturation_vapor_pressure * (humidity / 100)
+                vpd = saturation_vapor_pressure - actual_vapor_pressure
+                
+                if vpd < 0.5:
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error in _check_vpd_too_low: {e}")
+            return False
     
     def _check_low_voltage(self, current_data, previous_data):
         """ตรวจสอบ voltage ต่ำ"""
-        if current_data.get('voltage') is not None:
-            # Voltage ต่ำกว่า 3.0V
-            if current_data['voltage'] < 3.0:
-                return True
-            
-            # Voltage ผันผวนมาก
-            if previous_data and previous_data.get('voltage') is not None:
-                voltage_diff = abs(current_data['voltage'] - previous_data['voltage'])
-                if voltage_diff > 0.5:
+        try:
+            if current_data.get('voltage') is not None:
+                # Voltage ต่ำกว่า 3.0V
+                if current_data['voltage'] < 3.0:
                     return True
-        
-        return False
+                
+                # Voltage ผันผวนมาก
+                if previous_data and previous_data.get('voltage') is not None:
+                    voltage_diff = abs(current_data['voltage'] - previous_data['voltage'])
+                    if voltage_diff > 0.5:
+                        return True
+            
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error in _check_low_voltage: {e}")
+            return False
     
     def _check_dew_point_close(self, current_data, previous_data):
         """ตรวจสอบ Dew Point ใกล้อุณหภูมิจริง"""
-        if (current_data.get('temperature') is not None and 
-            current_data.get('dew_point') is not None):
-            temp_diff = current_data['temperature'] - current_data['dew_point']
-            if temp_diff < 2:  # ต่างกันน้อยกว่า 2°C
-                return True
-        return False
+        try:
+            # ใช้ dew_point จากเซ็นเซอร์ถ้ามี
+            if (current_data.get('temperature') is not None and 
+                current_data.get('dew_point') is not None):
+                temp_diff = current_data['temperature'] - current_data['dew_point']
+                if temp_diff < 2:  # ต่างกันน้อยกว่า 2°C
+                    return True
+            
+            # คำนวณ dew point ถ้าไม่มี
+            temp = current_data.get('temperature')
+            humidity = current_data.get('humidity')
+            
+            if temp is not None and humidity is not None and humidity > 0:
+                # คำนวณ dew point แบบง่าย
+                a, b = 17.27, 237.7
+                alpha = ((a * temp) / (b + temp)) + np.log(humidity / 100)
+                dew_point = (b * alpha) / (a - alpha)
+                
+                temp_diff = temp - dew_point
+                if temp_diff < 2:
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error in _check_dew_point_close: {e}")
+            return False
     
     def _check_battery_depleted(self, current_data, previous_data):
         """ตรวจสอบแบตเตอรี่หมด"""
-        if current_data.get('battery_level') is not None and current_data['battery_level'] < 10:
-            return True
-        if current_data.get('voltage') is not None and current_data['voltage'] < 2.0:
-            return True
-        return False
-    
-    def detect_anomalies(self, data_stream):
-        """ตรวจจับความผิดปกติจากข้อมูลปัจจุบัน"""
-        anomalies = []
-        
-        current_data = data_stream[-1] if isinstance(data_stream, list) else data_stream
-        previous_data = data_stream[-2] if isinstance(data_stream, list) and len(data_stream) > 1 else None
-        
-        for rule_name, rule_config in self.rules.items():
-            is_anomaly = rule_config['condition'](current_data, previous_data)
+        try:
+            # ตรวจสอบ battery level
+            if current_data.get('battery_level') is not None:
+                if current_data['battery_level'] < 10:
+                    return True
+                # แบตลดลงเร็วมาก
+                if previous_data and previous_data.get('battery_level') is not None:
+                    battery_drop = previous_data['battery_level'] - current_data['battery_level']
+                    if battery_drop > 10:  # ลดลง > 10% ใน 1 การอ่าน
+                        return True
             
-            if is_anomaly:
-                anomalies.append({
-                    'type': rule_name,
-                    'alert_level': rule_config['alert_level'],
-                    'message': rule_config['message'],
-                    'timestamp': current_data.get('timestamp', datetime.now().isoformat()),
-                    'data': current_data
-                })
-        
-        return anomalies
+            # ตรวจสอบ voltage ต่ำมาก (แบตหมด)
+            if current_data.get('voltage') is not None and current_data['voltage'] < 2.0:
+                return True
+            
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error in _check_battery_depleted: {e}")
+            return False
 
 # ทดสอบการทำงาน
 if __name__ == "__main__":
@@ -387,7 +525,13 @@ if __name__ == "__main__":
         }
     ]
     
-    anomalies = rule_detector.detect_anomalies(test_data)
+    # ✅ ทดสอบ method ใหม่ที่รองรับ 2 parameters
+    print("Testing new method signature...")
+    anomalies = rule_detector.detect_anomalies(test_data)  # 1 parameter
+    print(f"1 param test: {len(anomalies)} anomalies found")
+    
+    anomalies = rule_detector.detect_anomalies(test_data[0], test_data)  # 2 parameters  
+    print(f"2 param test: {len(anomalies)} anomalies found")
     
     if anomalies:
         print("⚠️ พบความผิดปกติ:")
@@ -398,4 +542,4 @@ if __name__ == "__main__":
         print("✅ ไม่พบความผิดปกติ")
     
     print("\n✅ ทดสอบเสร็จสิ้น!")
-    print("📝 ใช้คำสั่ง: python anomaly_models.py")
+    print("📝 Method signature แก้ไขแล้ว: detect_anomalies(sensor_data, data_history=None)")

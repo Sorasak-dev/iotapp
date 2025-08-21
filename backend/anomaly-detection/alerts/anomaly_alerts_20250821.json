@@ -1,7 +1,7 @@
 [
   {
     "deviceId": "1",
-    "timestamp": "2025-08-15T10:33:43.239159",
+    "timestamp": "2025-08-21T13:09:51.934342",
     "anomalyResults": {
       "rule_based_detection": [
         {
@@ -14,7 +14,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T10:33:43.231320",
+          "timestamp": "2025-08-21T13:09:51.928681",
           "batch_index": 0
         }
       ],
@@ -39,17 +39,17 @@
         ]
       },
       "performance": {
-        "response_time": 0.006894826889038086,
+        "response_time": 0.0063991546630859375,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T10:33:43.231391"
+      "timestamp": "2025-08-21T13:09:51.928732"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "2",
-    "timestamp": "2025-08-15T10:33:44.264338",
+    "timestamp": "2025-08-21T13:09:52.964029",
     "anomalyResults": {
       "rule_based_detection": [
         {
@@ -62,7 +62,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T10:33:44.259962",
+          "timestamp": "2025-08-21T13:09:52.960020",
           "batch_index": 0
         }
       ],
@@ -87,17 +87,17 @@
         ]
       },
       "performance": {
-        "response_time": 0.010568857192993164,
+        "response_time": 0.01026296615600586,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T10:33:44.260054"
+      "timestamp": "2025-08-21T13:09:52.960106"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "3",
-    "timestamp": "2025-08-15T10:33:45.274516",
+    "timestamp": "2025-08-21T13:09:53.990389",
     "anomalyResults": {
       "rule_based_detection": [
         {
@@ -110,7 +110,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T10:33:45.272394",
+          "timestamp": "2025-08-21T13:09:53.987739",
           "batch_index": 0
         }
       ],
@@ -135,17 +135,17 @@
         ]
       },
       "performance": {
-        "response_time": 0.004042148590087891,
+        "response_time": 0.007386922836303711,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T10:33:45.272458"
+      "timestamp": "2025-08-21T13:09:53.987807"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "4",
-    "timestamp": "2025-08-15T10:33:46.301739",
+    "timestamp": "2025-08-21T13:09:55.006335",
     "anomalyResults": {
       "rule_based_detection": [
         {
@@ -158,7 +158,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T10:33:46.298348",
+          "timestamp": "2025-08-21T13:09:55.003995",
           "batch_index": 0
         }
       ],
@@ -183,17 +183,17 @@
         ]
       },
       "performance": {
-        "response_time": 0.009532928466796875,
+        "response_time": 0.00547027587890625,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T10:33:46.298430"
+      "timestamp": "2025-08-21T13:09:55.004059"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "1",
-    "timestamp": "2025-08-15T10:38:47.347678",
+    "timestamp": "2025-08-21T13:14:56.024615",
     "anomalyResults": {
       "rule_based_detection": [
         {
@@ -206,7 +206,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T10:38:47.344522",
+          "timestamp": "2025-08-21T13:14:56.021548",
           "batch_index": 0
         }
       ],
@@ -231,17 +231,17 @@
         ]
       },
       "performance": {
-        "response_time": 0.013334989547729492,
+        "response_time": 0.00814199447631836,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T10:38:47.344602"
+      "timestamp": "2025-08-21T13:14:56.021625"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "2",
-    "timestamp": "2025-08-15T10:38:48.366843",
+    "timestamp": "2025-08-21T13:14:57.044377",
     "anomalyResults": {
       "rule_based_detection": [
         {
@@ -254,7 +254,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T10:38:48.364105",
+          "timestamp": "2025-08-21T13:14:57.040790",
           "batch_index": 0
         }
       ],
@@ -279,17 +279,17 @@
         ]
       },
       "performance": {
-        "response_time": 0.006683826446533203,
+        "response_time": 0.008080720901489258,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T10:38:48.364169"
+      "timestamp": "2025-08-21T13:14:57.040887"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "3",
-    "timestamp": "2025-08-15T10:38:49.393847",
+    "timestamp": "2025-08-21T13:14:58.069483",
     "anomalyResults": {
       "rule_based_detection": [
         {
@@ -302,7 +302,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T10:38:49.389873",
+          "timestamp": "2025-08-21T13:14:58.066233",
           "batch_index": 0
         }
       ],
@@ -327,17 +327,17 @@
         ]
       },
       "performance": {
-        "response_time": 0.01204991340637207,
+        "response_time": 0.009339094161987305,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T10:38:49.390025"
+      "timestamp": "2025-08-21T13:14:58.066319"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "4",
-    "timestamp": "2025-08-15T10:38:50.422537",
+    "timestamp": "2025-08-21T13:14:59.094270",
     "anomalyResults": {
       "rule_based_detection": [
         {
@@ -350,7 +350,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T10:38:50.418856",
+          "timestamp": "2025-08-21T13:14:59.091351",
           "batch_index": 0
         }
       ],
@@ -375,17 +375,17 @@
         ]
       },
       "performance": {
-        "response_time": 0.011111974716186523,
+        "response_time": 0.009659767150878906,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T10:38:50.418986"
+      "timestamp": "2025-08-21T13:14:59.091426"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "1",
-    "timestamp": "2025-08-15T10:43:51.460911",
+    "timestamp": "2025-08-21T13:20:00.117460",
     "anomalyResults": {
       "rule_based_detection": [
         {
@@ -398,7 +398,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T10:43:51.456610",
+          "timestamp": "2025-08-21T13:20:00.114481",
           "batch_index": 0
         }
       ],
@@ -423,17 +423,17 @@
         ]
       },
       "performance": {
-        "response_time": 0.009962797164916992,
+        "response_time": 0.00974893569946289,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T10:43:51.456699"
+      "timestamp": "2025-08-21T13:20:00.114560"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "2",
-    "timestamp": "2025-08-15T10:43:52.480149",
+    "timestamp": "2025-08-21T13:20:01.135096",
     "anomalyResults": {
       "rule_based_detection": [
         {
@@ -446,7 +446,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T10:43:52.477500",
+          "timestamp": "2025-08-21T13:20:01.132305",
           "batch_index": 0
         }
       ],
@@ -471,17 +471,17 @@
         ]
       },
       "performance": {
-        "response_time": 0.006916999816894531,
+        "response_time": 0.008054018020629883,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T10:43:52.477561"
+      "timestamp": "2025-08-21T13:20:01.132382"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "3",
-    "timestamp": "2025-08-15T10:43:53.508542",
+    "timestamp": "2025-08-21T13:20:02.160830",
     "anomalyResults": {
       "rule_based_detection": [
         {
@@ -494,7 +494,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T10:43:53.505213",
+          "timestamp": "2025-08-21T13:20:02.156463",
           "batch_index": 0
         }
       ],
@@ -519,17 +519,17 @@
         ]
       },
       "performance": {
-        "response_time": 0.009774208068847656,
+        "response_time": 0.011204004287719727,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T10:43:53.505291"
+      "timestamp": "2025-08-21T13:20:02.156601"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "4",
-    "timestamp": "2025-08-15T10:43:54.535808",
+    "timestamp": "2025-08-21T13:20:03.188719",
     "anomalyResults": {
       "rule_based_detection": [
         {
@@ -542,7 +542,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T10:43:54.532524",
+          "timestamp": "2025-08-21T13:20:03.185036",
           "batch_index": 0
         }
       ],
@@ -567,17 +567,17 @@
         ]
       },
       "performance": {
-        "response_time": 0.011456727981567383,
+        "response_time": 0.011434078216552734,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T10:43:54.532648"
+      "timestamp": "2025-08-21T13:20:03.185162"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "1",
-    "timestamp": "2025-08-15T10:48:02.666575",
+    "timestamp": "2025-08-21T13:25:37.635744",
     "anomalyResults": {
       "rule_based_detection": [
         {
@@ -590,7 +590,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T10:48:02.659317",
+          "timestamp": "2025-08-21T13:25:37.620759",
           "batch_index": 0
         }
       ],
@@ -615,17 +615,17 @@
         ]
       },
       "performance": {
-        "response_time": 0.005249977111816406,
+        "response_time": 0.013521909713745117,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T10:48:02.659364"
+      "timestamp": "2025-08-21T13:25:37.621282"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "2",
-    "timestamp": "2025-08-15T10:48:03.696636",
+    "timestamp": "2025-08-21T13:25:38.658626",
     "anomalyResults": {
       "rule_based_detection": [
         {
@@ -638,7 +638,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T10:48:03.691877",
+          "timestamp": "2025-08-21T13:25:38.652007",
           "batch_index": 0
         }
       ],
@@ -663,17 +663,17 @@
         ]
       },
       "performance": {
-        "response_time": 0.010179996490478516,
+        "response_time": 0.007606983184814453,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T10:48:03.691974"
+      "timestamp": "2025-08-21T13:25:38.652105"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "3",
-    "timestamp": "2025-08-15T10:48:04.728098",
+    "timestamp": "2025-08-21T13:25:39.673493",
     "anomalyResults": {
       "rule_based_detection": [
         {
@@ -686,7 +686,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T10:48:04.723358",
+          "timestamp": "2025-08-21T13:25:39.670971",
           "batch_index": 0
         }
       ],
@@ -711,17 +711,17 @@
         ]
       },
       "performance": {
-        "response_time": 0.012720108032226562,
+        "response_time": 0.0042781829833984375,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T10:48:04.723505"
+      "timestamp": "2025-08-21T13:25:39.671013"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "4",
-    "timestamp": "2025-08-15T10:48:05.758410",
+    "timestamp": "2025-08-21T13:25:40.702618",
     "anomalyResults": {
       "rule_based_detection": [
         {
@@ -734,7 +734,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T10:48:05.753943",
+          "timestamp": "2025-08-21T13:25:40.698716",
           "batch_index": 0
         }
       ],
@@ -759,17 +759,17 @@
         ]
       },
       "performance": {
-        "response_time": 0.013429880142211914,
+        "response_time": 0.009737968444824219,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T10:48:05.754080"
+      "timestamp": "2025-08-21T13:25:40.698808"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "1",
-    "timestamp": "2025-08-15T10:53:06.795429",
+    "timestamp": "2025-08-21T13:30:41.722384",
     "anomalyResults": {
       "rule_based_detection": [
         {
@@ -782,7 +782,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T10:53:06.791529",
+          "timestamp": "2025-08-21T13:30:41.718963",
           "batch_index": 0
         }
       ],
@@ -807,17 +807,17 @@
         ]
       },
       "performance": {
-        "response_time": 0.011924266815185547,
+        "response_time": 0.009012937545776367,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T10:53:06.791633"
+      "timestamp": "2025-08-21T13:30:41.719041"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "2",
-    "timestamp": "2025-08-15T10:53:07.814151",
+    "timestamp": "2025-08-21T13:30:42.737987",
     "anomalyResults": {
       "rule_based_detection": [
         {
@@ -830,7 +830,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T10:53:07.811481",
+          "timestamp": "2025-08-21T13:30:42.735764",
           "batch_index": 0
         }
       ],
@@ -855,17 +855,17 @@
         ]
       },
       "performance": {
-        "response_time": 0.007326841354370117,
+        "response_time": 0.003699064254760742,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T10:53:07.811552"
+      "timestamp": "2025-08-21T13:30:42.735801"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "3",
-    "timestamp": "2025-08-15T10:53:08.841240",
+    "timestamp": "2025-08-21T13:30:43.768336",
     "anomalyResults": {
       "rule_based_detection": [
         {
@@ -878,7 +878,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T10:53:08.836940",
+          "timestamp": "2025-08-21T13:30:43.764505",
           "batch_index": 0
         }
       ],
@@ -903,17 +903,17 @@
         ]
       },
       "performance": {
-        "response_time": 0.011059999465942383,
+        "response_time": 0.012390851974487305,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T10:53:08.837054"
+      "timestamp": "2025-08-21T13:30:43.764633"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "4",
-    "timestamp": "2025-08-15T10:53:09.873225",
+    "timestamp": "2025-08-21T13:30:44.798627",
     "anomalyResults": {
       "rule_based_detection": [
         {
@@ -926,7 +926,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T10:53:09.868120",
+          "timestamp": "2025-08-21T13:30:44.793666",
           "batch_index": 0
         }
       ],
@@ -951,22 +951,24 @@
         ]
       },
       "performance": {
-        "response_time": 0.011223077774047852,
+        "response_time": 0.011870145797729492,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T10:53:09.868261"
+      "timestamp": "2025-08-21T13:30:44.793838"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "1",
-    "timestamp": "2025-08-15T10:58:10.908955",
+    "timestamp": "2025-08-21T13:52:00.323914",
     "anomalyResults": {
       "rule_based_detection": [
         {
           "is_anomaly": false,
-          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
+          "message": "Sensor operating normally",
+          "detection_method": "rule_based",
+          "timestamp": "2025-08-21T13:52:00.311456"
         }
       ],
       "ml_detection": [
@@ -974,7 +976,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T10:58:10.905972",
+          "timestamp": "2025-08-21T13:52:00.316555",
           "batch_index": 0
         }
       ],
@@ -999,22 +1001,24 @@
         ]
       },
       "performance": {
-        "response_time": 0.009990215301513672,
+        "response_time": 0.005159854888916016,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T10:58:10.906095"
+      "timestamp": "2025-08-21T13:52:00.316605"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "2",
-    "timestamp": "2025-08-15T10:58:11.925302",
+    "timestamp": "2025-08-21T13:52:01.341070",
     "anomalyResults": {
       "rule_based_detection": [
         {
           "is_anomaly": false,
-          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
+          "message": "Sensor operating normally",
+          "detection_method": "rule_based",
+          "timestamp": "2025-08-21T13:52:01.333147"
         }
       ],
       "ml_detection": [
@@ -1022,7 +1026,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T10:58:11.923084",
+          "timestamp": "2025-08-21T13:52:01.338500",
           "batch_index": 0
         }
       ],
@@ -1047,22 +1051,24 @@
         ]
       },
       "performance": {
-        "response_time": 0.006734132766723633,
+        "response_time": 0.005414247512817383,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T10:58:11.923178"
+      "timestamp": "2025-08-21T13:52:01.338545"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "3",
-    "timestamp": "2025-08-15T10:58:12.946800",
+    "timestamp": "2025-08-21T13:52:02.369924",
     "anomalyResults": {
       "rule_based_detection": [
         {
           "is_anomaly": false,
-          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
+          "message": "Sensor operating normally",
+          "detection_method": "rule_based",
+          "timestamp": "2025-08-21T13:52:02.354903"
         }
       ],
       "ml_detection": [
@@ -1070,7 +1076,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T10:58:12.944378",
+          "timestamp": "2025-08-21T13:52:02.365923",
           "batch_index": 0
         }
       ],
@@ -1095,22 +1101,24 @@
         ]
       },
       "performance": {
-        "response_time": 0.007788181304931641,
+        "response_time": 0.011205911636352539,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T10:58:12.944480"
+      "timestamp": "2025-08-21T13:52:02.366055"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "4",
-    "timestamp": "2025-08-15T10:58:13.966470",
+    "timestamp": "2025-08-21T13:52:03.395927",
     "anomalyResults": {
       "rule_based_detection": [
         {
           "is_anomaly": false,
-          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
+          "message": "Sensor operating normally",
+          "detection_method": "rule_based",
+          "timestamp": "2025-08-21T13:52:03.383738"
         }
       ],
       "ml_detection": [
@@ -1118,7 +1126,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T10:58:13.964424",
+          "timestamp": "2025-08-21T13:52:03.392796",
           "batch_index": 0
         }
       ],
@@ -1143,22 +1151,24 @@
         ]
       },
       "performance": {
-        "response_time": 0.006604671478271484,
+        "response_time": 0.009173870086669922,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T10:58:13.964499"
+      "timestamp": "2025-08-21T13:52:03.392883"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "1",
-    "timestamp": "2025-08-15T11:03:15.005251",
+    "timestamp": "2025-08-21T13:57:04.415646",
     "anomalyResults": {
       "rule_based_detection": [
         {
           "is_anomaly": false,
-          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
+          "message": "Sensor operating normally",
+          "detection_method": "rule_based",
+          "timestamp": "2025-08-21T13:57:04.401390"
         }
       ],
       "ml_detection": [
@@ -1166,7 +1176,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T11:03:15.001747",
+          "timestamp": "2025-08-21T13:57:04.412754",
           "batch_index": 0
         }
       ],
@@ -1191,22 +1201,24 @@
         ]
       },
       "performance": {
-        "response_time": 0.009343147277832031,
+        "response_time": 0.011538982391357422,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T11:03:15.001840"
+      "timestamp": "2025-08-21T13:57:04.412875"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "2",
-    "timestamp": "2025-08-15T11:03:16.025524",
+    "timestamp": "2025-08-21T13:57:05.434101",
     "anomalyResults": {
       "rule_based_detection": [
         {
           "is_anomaly": false,
-          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
+          "message": "Sensor operating normally",
+          "detection_method": "rule_based",
+          "timestamp": "2025-08-21T13:57:05.425461"
         }
       ],
       "ml_detection": [
@@ -1214,7 +1226,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T11:03:16.022611",
+          "timestamp": "2025-08-21T13:57:05.431745",
           "batch_index": 0
         }
       ],
@@ -1239,22 +1251,24 @@
         ]
       },
       "performance": {
-        "response_time": 0.006455898284912109,
+        "response_time": 0.006411075592041016,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T11:03:16.022671"
+      "timestamp": "2025-08-21T13:57:05.431833"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "3",
-    "timestamp": "2025-08-15T11:03:17.053915",
+    "timestamp": "2025-08-21T13:57:06.454755",
     "anomalyResults": {
       "rule_based_detection": [
         {
           "is_anomaly": false,
-          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
+          "message": "Sensor operating normally",
+          "detection_method": "rule_based",
+          "timestamp": "2025-08-21T13:57:06.446351"
         }
       ],
       "ml_detection": [
@@ -1262,7 +1276,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T11:03:17.049882",
+          "timestamp": "2025-08-21T13:57:06.451996",
           "batch_index": 0
         }
       ],
@@ -1287,22 +1301,24 @@
         ]
       },
       "performance": {
-        "response_time": 0.01140594482421875,
+        "response_time": 0.0057489871978759766,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T11:03:17.050007"
+      "timestamp": "2025-08-21T13:57:06.452071"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "4",
-    "timestamp": "2025-08-15T11:03:18.074490",
+    "timestamp": "2025-08-21T13:57:07.476868",
     "anomalyResults": {
       "rule_based_detection": [
         {
           "is_anomaly": false,
-          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
+          "message": "Sensor operating normally",
+          "detection_method": "rule_based",
+          "timestamp": "2025-08-21T13:57:07.464955"
         }
       ],
       "ml_detection": [
@@ -1310,7 +1326,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T11:03:18.071820",
+          "timestamp": "2025-08-21T13:57:07.474706",
           "batch_index": 0
         }
       ],
@@ -1335,22 +1351,24 @@
         ]
       },
       "performance": {
-        "response_time": 0.008240938186645508,
+        "response_time": 0.009868144989013672,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T11:03:18.071903"
+      "timestamp": "2025-08-21T13:57:07.474784"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "1",
-    "timestamp": "2025-08-15T11:08:19.112482",
+    "timestamp": "2025-08-21T14:00:38.460326",
     "anomalyResults": {
       "rule_based_detection": [
         {
           "is_anomaly": false,
-          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
+          "message": "Sensor operating normally",
+          "detection_method": "rule_based",
+          "timestamp": "2025-08-21T14:00:38.446836"
         }
       ],
       "ml_detection": [
@@ -1358,7 +1376,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T11:08:19.109148",
+          "timestamp": "2025-08-21T14:00:38.451746",
           "batch_index": 0
         }
       ],
@@ -1383,22 +1401,24 @@
         ]
       },
       "performance": {
-        "response_time": 0.009316205978393555,
+        "response_time": 0.0049648284912109375,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T11:08:19.109230"
+      "timestamp": "2025-08-21T14:00:38.451785"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "2",
-    "timestamp": "2025-08-15T11:08:20.137864",
+    "timestamp": "2025-08-21T14:00:39.475320",
     "anomalyResults": {
       "rule_based_detection": [
         {
           "is_anomaly": false,
-          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
+          "message": "Sensor operating normally",
+          "detection_method": "rule_based",
+          "timestamp": "2025-08-21T14:00:39.468992"
         }
       ],
       "ml_detection": [
@@ -1406,7 +1426,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T11:08:20.134446",
+          "timestamp": "2025-08-21T14:00:39.473255",
           "batch_index": 0
         }
       ],
@@ -1431,22 +1451,24 @@
         ]
       },
       "performance": {
-        "response_time": 0.009666919708251953,
+        "response_time": 0.004313230514526367,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T11:08:20.134532"
+      "timestamp": "2025-08-21T14:00:39.473293"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "3",
-    "timestamp": "2025-08-15T11:08:21.163828",
+    "timestamp": "2025-08-21T14:00:40.501077",
     "anomalyResults": {
       "rule_based_detection": [
         {
           "is_anomaly": false,
-          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
+          "message": "Sensor operating normally",
+          "detection_method": "rule_based",
+          "timestamp": "2025-08-21T14:00:40.487191"
         }
       ],
       "ml_detection": [
@@ -1454,7 +1476,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T11:08:21.159971",
+          "timestamp": "2025-08-21T14:00:40.497074",
           "batch_index": 0
         }
       ],
@@ -1479,22 +1501,24 @@
         ]
       },
       "performance": {
-        "response_time": 0.010388851165771484,
+        "response_time": 0.010008096694946289,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T11:08:21.160062"
+      "timestamp": "2025-08-21T14:00:40.497169"
     },
     "alertLevel": "yellow"
   },
   {
     "deviceId": "4",
-    "timestamp": "2025-08-15T11:08:22.190437",
+    "timestamp": "2025-08-21T14:00:41.530792",
     "anomalyResults": {
       "rule_based_detection": [
         {
           "is_anomaly": false,
-          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
+          "message": "Sensor operating normally",
+          "detection_method": "rule_based",
+          "timestamp": "2025-08-21T14:00:41.516584"
         }
       ],
       "ml_detection": [
@@ -1502,7 +1526,7 @@
           "is_anomaly": true,
           "confidence": 1.0,
           "model_used": "ensemble",
-          "timestamp": "2025-08-15T11:08:22.186803",
+          "timestamp": "2025-08-21T14:00:41.526579",
           "batch_index": 0
         }
       ],
@@ -1527,203 +1551,11 @@
         ]
       },
       "performance": {
-        "response_time": 0.009653091430664062,
+        "response_time": 0.010120153427124023,
         "models_available": true,
         "data_points_processed": 1
       },
-      "timestamp": "2025-08-15T11:08:22.186876"
-    },
-    "alertLevel": "yellow"
-  },
-  {
-    "deviceId": "1",
-    "timestamp": "2025-08-15T11:13:23.220778",
-    "anomalyResults": {
-      "rule_based_detection": [
-        {
-          "is_anomaly": false,
-          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
-        }
-      ],
-      "ml_detection": [
-        {
-          "is_anomaly": true,
-          "confidence": 1.0,
-          "model_used": "ensemble",
-          "timestamp": "2025-08-15T11:13:23.218371",
-          "batch_index": 0
-        }
-      ],
-      "summary": {
-        "rule_anomalies_found": false,
-        "ml_anomalies_found": true,
-        "total_anomalies": 1,
-        "alert_level": "yellow",
-        "priority_score": 1,
-        "confidence_scores": {
-          "rule_based": 0,
-          "ml_based": 1.0,
-          "combined": 1.0
-        },
-        "recommendations": [
-          {
-            "type": "general_anomaly",
-            "message": "Machine learning model detected unusual patterns",
-            "priority": "medium",
-            "action": "Monitor system closely and check for patterns"
-          }
-        ]
-      },
-      "performance": {
-        "response_time": 0.008015155792236328,
-        "models_available": true,
-        "data_points_processed": 1
-      },
-      "timestamp": "2025-08-15T11:13:23.218446"
-    },
-    "alertLevel": "yellow"
-  },
-  {
-    "deviceId": "2",
-    "timestamp": "2025-08-15T11:13:24.239278",
-    "anomalyResults": {
-      "rule_based_detection": [
-        {
-          "is_anomaly": false,
-          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
-        }
-      ],
-      "ml_detection": [
-        {
-          "is_anomaly": true,
-          "confidence": 1.0,
-          "model_used": "ensemble",
-          "timestamp": "2025-08-15T11:13:24.236862",
-          "batch_index": 0
-        }
-      ],
-      "summary": {
-        "rule_anomalies_found": false,
-        "ml_anomalies_found": true,
-        "total_anomalies": 1,
-        "alert_level": "yellow",
-        "priority_score": 1,
-        "confidence_scores": {
-          "rule_based": 0,
-          "ml_based": 1.0,
-          "combined": 1.0
-        },
-        "recommendations": [
-          {
-            "type": "general_anomaly",
-            "message": "Machine learning model detected unusual patterns",
-            "priority": "medium",
-            "action": "Monitor system closely and check for patterns"
-          }
-        ]
-      },
-      "performance": {
-        "response_time": 0.008184194564819336,
-        "models_available": true,
-        "data_points_processed": 1
-      },
-      "timestamp": "2025-08-15T11:13:24.236928"
-    },
-    "alertLevel": "yellow"
-  },
-  {
-    "deviceId": "3",
-    "timestamp": "2025-08-15T11:13:25.265472",
-    "anomalyResults": {
-      "rule_based_detection": [
-        {
-          "is_anomaly": false,
-          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
-        }
-      ],
-      "ml_detection": [
-        {
-          "is_anomaly": true,
-          "confidence": 1.0,
-          "model_used": "ensemble",
-          "timestamp": "2025-08-15T11:13:25.262118",
-          "batch_index": 0
-        }
-      ],
-      "summary": {
-        "rule_anomalies_found": false,
-        "ml_anomalies_found": true,
-        "total_anomalies": 1,
-        "alert_level": "yellow",
-        "priority_score": 1,
-        "confidence_scores": {
-          "rule_based": 0,
-          "ml_based": 1.0,
-          "combined": 1.0
-        },
-        "recommendations": [
-          {
-            "type": "general_anomaly",
-            "message": "Machine learning model detected unusual patterns",
-            "priority": "medium",
-            "action": "Monitor system closely and check for patterns"
-          }
-        ]
-      },
-      "performance": {
-        "response_time": 0.012066125869750977,
-        "models_available": true,
-        "data_points_processed": 1
-      },
-      "timestamp": "2025-08-15T11:13:25.262250"
-    },
-    "alertLevel": "yellow"
-  },
-  {
-    "deviceId": "4",
-    "timestamp": "2025-08-15T11:13:26.284633",
-    "anomalyResults": {
-      "rule_based_detection": [
-        {
-          "is_anomaly": false,
-          "error": "RuleBasedAnomalyDetector.detect_anomalies() takes 2 positional arguments but 3 were given"
-        }
-      ],
-      "ml_detection": [
-        {
-          "is_anomaly": true,
-          "confidence": 1.0,
-          "model_used": "ensemble",
-          "timestamp": "2025-08-15T11:13:26.283051",
-          "batch_index": 0
-        }
-      ],
-      "summary": {
-        "rule_anomalies_found": false,
-        "ml_anomalies_found": true,
-        "total_anomalies": 1,
-        "alert_level": "yellow",
-        "priority_score": 1,
-        "confidence_scores": {
-          "rule_based": 0,
-          "ml_based": 1.0,
-          "combined": 1.0
-        },
-        "recommendations": [
-          {
-            "type": "general_anomaly",
-            "message": "Machine learning model detected unusual patterns",
-            "priority": "medium",
-            "action": "Monitor system closely and check for patterns"
-          }
-        ]
-      },
-      "performance": {
-        "response_time": 0.007408857345581055,
-        "models_available": true,
-        "data_points_processed": 1
-      },
-      "timestamp": "2025-08-15T11:13:26.283101"
+      "timestamp": "2025-08-21T14:00:41.526673"
     },
     "alertLevel": "yellow"
   }
