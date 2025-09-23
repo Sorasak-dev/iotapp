@@ -15,7 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getAuthHeaders, AnomalyService, API_ENDPOINTS } from '../utils/config/api';
+import { getAuthHeaders, ANOMALY_ENDPOINTS, API_ENDPOINTS } from '../utils/config/api';
 import notificationService from '../utils/NotificationService';
 import NotificationSettings from '../components/NotificationSettings';
 
@@ -36,6 +36,98 @@ const getAuthToken = async () => {
   } catch (error) {
     console.error('Error retrieving token:', error);
     throw error;
+  }
+};
+
+// Fixed AnomalyService to match backend exactly
+const AnomalyService = {
+  getHistory: async (token, filters = {}) => {
+    try {
+      console.log('Fetching notification anomaly history with filters:', filters);
+      
+      const queryParams = new URLSearchParams();
+      if (filters.deviceId) queryParams.append('deviceId', filters.deviceId);
+      if (filters.resolved !== undefined) queryParams.append('resolved', filters.resolved);
+      if (filters.limit) queryParams.append('limit', filters.limit);
+      if (filters.page) queryParams.append('page', filters.page);
+      if (filters.alertLevel) queryParams.append('alertLevel', filters.alertLevel);
+      if (filters.sort) queryParams.append('sort', filters.sort);
+      
+      const url = `${ANOMALY_ENDPOINTS.HISTORY}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      
+      const response = await fetch(url, {
+        headers: getAuthHeaders(token),
+        timeout: 10000
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      return result;
+      
+    } catch (error) {
+      console.error('Error fetching notification anomaly history:', error);
+      return {
+        success: true,
+        data: {
+          anomalies: [],
+          pagination: { page: 1, limit: 20, total: 0 }
+        }
+      };
+    }
+  },
+
+  getStats: async (token, days = 30) => {
+    try {
+      const url = `${ANOMALY_ENDPOINTS.STATS}?days=${days}`;
+      const response = await fetch(url, {
+        headers: getAuthHeaders(token),
+        timeout: 10000
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      return result;
+      
+    } catch (error) {
+      console.error('Error fetching notification stats:', error);
+      return {
+        success: true,
+        data: {
+          total_anomalies: 0,
+          resolved_count: 0,
+          unresolved_count: 0,
+          alertStats: []
+        }
+      };
+    }
+  },
+
+  resolveAnomaly: async (token, anomalyId, notes = '') => {
+    try {
+      const response = await fetch(ANOMALY_ENDPOINTS.RESOLVE(anomalyId), {
+        method: 'PUT',
+        headers: getAuthHeaders(token),
+        body: JSON.stringify({ notes }),
+        timeout: 10000
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      return result;
+      
+    } catch (error) {
+      console.error('Error resolving notification anomaly:', error);
+      throw error;
+    }
   }
 };
 
@@ -93,30 +185,30 @@ export default function NotificationScreen() {
       setIsLoading(true);
       const token = await getAuthToken();
       
-      // Load anomalies from the real API
+      // Load anomalies from the real API with correct backend structure
       const response = await AnomalyService.getHistory(token, {
         limit: 100,
         sort: '-timestamp'
       });
       
-      if (response.success && response.data.anomalies) {
+      if (response.success && response.data?.anomalies) {
         const formattedNotifications = response.data.anomalies.map(anomaly => ({
           id: anomaly._id,
-          title: getAnomalyTitle(anomaly.type),
-          message: anomaly.description || `${anomaly.type} detected on ${anomaly.device_name || 'Unknown Device'}`,
-          location: anomaly.device_name || "Unknown Device",
-          type: getSeverityType(anomaly.severity),
+          title: getAnomalyTitle(anomaly.anomalyType || anomaly.type),
+          message: anomaly.message || `${anomaly.anomalyType || anomaly.type} detected on ${anomaly.deviceId || 'Unknown Device'}`,
+          location: anomaly.deviceId || "Unknown Device",
+          type: getSeverityType(anomaly.alertLevel), // Backend uses alertLevel
           time: formatTime(anomaly.timestamp),
           date: formatDate(anomaly.timestamp),
-          isRead: anomaly.status === 'resolved',
-          severity: anomaly.severity,
-          confidence_score: anomaly.confidence_score,
-          status: anomaly.status,
-          device_id: anomaly.device_id,
-          anomaly_data: anomaly.data,
-          resolved_at: anomaly.resolved_at,
-          resolved_by: anomaly.resolved_by,
-          resolution_notes: anomaly.resolution_notes,
+          isRead: anomaly.resolved, // Use resolved status from backend
+          severity: anomaly.alertLevel, // Backend field name
+          confidence_score: anomaly.mlResults?.confidence, // Backend structure
+          status: anomaly.resolved ? 'resolved' : 'unresolved',
+          device_id: anomaly.deviceId, // Backend field name
+          anomaly_data: anomaly.sensorData, // Backend field name
+          resolved_at: anomaly.resolvedAt,
+          resolved_by: anomaly.resolvedBy,
+          resolution_notes: anomaly.notes,
           timestamp: anomaly.timestamp,
           isPushNotification: false // Mark as server notification
         }));
@@ -148,14 +240,13 @@ export default function NotificationScreen() {
     }
   };
 
-  const getSeverityType = (severity) => {
-    switch (severity) {
-      case 'critical':
-      case 'high':
+  const getSeverityType = (alertLevel) => {
+    switch (alertLevel) {
+      case 'red':
         return 'critical';
-      case 'medium':
+      case 'yellow':
         return 'warning';
-      case 'low':
+      case 'green':
       default:
         return 'info';
     }
@@ -169,8 +260,8 @@ export default function NotificationScreen() {
         return localNotifs.map(notif => ({
           ...notif,
           isPushNotification: true,
-          type: getSeverityType(notif.data?.severity || 'medium'),
-          severity: notif.data?.severity || 'medium',
+          type: getSeverityType(notif.data?.alertLevel || 'yellow'),
+          severity: notif.data?.alertLevel || 'yellow',
           time: formatTime(notif.timestamp),
           date: formatDate(notif.timestamp),
           location: notif.data?.device_name || 'Push Notification',
@@ -185,19 +276,26 @@ export default function NotificationScreen() {
 
   const getAnomalyTitle = (type) => {
     const titleMap = {
-      'temperature_high': 'WiFi Connection Lost',
-      'temperature_low': 'Battery Low',
-      'humidity_high': 'Backup Completed',
-      'humidity_low': 'Data Error',
+      'sudden_drop': 'Sudden Value Drop',
+      'sudden_spike': 'Sudden Value Spike',
+      'vpd_too_low': 'VPD Too Low',
+      'low_voltage': 'Low Voltage Alert',
+      'dew_point_close': 'Dew Point Alert',
+      'battery_depleted': 'Battery Depleted',
+      'ml_detected': 'AI Anomaly Detection',
+      'temperature_high': 'High Temperature Alert',
+      'temperature_low': 'Low Temperature Alert',
+      'humidity_high': 'High Humidity Alert',
+      'humidity_low': 'Low Humidity Alert',
       'sensor_malfunction': 'Sensor Malfunction',
-      'data_anomaly': 'Data Error "IBS-TH3"',
+      'data_anomaly': 'Data Error',
       'pattern_deviation': 'Pattern Deviation',
       'connection_lost': 'WiFi Connection Lost',
       'battery_low': 'Battery Low',
       'test': 'Test Notification'
     };
     
-    return titleMap[type] || 'WiFi Connection Lost';
+    return titleMap[type] || 'System Alert';
   };
 
   const formatTime = (timestamp) => {

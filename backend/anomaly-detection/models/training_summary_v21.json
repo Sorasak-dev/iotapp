@@ -1,0 +1,51 @@
+{
+  "training_date": "2025-09-22T22:40:35.767196",
+  "model_type": "anomaly_detection_v2.1_fixed",
+  "total_models": 5,
+  "successful_models": 5,
+  "best_model": "isolation_forest",
+  "best_test_f1_score": 0.6687230104873535,
+  "model_performance": {
+    "one_class_svm": {
+      "test_f1_score": 0.6615285806037251,
+      "test_precision": 0.553763440860215,
+      "test_recall": 0.8213716108452951,
+      "test_specificity": 0.8078703703703703
+    },
+    "local_outlier_factor": {
+      "test_f1_score": 0.6347769877181643,
+      "test_precision": 0.533695652173913,
+      "test_recall": 0.7830940988835726,
+      "test_specificity": 0.8013888888888889
+    },
+    "elliptic_envelope": {
+      "test_f1_score": 0.6053333333333334,
+      "test_precision": 0.5200458190148912,
+      "test_recall": 0.7240829346092504,
+      "test_specificity": 0.8060185185185185
+    },
+    "isolation_forest": {
+      "test_f1_score": 0.6687230104873535,
+      "test_precision": 0.545271629778672,
+      "test_recall": 0.8644338118022329,
+      "test_specificity": 0.7907407407407407
+    },
+    "ensemble": {
+      "test_f1_score": 0.6475644699140402,
+      "test_precision": 0.5053667262969589,
+      "test_recall": 0.9011164274322169,
+      "test_specificity": 0.7439814814814815
+    }
+  },
+  "feature_info": {
+    "total_features": 40,
+    "base_features": 9,
+    "derived_features": 26
+  },
+  "training_config": {
+    "data_ratio": "75% normal, 25% anomaly",
+    "data_splitting": "64% train, 16% validation, 20% test",
+    "data_cleaning": "enhanced infinity/extreme value handling",
+    "safety_checks": "comprehensive preprocessing validation"
+  }
+}

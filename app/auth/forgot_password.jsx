@@ -38,11 +38,13 @@ const ForgetPasswordScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack}>
+        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
           <BackIcon />
         </TouchableOpacity>
       </View>
+
       <Text style={styles.headerTitle}>Forget Password</Text>
+
       <View style={styles.form}>
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Username</Text>
@@ -50,7 +52,8 @@ const ForgetPasswordScreen = () => {
             style={styles.input}
             value={username}
             onChangeText={setUsername}
-            placeholderTextColor="#999"
+            placeholder="Enter your Username"
+            placeholderTextColor="#C0C0C0"
           />
         </View>
 
@@ -60,16 +63,17 @@ const ForgetPasswordScreen = () => {
             style={styles.input}
             value={email}
             onChangeText={setEmail}
-            placeholderTextColor="#999"
+            placeholder="Enter your Email"
+            placeholderTextColor="#C0C0C0"
             keyboardType="email-address"
             autoCapitalize="none"
           />
         </View>
-
-        <TouchableOpacity style={styles.resetButton}>
-          <Text style={styles.resetButtonText}>Reset</Text>
-        </TouchableOpacity>
       </View>
+
+      <TouchableOpacity style={styles.signUpButton}>
+        <Text style={styles.signUpButtonText}>Sign Up</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 };
@@ -77,64 +81,70 @@ const ForgetPasswordScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
-    padding: 16,
+    backgroundColor: "#FFFFFF",
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 5,
-    marginLeft: 20,
-    marginRight: 20,
-    marginTop: 14,
+    paddingHorizontal: 20,
+    marginBottom: 20,
   },
   backButton: {
-    padding: 4,
-  },
-  backButtonText: {
-    fontSize: 24,
-    color: "#000",
+    width: 30,
+    height: 30,
+    justifyContent: "center",
+    alignItems: "flex-start",
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: "500",
-    marginLeft: 24,
-    marginRight: 24,
-    color: "#000",
-    marginBottom: 30,
+    textAlign: "left",
+    color: "#333333",
+    fontSize: 24,
+    fontWeight: "600",
+    marginBottom: 40,
+    marginTop: 10,
+    marginLeft: 30,
   },
   form: {
-    paddingHorizontal: 4,
+    paddingHorizontal: 30,
+    marginBottom: 50,
   },
   inputContainer: {
-    marginBottom: 24,
-    marginLeft: 30,
-    marginRight: 30,
+    marginBottom: 30,
   },
   label: {
-    fontSize: 14,
-    color: "#9e9e9e",
-    marginBottom: 8,
+    color: "#333333",
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 12,
   },
   input: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E5E5",
-    paddingVertical: 8,
+    height: 50,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    color: "#333333",
     fontSize: 16,
   },
-  resetButton: {
-    backgroundColor: "#2196F3",
-    padding: 14,
-    borderRadius: 6,
+  signUpButton: {
+    backgroundColor: "#4FC3F7",
+    marginHorizontal: 30,
+    paddingVertical: 16,
+    borderRadius: 8,
     alignItems: "center",
-    marginTop: 8,
-    width: "50%",
-    alignSelf: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  resetButtonText: {
-    color: "#fff",
+  signUpButtonText: {
+    color: "white",
     fontSize: 16,
-    fontWeight: "500",
+    fontWeight: "600",
   },
 });
 

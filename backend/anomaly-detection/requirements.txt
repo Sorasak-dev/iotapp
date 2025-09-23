@@ -10,3 +10,4 @@ python-dotenv==1.0.0
 pymongo==4.4.1
 schedule==1.2.0
 requests==2.31.0
+psutil==7.0.0

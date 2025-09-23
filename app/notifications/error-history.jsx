@@ -16,7 +16,7 @@ import Icon from "react-native-vector-icons/MaterialIcons";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
-import { ANOMALY_ENDPOINTS, getAuthHeaders, AnomalyService } from "../utils/config/api"; 
+import { ANOMALY_ENDPOINTS, getAuthHeaders } from "../utils/config/api"; 
 
 const isIOS = Platform.OS === "ios";
 
@@ -30,6 +30,99 @@ const getAuthToken = async () => {
   } catch (error) {
     console.error("Error retrieving token:", error);
     throw error;
+  }
+};
+
+// Fixed AnomalyService to match backend exactly
+const AnomalyService = {
+  getHistory: async (token, filters = {}) => {
+    try {
+      console.log('Fetching anomaly history with filters:', filters);
+      
+      const queryParams = new URLSearchParams();
+      if (filters.deviceId) queryParams.append('deviceId', filters.deviceId);
+      if (filters.resolved !== undefined) queryParams.append('resolved', filters.resolved);
+      if (filters.limit) queryParams.append('limit', filters.limit);
+      if (filters.page) queryParams.append('page', filters.page);
+      if (filters.alertLevel) queryParams.append('alertLevel', filters.alertLevel);
+      if (filters.startDate) queryParams.append('startDate', filters.startDate);
+      if (filters.endDate) queryParams.append('endDate', filters.endDate);
+      
+      const url = `${ANOMALY_ENDPOINTS.HISTORY}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      
+      const response = await fetch(url, {
+        headers: getAuthHeaders(token),
+        timeout: 10000
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      return result;
+      
+    } catch (error) {
+      console.error('Error fetching anomaly history:', error);
+      return {
+        success: true,
+        data: {
+          anomalies: [],
+          pagination: { page: 1, limit: 20, total: 0 }
+        }
+      };
+    }
+  },
+
+  getStats: async (token, days = 7) => {
+    try {
+      const url = `${ANOMALY_ENDPOINTS.STATS}?days=${days}`;
+      const response = await fetch(url, {
+        headers: getAuthHeaders(token),
+        timeout: 10000
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      return result;
+      
+    } catch (error) {
+      console.error('Error fetching anomaly stats:', error);
+      return {
+        success: true,
+        data: {
+          total_anomalies: 0,
+          resolved_count: 0,
+          unresolved_count: 0,
+          alertStats: []
+        }
+      };
+    }
+  },
+
+  resolveAnomaly: async (token, anomalyId, notes = '') => {
+    try {
+      const response = await fetch(ANOMALY_ENDPOINTS.RESOLVE(anomalyId), {
+        method: 'PUT',
+        headers: getAuthHeaders(token),
+        body: JSON.stringify({ notes }),
+        timeout: 10000
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      return result;
+      
+    } catch (error) {
+      console.error('Error resolving anomaly:', error);
+      throw error;
+    }
   }
 };
 
@@ -129,20 +222,14 @@ export default function ErrorHistory() {
 
       console.log('Anomaly history response:', data);
 
-      // Robust handling of different response structures with proper null checks
+      // Handle backend response structure correctly
       let anomaliesArray = [];
       
-      if (data?.data?.anomalies && Array.isArray(data.data.anomalies)) {
-        // Handle the actual API structure: data.data.anomalies
+      if (data?.success && data?.data?.anomalies && Array.isArray(data.data.anomalies)) {
+        // Handle the correct backend structure: { success: true, data: { anomalies: [...] } }
         anomaliesArray = data.data.anomalies;
-      } else if (data?.anomalies && Array.isArray(data.anomalies)) {
-        // Handle legacy structure: data.anomalies
-        anomaliesArray = data.anomalies;
-      } else if (Array.isArray(data)) {
-        // Handle case where API returns array directly
-        anomaliesArray = data;
       } else if (data?.data && Array.isArray(data.data)) {
-        // Handle case where data is nested in data property as array
+        // Handle case where data is array directly
         anomaliesArray = data.data;
       } else {
         console.warn('Unexpected API response structure:', data);
@@ -151,13 +238,13 @@ export default function ErrorHistory() {
 
       const existingKeys = new Set();
 
-      // Transform API response to match UI format with guaranteed unique IDs
+      // Transform API response to match UI format - use backend field names
       const formattedHistory = anomaliesArray.map((item, index) => ({
         id: generateUniqueKey(item, index, 'historical', existingKeys),
-        type: item?.anomalyType === 'ml_detected' ? 'AI Anomaly Detection' : formatAnomalyType(item?.anomalyType || 'unknown'),
+        type: formatAnomalyType(item?.anomalyType || item?.type || 'unknown'),
         timestamp: item?.timestamp || new Date().toISOString(),
         details: item?.message || 'No details available',
-        alertLevel: item?.alertLevel || 'yellow',
+        alertLevel: item?.alertLevel || 'yellow', // Backend uses alertLevel
         detectionMethod: item?.detectionMethod || 'unknown',
         score: item?.mlResults?.confidence ? item.mlResults.confidence.toFixed(2) : undefined,
         isAnomalyDetection: item?.detectionMethod === 'ml_based' || item?.detectionMethod === 'hybrid',
@@ -309,11 +396,11 @@ export default function ErrorHistory() {
           </View>
 
           {/* Stats Summary */}
-          {stats?.alertStats && Array.isArray(stats.alertStats) && (
+          {stats?.data?.alertStats && Array.isArray(stats.data.alertStats) && (
             <View style={styles.statsContainer}>
               <Text style={styles.statsTitle}>Last 7 Days Summary</Text>
               <View style={styles.statsGrid}>
-                {stats.alertStats.map((stat, index) => {
+                {stats.data.alertStats.map((stat, index) => {
                   const existingKeys = new Set();
                   return (
                     <View key={generateUniqueKey(stat, index, 'stat', existingKeys)} style={[
@@ -494,7 +581,6 @@ export default function ErrorHistory() {
   );
 }
 
-// Styles remain the same
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,

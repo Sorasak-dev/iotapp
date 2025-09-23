@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { View, TextInput, Button, StyleSheet, ActivityIndicator, Text, Keyboard, TouchableOpacity, Switch } from 'react-native';
+import { View, TextInput, StyleSheet, ActivityIndicator, Text, Keyboard, TouchableOpacity, Switch } from 'react-native';
 import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message';
-import { MaterialIcons, FontAwesome } from '@expo/vector-icons';
+import { MaterialIcons } from '@expo/vector-icons';
 import { API_ENDPOINTS, API_TIMEOUT } from '../utils/config/api';
 
 export default function SignUp() {
@@ -76,13 +76,12 @@ export default function SignUp() {
     });
   };
 
-  // Navigation handlers for Terms and Privacy Policy
   const handleTermsPress = () => {
-    router.push('/auth/termsofservice'); // เส้นทางที่ถูกต้องสำหรับไฟล์ในโฟลเดอร์ auth
+    router.push('/auth/termsofservice');
   };
 
   const handlePrivacyPress = () => {
-    router.push('/auth/privacypolicy'); // เส้นทางที่ถูกต้องสำหรับไฟล์ในโฟลเดอร์ auth
+    router.push('/auth/privacypolicy');
   };
 
   const handleSignUp = async () => {
@@ -138,6 +137,7 @@ export default function SignUp() {
 
   return (
     <View style={styles.container}>
+      {/* Back Button */}
       <TouchableOpacity 
         style={styles.backButton} 
         onPress={() => {
@@ -148,130 +148,154 @@ export default function SignUp() {
           }
         }}
       >
-        <MaterialIcons name="arrow-back" size={24} color="black" />
+        <MaterialIcons name="arrow-back" size={24} color="#444444" />
       </TouchableOpacity>
-      <Text style={styles.title}>Create Account</Text>
-      <Text style={styles.welcomeText}>Welcome!</Text>
-      <Text style={styles.subtitle}>Please fill in your details to create an account</Text>
-      
-      <Text style={styles.label}>Email</Text>
-      <TextInput 
-        style={[styles.input, emailError ? styles.inputError : null]} 
-        placeholder="Enter your email" 
-        keyboardType="email-address"
-        autoCapitalize="none" 
-        value={email}
-        onChangeText={(value) => {
-          setEmail(value);
-          validateEmail(value);
-        }}
-      />
-      {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
-      
-      <Text style={styles.label}>Create your password</Text>
-      <View style={styles.passwordContainer}>
-        <TextInput 
-          style={[styles.input, passwordError ? styles.inputError : null]} 
-          placeholder="Enter your password"
-          secureTextEntry={!showPassword}
-          value={password}
-          onChangeText={(value) => {
-            setPassword(value);
-            validatePassword(value);
-          }}
-        />
-        <TouchableOpacity
-          style={styles.eyeIcon}
-          onPress={() => setShowPassword(!showPassword)}
-        >
-          <MaterialIcons 
-            name={showPassword ? "visibility" : "visibility-off"} 
-            size={22} 
-            color="gray" 
-          />
-        </TouchableOpacity>
-      </View>
-      {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
 
-      <Text style={styles.label}>Confirm your password</Text>
-      <View style={styles.passwordContainer}>
-        <TextInput 
-          style={[styles.input, confirmPasswordError ? styles.inputError : null]} 
-          placeholder="Enter your password"
-          secureTextEntry={!showConfirmPassword}
-          value={confirmPassword}
-          onChangeText={(value) => {
-            setConfirmPassword(value);
-            validateConfirmPassword(value);
-          }}
-        />
-        <TouchableOpacity
-          style={styles.eyeIcon}
-          onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-        >
-          <MaterialIcons 
-            name={showConfirmPassword ? "visibility" : "visibility-off"} 
-            size={22} 
-            color="gray" 
-          />
-        </TouchableOpacity>
+      {/* Title */}
+      <View style={styles.titleContainer}>
+        <Text style={styles.title}>Create Account</Text>
+        <Text style={styles.subtitle}>Please fill in your details to create an account</Text>
       </View>
-      {confirmPasswordError ? <Text style={styles.errorText}>{confirmPasswordError}</Text> : null}
       
-      <View style={styles.termsContainer}>
-        <Switch 
-          value={isChecked} 
-          onValueChange={(value) => {
-            setIsChecked(value);
-            if (value) setTermsError('');
-          }} 
-        />
-        <Text style={styles.termsText}>
-          I agree to the{" "}
-          <Text style={styles.linkText} onPress={handleTermsPress}>
-            Terms of Service
-          </Text>{" "}
-          and{" "}
-          <Text style={styles.linkText} onPress={handlePrivacyPress}>
-            Privacy Policy
-          </Text>
-        </Text>
-      </View>
-      {termsError ? <Text style={styles.errorText}>{termsError}</Text> : null}
-      
-      {/* ปุ่ม Sign Up */}
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007bff" />
-          <Text style={styles.loadingText}>Signing up...</Text>
+      {/* Form Card */}
+      <View style={styles.formCard}>
+        <View style={styles.formContainer}>
+          {/* Email Field */}
+          <View style={styles.fieldContainer}>
+            <Text style={styles.label}>Email</Text>
+            <View style={[styles.inputContainer, emailError ? styles.inputError : null]}>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your email"
+                placeholderTextColor="#BCBCBC"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                value={email}
+                onChangeText={(value) => {
+                  setEmail(value);
+                  validateEmail(value);
+                }}
+              />
+            </View>
+            {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+          </View>
+          
+          {/* Password Field */}
+          <View style={styles.fieldContainer}>
+            <Text style={styles.label}>Create your password</Text>
+            <View style={[styles.inputContainer, passwordError ? styles.inputError : null]}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Enter your password"
+                placeholderTextColor="#BCBCBC"
+                secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={(value) => {
+                  setPassword(value);
+                  validatePassword(value);
+                }}
+              />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                <MaterialIcons 
+                  name={showPassword ? "visibility" : "visibility-off"} 
+                  size={20} 
+                  color="#B4B4B4" 
+                />
+              </TouchableOpacity>
+            </View>
+            {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
+          </View>
+
+          {/* Confirm Password Field */}
+          <View style={styles.fieldContainer}>
+            <Text style={styles.label}>Confirm your password</Text>
+            <View style={[styles.inputContainer, confirmPasswordError ? styles.inputError : null]}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Enter your password"
+                placeholderTextColor="#BCBCBC"
+                secureTextEntry={!showConfirmPassword}
+                value={confirmPassword}
+                onChangeText={(value) => {
+                  setConfirmPassword(value);
+                  validateConfirmPassword(value);
+                }}
+              />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+              >
+                <MaterialIcons 
+                  name={showConfirmPassword ? "visibility" : "visibility-off"} 
+                  size={20} 
+                  color="#B4B4B4" 
+                />
+              </TouchableOpacity>
+            </View>
+            {confirmPasswordError ? <Text style={styles.errorText}>{confirmPasswordError}</Text> : null}
+          </View>
         </View>
-      ) : (
-        <TouchableOpacity 
-          style={styles.signUpButton} 
-          onPress={handleSignUp} 
-          disabled={loading}
-        >
-          <Text style={styles.signUpText}>Sign Up</Text>
-        </TouchableOpacity>
-      )}
-      
-      <Text style={styles.loginText}>
-        Already have an account?{" "}
-        <Text 
-          style={styles.loginLink}
-          onPress={() => {
+        
+        {/* Terms and Conditions */}
+        <View style={styles.termsContainer}>
+          <View style={styles.switchContainer}>
+            <TouchableOpacity
+              style={[styles.customSwitch, isChecked && styles.customSwitchActive]}
+              onPress={() => {
+                setIsChecked(!isChecked);
+                if (!isChecked) setTermsError('');
+              }}
+            >
+              <View style={[styles.switchThumb, isChecked && styles.switchThumbActive]} />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.termsText}>
+            I agree to the{" "}
+            <Text style={styles.linkText} onPress={handleTermsPress}>
+              Terms of Service
+            </Text>{" "}
+            and{" "}
+            <Text style={styles.linkText} onPress={handlePrivacyPress}>
+              Privacy Policy
+            </Text>
+          </Text>
+        </View>
+        {termsError ? <Text style={styles.errorText}>{termsError}</Text> : null}
+        
+        {/* Sign Up Button */}
+        {loading ? (
+          <View style={styles.loadingButton}>
+            <ActivityIndicator size="small" color="#fff" />
+            <Text style={styles.loadingText}>Signing up...</Text>
+          </View>
+        ) : (
+          <TouchableOpacity 
+            style={styles.signUpButton} 
+            onPress={handleSignUp} 
+            disabled={loading}
+          >
+            <Text style={styles.signUpText}>Sign Up</Text>
+          </TouchableOpacity>
+        )}
+        
+        {/* Sign In Link */}
+        <View style={styles.signInContainer}>
+          <Text style={styles.signInText}>Already have an account? </Text>
+          <TouchableOpacity onPress={() => {
             if (router.canGoBack()) {
               router.back();
             } else {
               router.push('/auth/sign-in');
             }
-          }}
-        >
-          Sign In
-        </Text>
-      </Text>
+          }}>
+            <Text style={styles.signInLink}>Sign In</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
-      {/* Toast Notification */}
       <Toast />
     </View>
   );
@@ -280,119 +304,204 @@ export default function SignUp() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 22,
-    backgroundColor: "#fff",
+    backgroundColor: "#F7FAFF",
   },
   backButton: {
-    alignSelf: "flex-start",
-    marginBottom: 10,
-    marginTop: 50,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: "bold",
-    marginTop: 10,
-  },
-  welcomeText: {
-    fontSize: 28,
-    fontWeight: "bold",
-    marginBottom: 5,
-    marginTop: 20,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: "gray",
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginTop: 10,
-  },
-  input: {
-    width: "100%",
-    padding: 15,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 10,
-    marginTop: 5,
-  },
-  inputError: {
-    borderColor: 'red',
-  },
-  errorText: {
-    color: 'red',
-    fontSize: 12,
-    marginTop: 5,
-  },
-  termsContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 15,
-  },
-  termsText: {
-    marginLeft: 10,
-    fontSize: 14,
-    flex: 1,
-  },
-  linkText: {
-    color: "blue",
-    textDecorationLine: 'underline', // Optional: adds underline to make it look more like a link
-  },
-  signUpButton: {
-    width: "100%",
-    backgroundColor: "#007bff",
-    padding: 15,
-    borderRadius: 10,
-    alignItems: "center",
-    marginVertical: 15,
-  },
-  signUpText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  orText: {
-    textAlign: "center",
-    marginVertical: 15,
-    color: "gray",
-  },
-  socialButtonsContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginVertical: 10,
-  },
-  socialButton: {
-    marginHorizontal: 10,
-    padding: 15,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 10,
-  },
-  loginText: {
-    marginTop: 20,
-    fontSize: 16,
-    textAlign: "center",
-  },
-  loginLink: {
-    color: "blue",
-    fontWeight: "bold",
-  },
-  loadingContainer: {
-    alignItems: 'center',
-    marginVertical: 15,
-  },
-  loadingText: {
-    marginTop: 10,
-    color: '#555',
-  },
-  passwordContainer: {
-    position: 'relative',
+    position: 'absolute',
+    top: 57,
+    left: 14,
+    width: 40,
+    height: 27,
+    zIndex: 10,
     justifyContent: 'center',
   },
+  titleContainer: {
+    marginTop: 110,
+    marginBottom: 44,
+    paddingHorizontal: 36,
+  },
+  title: {
+    color: '#444444',
+    fontSize: 24,
+    fontWeight: '600',
+    textAlign: 'left',
+    marginBottom: 6,
+  },
+  subtitle: {
+    color: '#8C8C8C',
+    fontSize: 16,
+    fontWeight: '400',
+    textAlign: 'left',
+    lineHeight: 22,
+  },
+  formCard: {
+    marginHorizontal: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 21,
+    paddingHorizontal: 37,
+    paddingTop: 23,
+    paddingBottom: 47,
+    shadowColor: "rgba(196, 196, 196, 0.25)",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 1,
+    shadowRadius: 13,
+    elevation: 8,
+  },
+  formContainer: {
+    gap: 22,
+    marginBottom: 17,
+  },
+  fieldContainer: {
+    gap: 9,
+  },
+  label: {
+    color: '#444444',
+    fontSize: 16,
+    fontWeight: '600',
+    lineHeight: 22,
+  },
+  inputContainer: {
+    height: 47,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: '#FCFCFC',
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: '#CACACA',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  input: {
+    flex: 1,
+    color: '#444444',
+    fontSize: 14,
+    fontWeight: '400',
+    lineHeight: 22,
+  },
+  passwordInput: {
+    flex: 1,
+    color: '#444444',
+    fontSize: 14,
+    fontWeight: '400',
+    lineHeight: 22,
+  },
   eyeIcon: {
-    position: 'absolute',
-    right: 15,
-    top: '35%',
+    padding: 2,
+  },
+  termsContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 27,
+    gap: 12,
+  },
+  switchContainer: {
+    marginTop: 2,
+  },
+  customSwitch: {
+    width: 36,
+    height: 18,
+    backgroundColor: '#D7D7D7',
+    borderRadius: 13,
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  customSwitchActive: {
+    backgroundColor: '#49BCFF',
+  },
+  switchThumb: {
+    width: 14,
+    height: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 7,
+    alignSelf: 'flex-start',
+  },
+  switchThumbActive: {
+    alignSelf: 'flex-end',
+  },
+  termsText: {
+    flex: 1,
+    color: '#BCBCBC',
+    fontSize: 13,
+    fontWeight: '400',
+    lineHeight: 22,
+  },
+  linkText: {
+    color: '#0000FF',
+    textDecorationLine: 'underline',
+  },
+  signUpButton: {
+    height: 47,
+    backgroundColor: '#49BCFF',
+    borderRadius: 7,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 13,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  signUpText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    lineHeight: 22,
+  },
+  loadingButton: {
+    height: 47,
+    backgroundColor: '#49BCFF',
+    borderRadius: 7,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+    marginBottom: 13,
+    opacity: 0.8,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  loadingText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 10,
+  },
+  signInContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  signInText: {
+    color: '#BCBCBC',
+    fontSize: 13,
+    fontWeight: '400',
+    lineHeight: 22,
+  },
+  signInLink: {
+    color: '#0000FF',
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 22,
+  },
+  inputError: {
+    borderColor: '#e74c3c',
+    borderWidth: 1.5,
+  },
+  errorText: {
+    color: '#e74c3c',
+    fontSize: 12,
+    marginTop: 4,
   },
 });

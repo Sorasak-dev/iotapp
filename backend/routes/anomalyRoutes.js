@@ -676,7 +676,7 @@ router.post('/devices/:deviceId/check-anomalies', authenticateToken, manualCheck
     }
     
     // Setup Python process
-    const pythonPath = path.join(__dirname, '../anomaly-detection/integration_example.py');
+    const pythonPath = path.join(__dirname, '../anomaly-detection/integration_bridge.py');
     const pythonDir = path.join(__dirname, '../anomaly-detection');
     
     // Check if script exists
@@ -991,7 +991,7 @@ router.get('/anomalies/health', async (req, res) => {
     });
     
     // Check Python script existence
-    const pythonPath = path.join(__dirname, '../anomaly-detection/integration_example.py');
+    const pythonPath = path.join(__dirname, '../anomaly-detection/integration_bridge.py');
     const fs = require('fs');
     const pythonScriptExists = fs.existsSync(pythonPath);
     

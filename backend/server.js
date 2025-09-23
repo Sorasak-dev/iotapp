@@ -181,7 +181,7 @@ class PythonProcessManager {
       return;
     }
     
-    const pythonPath = path.join(__dirname, 'anomaly-detection/integration_example.py');
+    const pythonPath = path.join(__dirname, 'anomaly-detection/integration_bridge.py');
     const pythonDir = path.join(__dirname, 'anomaly-detection');
     
     console.log('🔄 Starting Anomaly Detection Service...');
@@ -1068,9 +1068,12 @@ const initializeServer = async () => {
     startSensorSimulation();
     
     // Start Python Anomaly Detection Service
-    setTimeout(() => {
-      pythonProcessManager.start();
-    }, 10000); // Wait 10 seconds for server stability
+    // setTimeout(() => {
+    //   pythonProcessManager.start();
+    // }, 10000); // Wait 10 seconds for server stability
+    
+    // *** DISABLED ANOMALY DETECTION SERVICE ***
+    console.log('⚠️ Python Anomaly Detection Service is disabled');
     
     // Log Push Notification Service status
     try {

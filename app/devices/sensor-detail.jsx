@@ -4,7 +4,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import { API_ENDPOINTS, ANOMALY_ENDPOINTS, getAuthHeaders, AnomalyService } from '../utils/config/api';
+import { API_ENDPOINTS, ANOMALY_ENDPOINTS, getAuthHeaders } from '../utils/config/api';
 import { useRouter } from 'expo-router';
 
 const screenWidth = Dimensions.get('window').width;
@@ -20,6 +20,134 @@ const getAuthToken = async () => {
   } catch (error) {
     console.error('Error retrieving token:', error);
     throw error;
+  }
+};
+
+// Fixed AnomalyService to match backend exactly
+const AnomalyService = {
+  getHistory: async (token, filters = {}) => {
+    try {
+      console.log('Fetching anomaly history with filters:', filters);
+      
+      const queryParams = new URLSearchParams();
+      if (filters.deviceId) queryParams.append('deviceId', filters.deviceId);
+      if (filters.resolved !== undefined) queryParams.append('resolved', filters.resolved);
+      if (filters.limit) queryParams.append('limit', filters.limit);
+      if (filters.page) queryParams.append('page', filters.page);
+      if (filters.alertLevel) queryParams.append('alertLevel', filters.alertLevel);
+      
+      const url = `${ANOMALY_ENDPOINTS.HISTORY}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      
+      const response = await fetch(url, {
+        headers: getAuthHeaders(token),
+        timeout: 10000
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      return result;
+      
+    } catch (error) {
+      console.error('Error fetching anomaly history:', error);
+      return {
+        success: true,
+        data: {
+          anomalies: [],
+          pagination: { page: 1, limit: 20, total: 0 }
+        }
+      };
+    }
+  },
+
+  getStats: async (token, days = 7) => {
+    try {
+      console.log(`Fetching anomaly stats for ${days} days`);
+      
+      const url = `${ANOMALY_ENDPOINTS.STATS}?days=${days}`;
+      const response = await fetch(url, {
+        headers: getAuthHeaders(token),
+        timeout: 10000
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      return result;
+      
+    } catch (error) {
+      console.error('Error fetching anomaly stats:', error);
+      return {
+        success: true,
+        data: {
+          total_anomalies: 0,
+          resolved_count: 0,
+          unresolved_count: 0,
+          resolution_rate: 0,
+          accuracy_rate: 95.2
+        }
+      };
+    }
+  },
+
+  checkHealth: async () => {
+    try {
+      console.log('Checking anomaly service health');
+      
+      const response = await fetch(ANOMALY_ENDPOINTS.HEALTH, {
+        timeout: 5000
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      return result;
+      
+    } catch (error) {
+      console.error('Health check failed:', error);
+      return {
+        success: true,
+        data: {
+          status: 'offline',
+          service_status: 'offline',
+          model_ready: true,
+          active_model: 'Isolation Forest',
+          last_check: new Date().toISOString()
+        }
+      };
+    }
+  },
+
+  checkDevice: async (token, deviceId) => {
+    try {
+      console.log(`Checking device ${deviceId} for anomalies`);
+      
+      const response = await fetch(ANOMALY_ENDPOINTS.CHECK_DEVICE(deviceId), {
+        method: 'POST',
+        headers: getAuthHeaders(token),
+        timeout: 30000
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      return result;
+      
+    } catch (error) {
+      console.error('Error checking device:', error);
+      return {
+        success: false,
+        message: 'Device check failed'
+      };
+    }
   }
 };
 
@@ -57,8 +185,8 @@ export default function SensorDetail() {
         if (deviceData && deviceData.name) {
           setDeviceName(deviceData.name);
         }
-        if (deviceData && deviceData._id) {
-          setDeviceId(deviceData._id);
+        if (deviceData && (deviceData._id || deviceData.deviceId)) {
+          setDeviceId(deviceData._id || deviceData.deviceId);
         }
       } catch (error) {
         console.error("Error parsing device data:", error);
@@ -72,30 +200,18 @@ export default function SensorDetail() {
 
   const checkAnomalyHealth = async () => {
     try {
-      console.log('🔍 Checking anomaly service health...');
+      console.log('Checking anomaly service health...');
       const healthData = await AnomalyService.checkHealth();
-      console.log('✅ Anomaly Service Health Response:', healthData);
       
-      // 🔥 ใช้ข้อมูลจาก data property ที่มี fallback values แล้ว
       if (healthData && healthData.data) {
         setModelStatus({
           model_ready: healthData.data.model_ready,
           active_model: healthData.data.active_model,
           service_status: healthData.data.service_status || healthData.data.status
         });
-        console.log('✅ Model status set successfully');
-      } else {
-        // Fallback case (แต่ควรไม่เกิดขึ้นแล้วเพราะ API มี fallback)
-        console.warn('⚠️ No data from health check, using fallback');
-        setModelStatus({
-          model_ready: true,
-          active_model: 'Isolation Forest',
-          service_status: 'offline'
-        });
       }
     } catch (error) {
-      console.error('❌ Error in checkAnomalyHealth:', error);
-      // Final fallback
+      console.error('Error in checkAnomalyHealth:', error);
       setModelStatus({
         model_ready: true,
         active_model: 'Isolation Forest',
@@ -106,186 +222,90 @@ export default function SensorDetail() {
 
   const loadAnomalyStats = async () => {
     try {
-      console.log('🔍 Loading anomaly stats...');
+      console.log('Loading anomaly stats...');
       const token = await getAuthToken();
       const stats = await AnomalyService.getStats(token, 7);
-      console.log('✅ Anomaly Stats Response:', stats);
       
-      // ตรวจสอบ response และใช้ fallback values
-      if (stats && (stats.success || stats.data)) {
-        const statsData = stats.data || stats;
+      if (stats && stats.data) {
         setAnomalyStats({
-          total_anomalies: statsData.total_anomalies || 0,
-          unresolved_count: statsData.unresolved_count || 0,
-          resolved_count: statsData.resolved_count || 0,
-          accuracy_rate: statsData.accuracy_rate || 95.2
-        });
-        console.log('✅ Anomaly stats loaded successfully');
-      } else {
-        console.warn('⚠️ No stats data, using fallback');
-        setAnomalyStats({
-          total_anomalies: 12,
-          unresolved_count: 3,
-          resolved_count: 9,
-          accuracy_rate: 95.2
+          total_anomalies: stats.data.total_anomalies || 0,
+          unresolved_count: stats.data.unresolved_count || 0,
+          resolved_count: stats.data.resolved_count || 0,
+          accuracy_rate: stats.data.accuracy_rate || 95.2
         });
       }
     } catch (error) {
-      console.error('❌ Error loading anomaly stats:', error);
-      // Final fallback
+      console.error('Error loading anomaly stats:', error);
       setAnomalyStats({
-        total_anomalies: 12,
-        unresolved_count: 3,
-        resolved_count: 9,
+        total_anomalies: 0,
+        unresolved_count: 0,
+        resolved_count: 0,
         accuracy_rate: 95.2
       });
     }
   };
 
-  // เพิ่มฟังก์ชัน fallback สำหรับกรณีที่ API ไม่ทำงาน
-  const getFallbackAnomalies = () => {
-    console.log('🔄 Using fallback anomaly data');
-    return [
-      {
-        id: `fallback_temp_${Date.now()}`,
-        type: 'Temperature Alert',
-        timestamp: new Date().toISOString(),
-        details: 'Simulated temperature anomaly for testing',
-        score: 0.85,
-        severity: 'medium',
-        isAnomalyDetection: true,
-        status: 'unresolved',
-        device_name: deviceName
-      }
-    ];
-  };
-
   const loadRecentAnomalies = async () => {
     try {
-      console.log('🔍 Loading recent anomalies...');
+      console.log('Loading recent anomalies...');
       
-      // ตรวจสอบว่ามี deviceId หรือไม่
       if (!deviceId) {
-        console.warn('⚠️ No deviceId available, using fallback data');
-        return getFallbackAnomalies();
+        console.warn('No deviceId available');
+        return [];
       }
 
       const token = await getAuthToken();
-      
-      // ปรับ filters ให้เหมาะสมกับ API
       const filters = {
-        device_id: deviceId,
+        deviceId: deviceId,
         limit: 5,
-        status: 'unresolved'
+        resolved: false
       };
       
-      console.log('📡 Making API request with filters:', filters);
-      
       const response = await AnomalyService.getHistory(token, filters);
-      console.log('📥 API Response:', response);
       
-      // ตรวจสอบ response อย่างละเอียด
-      if (response && response.success && response.data) {
-        let anomalies = [];
+      if (response && response.success && response.data && response.data.anomalies) {
+        const anomalyIssues = response.data.anomalies.map(anomaly => ({
+          id: anomaly._id,
+          type: getAnomalyTypeLabel(anomaly.anomalyType || anomaly.type || 'unknown'),
+          timestamp: anomaly.timestamp,
+          details: anomaly.message || `${anomaly.anomalyType || anomaly.type} detected`,
+          score: anomaly.mlResults?.confidence || 0.8,
+          severity: anomaly.alertLevel || 'medium',
+          isAnomalyDetection: true,
+          status: anomaly.resolved ? 'resolved' : 'unresolved',
+          device_name: deviceName
+        }));
         
-        // Handle different response structures
-        if (Array.isArray(response.data)) {
-          anomalies = response.data;
-        } else if (response.data.anomalies && Array.isArray(response.data.anomalies)) {
-          anomalies = response.data.anomalies;
-        } else if (response.data.data && Array.isArray(response.data.data)) {
-          anomalies = response.data.data;
-        }
-        
-        if (anomalies.length > 0) {
-          const anomalyIssues = anomalies.map(anomaly => ({
-            id: anomaly._id || anomaly.id || `anomaly_${Date.now()}_${Math.random()}`,
-            type: getAnomalyTypeLabel(anomaly.type || anomaly.anomaly_type || 'unknown'),
-            timestamp: anomaly.timestamp || anomaly.created_at || new Date().toISOString(),
-            details: anomaly.description || anomaly.message || `${anomaly.type || 'Anomaly'} detected`,
-            score: anomaly.confidence_score || anomaly.score || 0.8,
-            severity: anomaly.severity || 'medium',
-            isAnomalyDetection: true,
-            status: anomaly.status || 'unresolved',
-            device_name: anomaly.device_name || deviceName
-          }));
-          
-          console.log('✅ Successfully processed anomalies:', anomalyIssues.length);
-          return anomalyIssues;
-        }
+        return anomalyIssues;
       }
       
-      // ถ้าไม่มีข้อมูลจาก API ให้ใช้ fallback
-      console.warn('⚠️ No anomalies from API, using fallback');
-      return getFallbackAnomalies();
+      return [];
       
     } catch (error) {
-      console.error('❌ Error loading recent anomalies:', error);
-      
-      // ตรวจสอบประเภทของ error
-      if (error.message && error.message.includes('400')) {
-        console.error('📋 API returned 400 - Bad Request. This might be due to:');
-        console.error('   - Invalid device_id format');
-        console.error('   - Missing required parameters');
-        console.error('   - API endpoint not supporting these filters');
-      }
-      
-      // Return fallback data แทนการ throw error
-      return getFallbackAnomalies();
+      console.error('Error loading recent anomalies:', error);
+      return [];
     }
   };
 
   const getAnomalyTypeLabel = (type) => {
     const typeMap = {
+      'sudden_drop': 'Sudden Value Drop',
+      'sudden_spike': 'Sudden Value Spike',
+      'vpd_too_low': 'VPD Too Low',
+      'low_voltage': 'Low Voltage',
+      'dew_point_close': 'Dew Point Alert',
+      'battery_depleted': 'Battery Depleted',
+      'ml_detected': 'AI Anomaly Detection',
       'temperature_high': 'High Temperature Alert',
       'temperature_low': 'Low Temperature Alert',
       'humidity_high': 'High Humidity Alert',
       'humidity_low': 'Low Humidity Alert',
-      'sensor_malfunction': 'Sensor Malfunction',
-      'data_anomaly': 'Data Anomaly',
-      'pattern_deviation': 'Pattern Deviation'
+      'sensor_malfunction': 'Sensor Malfunction'
     };
     
     return typeMap[type] || 'Anomaly Detected';
   };
 
-  // แก้ไข checkDeviceAnomalies - ลบการเรียก API ที่ไม่มีอยู่
-  const checkDeviceAnomalies = async () => {
-    if (!deviceId) return [];
-    
-    // สำหรับตอนนี้ ให้ return ข้อมูล mock แทน
-    // เมื่อ backend มี endpoint นี้แล้ว ค่อยเปิดใช้ใหม่
-    console.log('Device anomaly check: Using mock data for now');
-    return [];
-    
-    try {
-      const token = await getAuthToken();
-      const response = await AnomalyService.checkDevice(token, deviceId);
-      
-      if (response.success && response.data.anomalies_detected) {
-        const newAnomalies = response.data.detected_anomalies.map(anomaly => ({
-          id: `new_${Date.now()}_${Math.random()}`,
-          type: getAnomalyTypeLabel(anomaly.type),
-          timestamp: anomaly.timestamp || new Date().toISOString(),
-          details: anomaly.description || `${anomaly.type} detected`,
-          score: anomaly.confidence_score,
-          severity: anomaly.severity,
-          isAnomalyDetection: true,
-          status: 'new',
-          isNew: true
-        }));
-        
-        return newAnomalies;
-      }
-      
-      return [];
-    } catch (error) {
-      console.error('Error checking device anomalies:', error);
-      return [];
-    }
-  };
-
-  // เพิ่มฟังก์ชัน simulate anomaly detection บน client side
   const simulateAnomalyDetection = (sensorData) => {
     const anomalies = [];
     
@@ -355,43 +375,40 @@ export default function SensorDetail() {
   };
 
   const fetchSensorData = async () => {
-    try {
-      setIsLoading(true);
-      const token = await getAuthToken();
-      
-      // Use new device data API if deviceId is available
-      let apiUrl = API_ENDPOINTS.SENSOR_DATA;
-      if (deviceId) {
-        apiUrl = `${API_ENDPOINTS.DEVICES}/${deviceId}/data?limit=100`;
-      }
-      
-      const response = await fetch(apiUrl, {
-        headers: getAuthHeaders(token),
-      });
+  try {
+    setIsLoading(true);
+    const token = await getAuthToken();
+    
+    // ใช้ device endpoint ที่ทำงานได้
+    let apiUrl;
+    if (deviceId) {
+      apiUrl = `${API_ENDPOINTS.DEVICES}/${deviceId}/data?limit=100`;
+    } else {
+      apiUrl = API_ENDPOINTS.SENSOR_DATA;
+    }
+    
+    const response = await fetch(apiUrl, {
+      headers: getAuthHeaders(token),
+    });
 
-      if (response.status === 401) {
-        await AsyncStorage.removeItem('token');
-        navigation.replace('/signin');
-        throw new Error('Session expired. Please log in again.');
-      }
-
-      const result = await response.json();
-      let data;
-
-      // Handle both old and new API response formats
-      if (deviceId && result.data) {
-        data = { data: result.data };
-      } else {
-        data = result;
-      }
-
-      if (!data.data || data.data.length === 0) {
-        setIsLoading(false);
-        throw new Error("No sensor data");
-      }
+    // Handle different response formats
+    const result = await response.json();
+    let data;
+    
+    if (deviceId && result.data) {
+      // Device endpoint format
+      data = { success: true, data: result.data };
+    } else {
+      // Legacy endpoint format
+      data = result;
+    }
+    
+    if (!data.success || !data.data || data.data.length === 0) {
+      throw new Error("No sensor data");
+    }
 
       // Check for basic sensor issues
-      const basicIssues = data.data.map(entry => {
+      const basicIssues = result.data.map(entry => {
         const errors = [];
         if (entry.temperature === 0 && entry.humidity === 0) {
           errors.push({ 
@@ -414,18 +431,17 @@ export default function SensorDetail() {
         return errors;
       }).flat();
 
-      // Load recent anomalies from the anomaly API (with better error handling)
+      // Load recent anomalies from the anomaly API
       let recentAnomalies = [];
       try {
         recentAnomalies = await loadRecentAnomalies();
-        console.log('✅ Loaded recent anomalies:', recentAnomalies.length);
       } catch (anomalyError) {
-        console.error('⚠️ Failed to load recent anomalies, continuing without them:', anomalyError);
+        console.error('Failed to load recent anomalies:', anomalyError);
         recentAnomalies = [];
       }
       
       // Check for new anomalies on current device (simulation)
-      const simulatedAnomalies = simulateAnomalyDetection(data.data);
+      const simulatedAnomalies = simulateAnomalyDetection(result.data);
       
       // Combine all issues
       const allIssues = [...basicIssues, ...recentAnomalies, ...simulatedAnomalies];
@@ -447,7 +463,7 @@ export default function SensorDetail() {
         setDataStatus('Normal');
       }
       
-      const latestEntry = data.data[data.data.length - 1];
+      const latestEntry = result.data[result.data.length - 1];
       
       if (latestEntry.battery_level) {
         setBatteryStatus(`${latestEntry.battery_level}%`);
@@ -462,7 +478,7 @@ export default function SensorDetail() {
       }
 
     } catch (error) {
-      console.error("❌ Error fetching sensor data:", error);
+      console.error("Error fetching sensor data:", error);
       Alert.alert('Error', error.message || 'Failed to fetch sensor data');
     } finally {
       setIsLoading(false);

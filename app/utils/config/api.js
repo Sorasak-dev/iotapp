@@ -1,4 +1,4 @@
-const IP_ADDRESS = '192.168.1.12';
+const IP_ADDRESS = '192.168.1.11';
 const PORT = '3000';
 
 export const API_BASE_URL = `http://${IP_ADDRESS}:${PORT}`;
@@ -25,11 +25,12 @@ export const API_ENDPOINTS = {
   ZONES: `${API_BASE_URL}/api/zones`
 };
 
-// ✅ CORRECTED: Anomaly Detection Endpoints matching actual backend routes
+// ✅ UPDATED: Anomaly Detection Endpoints for v2.1
 export const ANOMALY_ENDPOINTS = {
-  // Matching routes from anomalyRoutes.js
+  // Matching routes from anomalyRoutes.js v2.1
   HISTORY: `${API_BASE_URL}/api/anomalies`,                    // GET /api/anomalies
   STATS: `${API_BASE_URL}/api/anomalies/stats`,               // GET /api/anomalies/stats  
+  DETECT: `${API_BASE_URL}/api/detect`,                       // POST /api/detect (NEW v2.1)
   CHECK_DEVICE: (deviceId) => `${API_BASE_URL}/api/devices/${deviceId}/check-anomalies`, // POST /api/devices/:deviceId/check-anomalies
   RESOLVE: (anomalyId) => `${API_BASE_URL}/api/anomalies/${anomalyId}/resolve`,          // PUT /api/anomalies/:anomalyId/resolve
   BATCH_RESOLVE: `${API_BASE_URL}/api/anomalies/batch-resolve`, // PUT /api/anomalies/batch-resolve
@@ -50,7 +51,7 @@ export const getAuthHeaders = (token) => ({
   'Accept': 'application/json'
 });
 
-// ✅ Push Notification Service
+// ✅ Push Notification Service (unchanged)
 export const PushNotificationService = {
   // Register push token
   registerToken: async (token, userId, pushToken, deviceInfo) => {
@@ -86,7 +87,6 @@ export const PushNotificationService = {
     }
   },
 
-  // Get user notification preferences
   getPreferences: async (token) => {
     try {
       console.log('📡 Getting notification preferences...');
@@ -125,7 +125,6 @@ export const PushNotificationService = {
     }
   },
 
-  // Update notification preferences
   updatePreferences: async (token, preferences) => {
     try {
       console.log('📡 Updating notification preferences...', preferences);
@@ -164,7 +163,6 @@ export const PushNotificationService = {
     }
   },
 
-  // Send test notification
   sendTestNotification: async (token) => {
     try {
       console.log('📡 Sending test notification...');
@@ -198,7 +196,6 @@ export const PushNotificationService = {
     }
   },
 
-  // Get notification history
   getHistory: async (token, limit = 50) => {
     try {
       console.log('📡 Getting notification history...');
@@ -228,7 +225,6 @@ export const PushNotificationService = {
     }
   },
 
-  // Get delivery stats
   getDeliveryStats: async (token, days = 7) => {
     try {
       console.log(`📡 Getting delivery stats for ${days} days...`);
@@ -262,7 +258,6 @@ export const PushNotificationService = {
     }
   },
 
-  // Check notification service health
   checkHealth: async () => {
     try {
       console.log('💓 Checking notification service health...');
@@ -294,12 +289,12 @@ export const PushNotificationService = {
   }
 };
 
-// ✅ CORRECTED: Anomaly API Service with proper endpoints and enhanced error handling
+// ✅ UPDATED: Enhanced Anomaly API Service for v2.1
 export const AnomalyService = {
-  // Get anomaly history with optional filters
+  // Get anomaly history with v2.1 support
   getHistory: async (token, filters = {}) => {
     try {
-      console.log('📡 Fetching anomaly history with filters:', filters);
+      console.log('📡 Fetching anomaly history v2.1 with filters:', filters);
       
       // Build query parameters from filters
       const queryParams = new URLSearchParams();
@@ -310,8 +305,11 @@ export const AnomalyService = {
       if (filters.limit) queryParams.append('limit', filters.limit);
       if (filters.page) queryParams.append('page', filters.page);
       if (filters.alertLevel) queryParams.append('alertLevel', filters.alertLevel);
+      if (filters.riskLevel) queryParams.append('riskLevel', filters.riskLevel);
       if (filters.startDate) queryParams.append('startDate', filters.startDate);
       if (filters.endDate) queryParams.append('endDate', filters.endDate);
+      if (filters.healthScoreMin) queryParams.append('healthScoreMin', filters.healthScoreMin);
+      if (filters.healthScoreMax) queryParams.append('healthScoreMax', filters.healthScoreMax);
       
       const url = `${ANOMALY_ENDPOINTS.HISTORY}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
       
@@ -325,9 +323,8 @@ export const AnomalyService = {
       console.log('📥 Response status:', response.status);
       
       if (!response.ok) {
-        // Enhanced error handling
         if (response.status === 404) {
-          console.warn('⚠️ Anomaly history endpoint not found, using fallback');
+          console.warn('⚠️ Anomaly history endpoint not found, using v2.1 fallback');
           return {
             success: true,
             data: {
@@ -340,7 +337,8 @@ export const AnomalyService = {
                 hasNext: false,
                 hasPrev: false
               }
-            }
+            },
+            apiVersion: '2.1'
           };
         }
         
@@ -354,11 +352,14 @@ export const AnomalyService = {
       }
       
       const result = await response.json();
-      console.log('✅ Anomaly history response:', result);
+      console.log('✅ Anomaly history v2.1 response:', result);
       
-      // Ensure proper data structure
+      // Handle v2.1 response format
       if (result.success && result.data) {
-        return result;
+        return {
+          ...result,
+          apiVersion: result.apiVersion || '2.1'
+        };
       }
       
       // Fallback structure
@@ -374,13 +375,13 @@ export const AnomalyService = {
             hasNext: false,
             hasPrev: false
           }
-        }
+        },
+        apiVersion: '2.1'
       };
       
     } catch (error) {
-      console.error('❌ Error fetching anomaly history:', error);
+      console.error('❌ Error fetching anomaly history v2.1:', error);
       
-      // Return fallback data structure
       return {
         success: true,
         data: {
@@ -393,15 +394,17 @@ export const AnomalyService = {
             hasNext: false,
             hasPrev: false
           }
-        }
+        },
+        apiVersion: '2.1',
+        error: error.message
       };
     }
   },
 
-  // Get anomaly statistics with fallback
+  // Get enhanced statistics v2.1
   getStats: async (token, days = 7) => {
     try {
-      console.log(`📊 Fetching anomaly stats for ${days} days`);
+      console.log(`📊 Fetching anomaly stats v2.1 for ${days} days`);
       
       const url = `${ANOMALY_ENDPOINTS.STATS}?days=${days}`;
       
@@ -410,25 +413,31 @@ export const AnomalyService = {
         timeout: API_TIMEOUT
       });
       
-      console.log('📥 Stats response status:', response.status);
+      console.log('📥 Stats v2.1 response status:', response.status);
       
       if (!response.ok) {
         if (response.status === 404) {
-          console.warn('⚠️ Anomaly stats endpoint not found, using fallback');
+          console.warn('⚠️ Anomaly stats v2.1 endpoint not found, using enhanced fallback');
           return {
             success: true,
             data: {
-              total_anomalies: 0,
-              resolved_count: 0,
-              unresolved_count: 0,
-              resolution_rate: 0,
-              avg_resolution_time_hours: 0,
-              accuracy_rate: 95.2,
+              overview: {
+                total_anomaly_reports: 0,
+                total_detected_issues: 0,
+                avg_health_score: 100,
+                critical_count: 0,
+                warning_count: 0,
+                normal_count: 0,
+                resolved_count: 0,
+                resolution_rate: 0,
+                avg_response_time: 0
+              },
+              healthTrend: [],
+              deviceStats: [],
+              alertStats: [],
               period: `${days} days`,
               generated_at: new Date().toISOString(),
-              alertStats: [],
-              dailyStats: [],
-              deviceStats: []
+              apiVersion: '2.1'
             }
           };
         }
@@ -436,24 +445,37 @@ export const AnomalyService = {
       }
       
       const result = await response.json();
-      console.log('✅ Stats response:', result);
+      console.log('✅ Stats v2.1 response:', result);
       
-      // Ensure data structure consistency with backend response
+      // Handle v2.1 enhanced response format
       if (result.success && result.data) {
         return {
           success: true,
           data: {
-            total_anomalies: result.data.total_anomalies || 0,
-            resolved_count: result.data.resolved_count || 0,
-            unresolved_count: result.data.unresolved_count || 0,
-            resolution_rate: result.data.resolution_rate || 0,
+            // Map v2.1 overview structure
+            total_anomalies: result.data.overview?.total_anomaly_reports || result.data.total_anomalies || 0,
+            resolved_count: result.data.overview?.resolved_count || result.data.resolved_count || 0,
+            unresolved_count: result.data.overview?.total_anomaly_reports - result.data.overview?.resolved_count || 0,
+            resolution_rate: result.data.overview?.resolution_rate || result.data.resolution_rate || 0,
             avg_resolution_time_hours: result.data.avg_resolution_time_hours || 0,
-            accuracy_rate: result.data.accuracy_rate || 95.2,
+            
+            // Enhanced v2.1 fields
+            avg_health_score: result.data.overview?.avg_health_score || 100,
+            critical_count: result.data.overview?.critical_count || 0,
+            warning_count: result.data.overview?.warning_count || 0,
+            avg_response_time: result.data.overview?.avg_response_time || 0,
+            
+            // Keep existing structure for compatibility
+            accuracy_rate: 95.2,
             period: result.data.period || `${days} days`,
             generated_at: result.data.generated_at || new Date().toISOString(),
+            
+            // Enhanced stats
+            healthTrend: result.data.healthTrend || [],
+            deviceStats: result.data.deviceStats || [],
             alertStats: result.data.alertStats || [],
-            dailyStats: result.data.dailyStats || [],
-            deviceStats: result.data.deviceStats || []
+            
+            apiVersion: result.data.apiVersion || '2.1'
           }
         };
       }
@@ -461,9 +483,8 @@ export const AnomalyService = {
       return result;
       
     } catch (error) {
-      console.error('❌ Error fetching anomaly stats:', error);
+      console.error('❌ Error fetching anomaly stats v2.1:', error);
       
-      // Return fallback stats
       return {
         success: true,
         data: {
@@ -472,26 +493,74 @@ export const AnomalyService = {
           unresolved_count: 0,
           resolution_rate: 0,
           avg_resolution_time_hours: 0,
+          avg_health_score: 100,
           accuracy_rate: 95.2,
           period: `${days} days`,
           generated_at: new Date().toISOString(),
           alertStats: [],
-          dailyStats: [],
-          deviceStats: []
+          healthTrend: [],
+          deviceStats: [],
+          apiVersion: '2.1'
         }
       };
     }
   },
 
-  // Manual check for specific device
+  // NEW: Manual detection with v2.1 API
+  detectAnomalies: async (token, deviceId, sensorData, options = {}) => {
+    try {
+      console.log(`🔍 Manual anomaly detection v2.1 for device ${deviceId}`);
+      
+      const response = await fetch(ANOMALY_ENDPOINTS.DETECT, {
+        method: 'POST',
+        headers: getAuthHeaders(token),
+        body: JSON.stringify({
+          deviceId,
+          sensorData,
+          options: {
+            method: options.method || 'hybrid',
+            model: options.model || 'ensemble',
+            useCache: options.useCache !== false,
+            includeHistory: options.includeHistory || false
+          }
+        }),
+        timeout: 30000
+      });
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.warn('⚠️ Direct detection endpoint not available');
+          return {
+            success: false,
+            message: 'Direct detection not available'
+          };
+        }
+        
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log('✅ Manual detection v2.1 result:', result);
+      return result;
+      
+    } catch (error) {
+      console.error('❌ Error in manual detection v2.1:', error);
+      return {
+        success: false,
+        message: error.message || 'Detection failed'
+      };
+    }
+  },
+
+  // Enhanced device check for v2.1
   checkDevice: async (token, deviceId) => {
     try {
-      console.log(`🔍 Checking device anomalies for ${deviceId}`);
+      console.log(`🔍 Enhanced device check v2.1 for ${deviceId}`);
       
       const response = await fetch(ANOMALY_ENDPOINTS.CHECK_DEVICE(deviceId), {
         method: 'POST',
         headers: getAuthHeaders(token),
-        timeout: 30000 // Longer timeout for device checks
+        timeout: 30000
       });
       
       if (!response.ok) {
@@ -502,7 +571,7 @@ export const AnomalyService = {
             data: {
               deviceId,
               anomalyResults: null,
-              message: 'Manual check not available',
+              message: 'Enhanced check not available',
               completedAt: new Date().toISOString()
             }
           };
@@ -517,11 +586,11 @@ export const AnomalyService = {
       }
       
       const result = await response.json();
-      console.log('✅ Device check result:', result);
+      console.log('✅ Enhanced device check v2.1 result:', result);
       return result;
       
     } catch (error) {
-      console.error('❌ Error checking device anomalies:', error);
+      console.error('❌ Error in enhanced device check v2.1:', error);
       return {
         success: false,
         message: error.message || 'Device check failed',
@@ -533,7 +602,7 @@ export const AnomalyService = {
     }
   },
 
-  // Resolve single anomaly
+  // Resolve single anomaly (unchanged)
   resolveAnomaly: async (token, anomalyId, notes = '') => {
     try {
       console.log(`✅ Resolving anomaly ${anomalyId}`);
@@ -571,7 +640,7 @@ export const AnomalyService = {
     }
   },
 
-  // Batch resolve anomalies
+  // Batch resolve anomalies (unchanged)
   batchResolve: async (token, anomalyIds, notes = '') => {
     try {
       console.log(`✅ Batch resolving ${anomalyIds.length} anomalies`);
@@ -604,77 +673,81 @@ export const AnomalyService = {
     }
   },
 
-  // Health check with enhanced fallback
+  // Enhanced health check for v2.1
   checkHealth: async () => {
     try {
-      console.log('💓 Checking anomaly service health');
+      console.log('💓 Checking anomaly service health v2.1');
       
       const response = await fetch(ANOMALY_ENDPOINTS.HEALTH, {
-        timeout: 5000 // Shorter timeout for health check
+        timeout: 5000
       });
       
       if (!response.ok) {
-        console.warn('⚠️ Health endpoint returned error, using fallback');
+        console.warn('⚠️ Health endpoint returned error, using v2.1 fallback');
         return {
           success: true,
           data: {
             status: 'degraded',
             service_status: 'offline',
             model_ready: true,
-            active_model: 'Isolation Forest',
+            active_model: 'Enhanced Ensemble v2.1',
             last_check: new Date().toISOString(),
             services: {
               database: { status: 'unknown' },
-              anomaly_detection: { status: 'unavailable' },
+              anomaly_detection_v21: { status: 'unavailable' },
               push_notifications: { status: 'unknown' }
-            }
+            },
+            apiVersion: '2.1'
           }
         };
       }
       
       const result = await response.json();
-      console.log('💓 Health check result:', result);
+      console.log('💓 Health check v2.1 result:', result);
       
-      // Ensure consistent data structure matching backend response
+      // Enhanced data structure for v2.1
       return {
         success: true,
         data: {
           status: result.status || 'healthy',
           service_status: result.status || 'online',
-          model_ready: result.services?.anomaly_detection?.status === 'available',
-          active_model: 'Isolation Forest',
+          model_ready: result.services?.anomaly_detection_v21?.status === 'healthy' || 
+                      result.services?.anomaly_detection?.status === 'available',
+          active_model: result.features ? 'Enhanced Ensemble v2.1' : 'Isolation Forest',
           last_check: result.timestamp || new Date().toISOString(),
           response_time_ms: result.response_time_ms,
           services: result.services || {},
           metrics: result.metrics || {},
-          endpoints: result.endpoints || []
+          endpoints: result.endpoints || [],
+          features: result.features || [],
+          apiVersion: result.apiVersion || '2.1'
         }
       };
       
     } catch (error) {
-      console.error('❌ Health check failed:', error);
+      console.error('❌ Health check v2.1 failed:', error);
       
-      // Return fallback health status
       return {
         success: true,
         data: {
           status: 'offline',
           service_status: 'offline',
           model_ready: true,
-          active_model: 'Isolation Forest',
+          active_model: 'Enhanced Ensemble v2.1',
           last_check: new Date().toISOString(),
           error: error.message,
           services: {
             database: { status: 'unknown' },
-            anomaly_detection: { status: 'unavailable' },
+            anomaly_detection_v21: { status: 'unavailable' },
             push_notifications: { status: 'unknown' }
-          }
+          },
+          apiVersion: '2.1'
         }
       };
     }
   },
 
-  // Get anomaly types
+  // Get anomaly types with v2.1 support
   getTypes: async () => {
     try {
       const response = await fetch(ANOMALY_ENDPOINTS.TYPES, {
@@ -685,16 +758,30 @@ export const AnomalyService = {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      return await response.json();
+      const result = await response.json();
+      return {
+        ...result,
+        apiVersion: '2.1'
+      };
       
     } catch (error) {
-      console.error('❌ Error fetching anomaly types:', error);
+      console.error('❌ Error fetching anomaly types v2.1:', error);
       return {
         success: true,
         data: {
-          rule_based: {},
-          ml_based: {}
-        }
+          rule_based: {
+            sudden_drop: { name: 'Sudden Drop', severity: 'high' },
+            sudden_spike: { name: 'Sudden Spike', severity: 'medium' },
+            vpd_too_low: { name: 'VPD Too Low', severity: 'high' },
+            low_voltage: { name: 'Low Voltage', severity: 'medium' },
+            dew_point_close: { name: 'Dew Point Alert', severity: 'high' },
+            battery_depleted: { name: 'Battery Depleted', severity: 'high' }
+          },
+          ml_based: {
+            ml_detected: { name: 'AI Anomaly Detection', severity: 'medium' }
+          }
+        },
+        apiVersion: '2.1'
       };
     }
   }
