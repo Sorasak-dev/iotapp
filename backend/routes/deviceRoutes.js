@@ -5,7 +5,6 @@ const authenticateToken = require("../middleware/authMiddleware");
 const { deviceValidationSchema, locationValidationSchema } = require("../validation/userValidation");
 const router = express.Router();
 
-// Available Device Templates
 const deviceTemplates = [
   {
     id: "1",
@@ -37,7 +36,6 @@ const deviceTemplates = [
   }
 ];
 
-// Generate sensor data with device-specific variations
 const generateSensorData = (deviceId) => {
   const shouldBeNull = Math.random() < 0.1;
   const temperature = shouldBeNull ? null : parseFloat((Math.random() * (40 - 20) + 20).toFixed(2));
@@ -82,7 +80,6 @@ const generateSensorData = (deviceId) => {
   };
 };
 
-// Initialize historical data for new devices
 const initializeHistoricalData = async (device) => {
   const now = new Date();
   const daysBack = 30;
@@ -100,10 +97,9 @@ const initializeHistoricalData = async (device) => {
   }
 
   await device.save();
-  console.log(`✅ Initialized ${totalRecords} historical records for device ${device.name}`);
+  console.log(`Initialized ${totalRecords} historical records for device ${device.name}`);
 };
 
-// GET: Get available device templates
 router.get("/templates", (req, res) => {
   res.status(200).json({ 
     message: "Available device templates",
@@ -111,19 +107,16 @@ router.get("/templates", (req, res) => {
   });
 });
 
-// POST: Connect/Add a new device
 router.post("/", authenticateToken, async (req, res) => {
   try {
     const { name, type, image, deviceId, location, zoneId } = req.body;
     const userId = req.user.id;
 
-    // Check if device template exists
     const template = deviceTemplates.find(t => t.id === deviceId);
     if (!template) {
       return res.status(400).json({ message: "Invalid device template" });
     }
 
-    // Check if device already connected by this user
     const existingDevice = await Device.findOne({ 
       deviceId: deviceId,
       userId: userId 
@@ -133,7 +126,6 @@ router.post("/", authenticateToken, async (req, res) => {
       return res.status(409).json({ message: "Device already connected" });
     }
 
-    // Get user and determine zone
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -147,7 +139,6 @@ router.post("/", authenticateToken, async (req, res) => {
       validZoneId = user.currentZoneId;
     }
 
-    // Create new device
     const newDevice = new Device({
       userId: userId,
       name: name || template.name,
@@ -162,11 +153,9 @@ router.post("/", authenticateToken, async (req, res) => {
 
     await newDevice.save();
 
-    // Add device to user's devices array
     user.devices.push(newDevice._id);
     await user.save();
 
-    // Initialize with historical data
     await initializeHistoricalData(newDevice);
 
     res.status(201).json({ 
@@ -175,12 +164,11 @@ router.post("/", authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Error connecting device:", error);
+    console.error("Error connecting device:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// GET: Get user's connected devices
 router.get("/", authenticateToken, async (req, res) => {
   try {
     const { zoneId } = req.query;
@@ -199,7 +187,6 @@ router.get("/", authenticateToken, async (req, res) => {
     
     const devices = await Device.find(query).select('-data');
     
-    // Add summary info for each device
     const devicesWithSummary = await Promise.all(devices.map(async (device) => {
       const fullDevice = await Device.findById(device._id);
       const dataCount = fullDevice.data.length;
@@ -213,19 +200,18 @@ router.get("/", authenticateToken, async (req, res) => {
           humidity: lastReading.humidity,
           timestamp: lastReading.timestamp
         } : null,
-        battery: "85%", // Mock battery data
-        status: "Online" // Mock status
+        battery: "85%", 
+        status: "Online"
       };
     }));
 
     res.json(devicesWithSummary);
   } catch (error) {
-    console.error("❌ Error fetching devices:", error);
+    console.error("Error fetching devices:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// GET: Get specific device data
 router.get("/:deviceId/data", authenticateToken, async (req, res) => {
   try {
     const { deviceId } = req.params;
@@ -243,7 +229,6 @@ router.get("/:deviceId/data", authenticateToken, async (req, res) => {
 
     let filteredData = device.data;
 
-    // Filter by date range if provided
     if (startDate && endDate) {
       filteredData = device.data.filter(item => {
         const itemDate = new Date(item.timestamp);
@@ -251,7 +236,6 @@ router.get("/:deviceId/data", authenticateToken, async (req, res) => {
       });
     }
 
-    // Sort by timestamp (newest first) and limit results
     filteredData = filteredData
       .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
       .slice(0, parseInt(limit));
@@ -268,12 +252,11 @@ router.get("/:deviceId/data", authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Error fetching device data:", error);
+    console.error("Error fetching device data:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// DELETE: Disconnect a device
 router.delete("/:deviceId", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -289,18 +272,16 @@ router.delete("/:deviceId", authenticateToken, async (req, res) => {
       return res.status(404).json({ message: "Device not found" });
     }
 
-    // Remove device from user's devices array
     user.devices = user.devices.filter((id) => id.toString() !== req.params.deviceId);
     await user.save();
 
     res.json({ message: "Device removed successfully", device: deletedDevice });
   } catch (error) {
-    console.error("❌ Error deleting device:", error);
+    console.error("Error deleting device:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// PATCH: Update device location
 router.patch("/:deviceId/location", authenticateToken, async (req, res) => {
   try {
     const { error } = locationValidationSchema.validate(req.body);
@@ -320,12 +301,11 @@ router.patch("/:deviceId/location", authenticateToken, async (req, res) => {
 
     res.json({ message: "Location updated successfully", device });
   } catch (error) {
-    console.error("❌ Error updating device location:", error);
+    console.error("Error updating device location:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// PATCH: Update device zone
 router.patch("/:deviceId/zone", authenticateToken, async (req, res) => {
   try {
     const { zoneId } = req.body;
@@ -354,12 +334,11 @@ router.patch("/:deviceId/zone", authenticateToken, async (req, res) => {
 
     res.json({ message: "Device zone updated successfully", device });
   } catch (error) {
-    console.error("❌ Error updating device zone:", error);
+    console.error("Error updating device zone:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// PATCH: Update device name
 router.patch("/:deviceId", authenticateToken, async (req, res) => {
   try {
     const { name } = req.body;
@@ -380,7 +359,7 @@ router.patch("/:deviceId", authenticateToken, async (req, res) => {
 
     res.json({ message: "Device updated successfully", device });
   } catch (error) {
-    console.error("❌ Error updating device:", error);
+    console.error("Error updating device:", error);
     res.status(500).json({ error: error.message });
   }
 });

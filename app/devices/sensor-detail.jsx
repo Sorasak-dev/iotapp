@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, SafeAreaView, Dimensions, Platform, StatusBar, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useRoute, useNavigation } from '@react-navigation/native';
@@ -23,11 +23,45 @@ const getAuthToken = async () => {
   }
 };
 
-// Fixed AnomalyService to match backend exactly
 const AnomalyService = {
+  detectAnomaly: async (token, sensorData) => {
+    try {
+      console.log('🔍 Real-time anomaly detection (Hybrid: Gradient Boosting + Rules)');
+      
+      const response = await fetch(ANOMALY_ENDPOINTS.DETECT, {
+        method: 'POST',
+        headers: getAuthHeaders(token),
+        body: JSON.stringify(sensorData),
+        timeout: 30000
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log('✅ Detection result:', result);
+      
+      return {
+        success: true,
+        ...result
+      };
+      
+    } catch (error) {
+      console.error('❌ Detection error:', error);
+      return {
+        success: false,
+        message: error.message || 'Detection failed',
+        alert_level: 'green',
+        health_score: 100,
+        is_anomaly: false
+      };
+    }
+  },
+
   getHistory: async (token, filters = {}) => {
     try {
-      console.log('Fetching anomaly history with filters:', filters);
+      console.log('📡 Fetching anomaly history with filters:', filters);
       
       const queryParams = new URLSearchParams();
       if (filters.deviceId) queryParams.append('deviceId', filters.deviceId);
@@ -51,7 +85,7 @@ const AnomalyService = {
       return result;
       
     } catch (error) {
-      console.error('Error fetching anomaly history:', error);
+      console.error('❌ Error fetching anomaly history:', error);
       return {
         success: true,
         data: {
@@ -64,7 +98,7 @@ const AnomalyService = {
 
   getStats: async (token, days = 7) => {
     try {
-      console.log(`Fetching anomaly stats for ${days} days`);
+      console.log(`📊 Fetching anomaly stats for ${days} days`);
       
       const url = `${ANOMALY_ENDPOINTS.STATS}?days=${days}`;
       const response = await fetch(url, {
@@ -80,7 +114,7 @@ const AnomalyService = {
       return result;
       
     } catch (error) {
-      console.error('Error fetching anomaly stats:', error);
+      console.error('❌ Error fetching anomaly stats:', error);
       return {
         success: true,
         data: {
@@ -96,7 +130,7 @@ const AnomalyService = {
 
   checkHealth: async () => {
     try {
-      console.log('Checking anomaly service health');
+      console.log('💓 Checking anomaly service health');
       
       const response = await fetch(ANOMALY_ENDPOINTS.HEALTH, {
         timeout: 5000
@@ -110,14 +144,14 @@ const AnomalyService = {
       return result;
       
     } catch (error) {
-      console.error('Health check failed:', error);
+      console.error('❌ Health check failed:', error);
       return {
         success: true,
         data: {
           status: 'offline',
           service_status: 'offline',
           model_ready: true,
-          active_model: 'Isolation Forest',
+          active_model: 'Gradient Boosting Hybrid',
           last_check: new Date().toISOString()
         }
       };
@@ -126,7 +160,7 @@ const AnomalyService = {
 
   checkDevice: async (token, deviceId) => {
     try {
-      console.log(`Checking device ${deviceId} for anomalies`);
+      console.log(`🔍 Checking device ${deviceId} for anomalies`);
       
       const response = await fetch(ANOMALY_ENDPOINTS.CHECK_DEVICE(deviceId), {
         method: 'POST',
@@ -135,6 +169,9 @@ const AnomalyService = {
       });
       
       if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error('Rate limit exceeded - please wait before checking again');
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
@@ -142,10 +179,10 @@ const AnomalyService = {
       return result;
       
     } catch (error) {
-      console.error('Error checking device:', error);
+      console.error('❌ Error checking device:', error);
       return {
         success: false,
-        message: 'Device check failed'
+        message: error.message || 'Device check failed'
       };
     }
   }
@@ -200,21 +237,21 @@ export default function SensorDetail() {
 
   const checkAnomalyHealth = async () => {
     try {
-      console.log('Checking anomaly service health...');
+      console.log('💓 Checking anomaly service health...');
       const healthData = await AnomalyService.checkHealth();
       
       if (healthData && healthData.data) {
         setModelStatus({
           model_ready: healthData.data.model_ready,
-          active_model: healthData.data.active_model,
+          active_model: healthData.data.active_model || 'Gradient Boosting Hybrid',
           service_status: healthData.data.service_status || healthData.data.status
         });
       }
     } catch (error) {
-      console.error('Error in checkAnomalyHealth:', error);
+      console.error('❌ Error in checkAnomalyHealth:', error);
       setModelStatus({
         model_ready: true,
-        active_model: 'Isolation Forest',
+        active_model: 'Gradient Boosting Hybrid',
         service_status: 'offline'
       });
     }
@@ -222,7 +259,7 @@ export default function SensorDetail() {
 
   const loadAnomalyStats = async () => {
     try {
-      console.log('Loading anomaly stats...');
+      console.log('📊 Loading anomaly stats...');
       const token = await getAuthToken();
       const stats = await AnomalyService.getStats(token, 7);
       
@@ -235,7 +272,7 @@ export default function SensorDetail() {
         });
       }
     } catch (error) {
-      console.error('Error loading anomaly stats:', error);
+      console.error('❌ Error loading anomaly stats:', error);
       setAnomalyStats({
         total_anomalies: 0,
         unresolved_count: 0,
@@ -245,12 +282,21 @@ export default function SensorDetail() {
     }
   };
 
+  const mapAlertLevelToSeverity = (alertLevel) => {
+    const mapping = {
+      'red': 'critical',
+      'yellow': 'high',
+      'green': 'low'
+    };
+    return mapping[alertLevel] || 'medium';
+  };
+
   const loadRecentAnomalies = async () => {
     try {
-      console.log('Loading recent anomalies...');
+      console.log('📡 Loading recent anomalies...');
       
       if (!deviceId) {
-        console.warn('No deviceId available');
+        console.warn('⚠️ No deviceId available');
         return [];
       }
 
@@ -270,10 +316,11 @@ export default function SensorDetail() {
           timestamp: anomaly.timestamp,
           details: anomaly.message || `${anomaly.anomalyType || anomaly.type} detected`,
           score: anomaly.mlResults?.confidence || 0.8,
-          severity: anomaly.alertLevel || 'medium',
+          severity: mapAlertLevelToSeverity(anomaly.alertLevel),
           isAnomalyDetection: true,
           status: anomaly.resolved ? 'resolved' : 'unresolved',
-          device_name: deviceName
+          device_name: deviceName,
+          detection_method: anomaly.detectionMethod || 'hybrid'
         }));
         
         return anomalyIssues;
@@ -282,7 +329,7 @@ export default function SensorDetail() {
       return [];
       
     } catch (error) {
-      console.error('Error loading recent anomalies:', error);
+      console.error('❌ Error loading recent anomalies:', error);
       return [];
     }
   };
@@ -295,7 +342,7 @@ export default function SensorDetail() {
       'low_voltage': 'Low Voltage',
       'dew_point_close': 'Dew Point Alert',
       'battery_depleted': 'Battery Depleted',
-      'ml_detected': 'AI Anomaly Detection',
+      'ml_detected': 'AI Anomaly Detection (Gradient Boosting)',
       'temperature_high': 'High Temperature Alert',
       'temperature_low': 'Low Temperature Alert',
       'humidity_high': 'High Humidity Alert',
@@ -306,109 +353,125 @@ export default function SensorDetail() {
     return typeMap[type] || 'Anomaly Detected';
   };
 
-  const simulateAnomalyDetection = (sensorData) => {
-    const anomalies = [];
-    
-    if (!sensorData || sensorData.length === 0) return anomalies;
-    
-    const latestReading = sensorData[sensorData.length - 1];
-    
-    // Check temperature anomalies
-    if (latestReading.temperature !== null) {
-      if (latestReading.temperature > 35) {
-        anomalies.push({
-          id: `temp_high_${Date.now()}`,
-          type: 'High Temperature Alert',
-          timestamp: latestReading.timestamp,
-          details: `Temperature ${latestReading.temperature}°C exceeds normal range`,
-          score: 0.87,
-          severity: latestReading.temperature > 40 ? 'critical' : 'high',
-          isAnomalyDetection: true,
-          status: 'unresolved',
-          isNew: true
-        });
-      } else if (latestReading.temperature < 15) {
-        anomalies.push({
-          id: `temp_low_${Date.now()}`,
-          type: 'Low Temperature Alert',
-          timestamp: latestReading.timestamp,
-          details: `Temperature ${latestReading.temperature}°C below normal range`,
-          score: 0.82,
-          severity: latestReading.temperature < 10 ? 'high' : 'medium',
-          isAnomalyDetection: true,
-          status: 'unresolved',
-          isNew: true
+  const detectAnomaliesRealtime = async (latestReading) => {
+    try {
+      console.log('🔍 Running real-time anomaly detection...');
+      
+      if (!latestReading) {
+        console.warn('⚠️ No sensor reading available');
+        return [];
+      }
+
+      const token = await getAuthToken();
+      
+      const sensorData = {
+        temperature: latestReading.temperature,
+        humidity: latestReading.humidity,
+        voltage: latestReading.voltage,
+        battery_level: latestReading.battery_level,
+        co2: latestReading.co2,
+        ec: latestReading.ec,
+        ph: latestReading.ph,
+        vpd: latestReading.vpd,
+        dew_point: latestReading.dew_point,
+        timestamp: latestReading.timestamp || new Date().toISOString()
+      };
+
+      const result = await AnomalyService.detectAnomaly(token, sensorData);
+      
+      if (!result.success) {
+        console.warn('⚠️ Detection failed:', result.message);
+        return [];
+      }
+
+      const detectedAnomalies = [];
+
+      if (result.details?.rule_based_detection) {
+        result.details.rule_based_detection.forEach((detection, index) => {
+          if (detection.is_anomaly) {
+            detectedAnomalies.push({
+              id: `rule_${Date.now()}_${index}`,
+              type: getAnomalyTypeLabel(detection.anomaly_type || 'unknown'),
+              timestamp: detection.timestamp || new Date().toISOString(),
+              details: detection.message || 'Anomaly detected by rule-based system',
+              score: detection.confidence || 0.95,
+              severity: mapAlertLevelToSeverity(detection.alert_level),
+              isAnomalyDetection: true,
+              status: 'unresolved',
+              isNew: true,
+              detection_method: 'rule_based'
+            });
+          }
         });
       }
-    }
-    
-    // Check humidity anomalies
-    if (latestReading.humidity !== null) {
-      if (latestReading.humidity > 85) {
-        anomalies.push({
-          id: `humid_high_${Date.now()}`,
-          type: 'High Humidity Alert',
-          timestamp: latestReading.timestamp,
-          details: `Humidity ${latestReading.humidity}% exceeds normal range`,
-          score: 0.75,
-          severity: latestReading.humidity > 90 ? 'high' : 'medium',
-          isAnomalyDetection: true,
-          status: 'unresolved',
-          isNew: true
-        });
-      } else if (latestReading.humidity < 25) {
-        anomalies.push({
-          id: `humid_low_${Date.now()}`,
-          type: 'Low Humidity Alert',
-          timestamp: latestReading.timestamp,
-          details: `Humidity ${latestReading.humidity}% below normal range`,
-          score: 0.73,
-          severity: 'medium',
-          isAnomalyDetection: true,
-          status: 'unresolved',
-          isNew: true
+
+      if (result.details?.ml_detection) {
+        result.details.ml_detection.forEach((detection, index) => {
+          if (detection.is_anomaly) {
+            detectedAnomalies.push({
+              id: `ml_${Date.now()}_${index}`,
+              type: 'AI Anomaly Detection (Gradient Boosting)',
+              timestamp: detection.timestamp || new Date().toISOString(),
+              details: `ML model detected unusual pattern (Confidence: ${(detection.confidence * 100).toFixed(1)}%)`,
+              score: detection.confidence || 0.8,
+              severity: 'high',
+              isAnomalyDetection: true,
+              status: 'unresolved',
+              isNew: true,
+              detection_method: 'ml_based',
+              model_used: detection.model_used || 'gradient_boosting'
+            });
+          }
         });
       }
+
+      if (result.details?.recommendations && result.details.recommendations.length > 0) {
+        console.log('📋 Recommendations:', result.details.recommendations);
+      }
+
+      console.log(`✅ Detected ${detectedAnomalies.length} anomalies`);
+      return detectedAnomalies;
+      
+    } catch (error) {
+      console.error('❌ Error in real-time detection:', error);
+      return [];
     }
-    
-    return anomalies;
   };
 
   const fetchSensorData = async () => {
-  try {
-    setIsLoading(true);
-    const token = await getAuthToken();
-    
-    // ใช้ device endpoint ที่ทำงานได้
-    let apiUrl;
-    if (deviceId) {
-      apiUrl = `${API_ENDPOINTS.DEVICES}/${deviceId}/data?limit=100`;
-    } else {
-      apiUrl = API_ENDPOINTS.SENSOR_DATA;
-    }
-    
-    const response = await fetch(apiUrl, {
-      headers: getAuthHeaders(token),
-    });
+    try {
+      setIsLoading(true);
+      const token = await getAuthToken();
+      
+      let apiUrl;
+      if (deviceId) {
+        apiUrl = `${API_ENDPOINTS.DEVICES}/${deviceId}/data?limit=100`;
+      } else {
+        apiUrl = API_ENDPOINTS.SENSOR_DATA;
+      }
+      
+      const response = await fetch(apiUrl, {
+        headers: getAuthHeaders(token),
+      });
 
-    // Handle different response formats
-    const result = await response.json();
-    let data;
-    
-    if (deviceId && result.data) {
-      // Device endpoint format
-      data = { success: true, data: result.data };
-    } else {
-      // Legacy endpoint format
-      data = result;
-    }
-    
-    if (!data.success || !data.data || data.data.length === 0) {
-      throw new Error("No sensor data");
-    }
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
-      // Check for basic sensor issues
-      const basicIssues = result.data.map(entry => {
+      const result = await response.json();
+      let data;
+      
+      if (deviceId && result.data) {
+        data = { success: true, data: result.data };
+      } else {
+        data = result;
+      }
+      
+      if (!data.success || !data.data || data.data.length === 0) {
+        throw new Error("No sensor data");
+      }
+
+      const basicIssues = data.data.map(entry => {
         const errors = [];
         if (entry.temperature === 0 && entry.humidity === 0) {
           errors.push({ 
@@ -431,23 +494,20 @@ export default function SensorDetail() {
         return errors;
       }).flat();
 
-      // Load recent anomalies from the anomaly API
       let recentAnomalies = [];
       try {
         recentAnomalies = await loadRecentAnomalies();
       } catch (anomalyError) {
-        console.error('Failed to load recent anomalies:', anomalyError);
+        console.error('❌ Failed to load recent anomalies:', anomalyError);
         recentAnomalies = [];
       }
+
+      const latestReading = data.data[data.data.length - 1];
+      const realtimeAnomalies = await detectAnomaliesRealtime(latestReading);
       
-      // Check for new anomalies on current device (simulation)
-      const simulatedAnomalies = simulateAnomalyDetection(result.data);
-      
-      // Combine all issues
-      const allIssues = [...basicIssues, ...recentAnomalies, ...simulatedAnomalies];
+      const allIssues = [...basicIssues, ...recentAnomalies, ...realtimeAnomalies];
       setCurrentIssues(allIssues);
-      
-      // Update device health and data status based on anomalies
+
       if (allIssues.length > 0) {
         const hasHighSeverity = allIssues.some(issue => 
           issue.severity === 'high' || issue.severity === 'critical'
@@ -463,7 +523,7 @@ export default function SensorDetail() {
         setDataStatus('Normal');
       }
       
-      const latestEntry = result.data[result.data.length - 1];
+      const latestEntry = data.data[data.data.length - 1];
       
       if (latestEntry.battery_level) {
         setBatteryStatus(`${latestEntry.battery_level}%`);
@@ -475,10 +535,12 @@ export default function SensorDetail() {
       
       if (timeDiff > 60) { 
         setWifiStatus('Disconnected');
+      } else {
+        setWifiStatus('Connected');
       }
 
     } catch (error) {
-      console.error("Error fetching sensor data:", error);
+      console.error("❌ Error fetching sensor data:", error);
       Alert.alert('Error', error.message || 'Failed to fetch sensor data');
     } finally {
       setIsLoading(false);
@@ -636,7 +698,7 @@ export default function SensorDetail() {
               <Text style={styles.issueCount}>({currentIssues.length})</Text>
             )}
           </View>
-          
+
           {isLoading ? (
             <View style={styles.loadingBox}>
               <Icon name="hourglass-empty" size={24} color="#666" />

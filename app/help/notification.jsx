@@ -1,4 +1,3 @@
-import React from "react";
 import { Image, ScrollView, Text, View, Dimensions, SafeAreaView } from "react-native";
 import { useRouter } from "expo-router";
 import tw from "twrnc";

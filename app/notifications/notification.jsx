@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -39,7 +39,6 @@ const getAuthToken = async () => {
   }
 };
 
-// Fixed AnomalyService to match backend exactly
 const AnomalyService = {
   getHistory: async (token, filters = {}) => {
     try {
@@ -148,7 +147,6 @@ export default function NotificationScreen() {
     loadAnomalyStats();
     checkPushToken();
     
-    // Listen for new notifications
     const subscription = notificationService.setupNotificationListeners();
     
     return () => {
@@ -170,8 +168,8 @@ export default function NotificationScreen() {
   const loadAnomalyStats = async () => {
     try {
       const token = await getAuthToken();
-      const stats = await AnomalyService.getStats(token, 30); // Last 30 days
-      
+      const stats = await AnomalyService.getStats(token, 30); 
+
       if (stats.success) {
         setAnomalyStats(stats.data);
       }
@@ -185,7 +183,6 @@ export default function NotificationScreen() {
       setIsLoading(true);
       const token = await getAuthToken();
       
-      // Load anomalies from the real API with correct backend structure
       const response = await AnomalyService.getHistory(token, {
         limit: 100,
         sort: '-timestamp'
@@ -197,30 +194,28 @@ export default function NotificationScreen() {
           title: getAnomalyTitle(anomaly.anomalyType || anomaly.type),
           message: anomaly.message || `${anomaly.anomalyType || anomaly.type} detected on ${anomaly.deviceId || 'Unknown Device'}`,
           location: anomaly.deviceId || "Unknown Device",
-          type: getSeverityType(anomaly.alertLevel), // Backend uses alertLevel
+          type: getSeverityType(anomaly.alertLevel), 
           time: formatTime(anomaly.timestamp),
           date: formatDate(anomaly.timestamp),
-          isRead: anomaly.resolved, // Use resolved status from backend
-          severity: anomaly.alertLevel, // Backend field name
-          confidence_score: anomaly.mlResults?.confidence, // Backend structure
+          isRead: anomaly.resolved, 
+          severity: anomaly.alertLevel, 
+          confidence_score: anomaly.mlResults?.confidence, 
           status: anomaly.resolved ? 'resolved' : 'unresolved',
-          device_id: anomaly.deviceId, // Backend field name
-          anomaly_data: anomaly.sensorData, // Backend field name
+          device_id: anomaly.deviceId, 
+          anomaly_data: anomaly.sensorData, 
           resolved_at: anomaly.resolvedAt,
           resolved_by: anomaly.resolvedBy,
           resolution_notes: anomaly.notes,
           timestamp: anomaly.timestamp,
-          isPushNotification: false // Mark as server notification
+          isPushNotification: false 
         }));
         
-        // Merge with local push notifications
         const localNotifications = await getLocalNotifications();
         const allNotifications = [...formattedNotifications, ...localNotifications]
           .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         
         setNotifications(allNotifications);
       } else {
-        // Load local notifications only
         const localNotifications = await getLocalNotifications();
         setNotifications(localNotifications);
       }
@@ -228,7 +223,6 @@ export default function NotificationScreen() {
       console.error('Error loading notifications:', error);
       Alert.alert('Error', 'Failed to load notifications');
       
-      // Load local notifications as fallback
       try {
         const localNotifications = await getLocalNotifications();
         setNotifications(localNotifications);
@@ -378,15 +372,12 @@ export default function NotificationScreen() {
   const handleResolveNotification = async (id, isPushNotification) => {
     try {
       if (isPushNotification) {
-        // Mark local push notification as read
         await markLocalNotificationAsRead(id);
       } else {
-        // Resolve server anomaly
         const token = await getAuthToken();
         await AnomalyService.resolveAnomaly(token, id, 'Resolved by user');
       }
-      
-      // Update local state
+
       setNotifications(notifications.map(notification => 
         notification.id === id 
           ? { ...notification, isRead: true, status: 'resolved' }
@@ -453,7 +444,6 @@ export default function NotificationScreen() {
 
   const markAllAsRead = async () => {
     try {
-      // Mark all local notifications as read
       const storedNotifications = await AsyncStorage.getItem('localNotifications');
       if (storedNotifications) {
         const localNotifications = JSON.parse(storedNotifications);
@@ -461,7 +451,6 @@ export default function NotificationScreen() {
         await AsyncStorage.setItem('localNotifications', JSON.stringify(updatedLocalNotifications));
       }
       
-      // Update state
       setNotifications(
         notifications.map(notification => ({
           ...notification,
@@ -489,7 +478,6 @@ export default function NotificationScreen() {
           text: "Delete All",
           onPress: async () => {
             try {
-              // Clear local notifications
               await AsyncStorage.setItem('localNotifications', JSON.stringify([]));
               setNotifications([]);
               setMenuVisible(false);
@@ -505,7 +493,6 @@ export default function NotificationScreen() {
 
   const handleNotificationPress = (notification) => {
     if (notification.isPushNotification) {
-      // Handle push notification tap
       if (notification.data?.anomalyId) {
         router.push({
           pathname: "/sensor-detail",
@@ -515,11 +502,9 @@ export default function NotificationScreen() {
           }
         });
       } else {
-        // Just mark as read
         handleResolveNotification(notification.id, true);
       }
     } else {
-      // Navigate to device details for server notifications
       router.push({
         pathname: "/sensor-detail",
         params: {
@@ -968,7 +953,6 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   
-  // Menu Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

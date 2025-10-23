@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -34,12 +34,10 @@ export default function Statistics() {
   const { t } = useTranslation();
   const router = useRouter();
 
-  // selections
   const [selectedMetrics, setSelectedMetrics] = useState(["Temperature", "Humidity", "Dew Point", "VPD"]);
   const [selectedZones, setSelectedZones] = useState([]);
   const [selectedSensors, setSelectedSensors] = useState([]);
 
-  // dates
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
   const [tempStartDate, setTempStartDate] = useState(new Date());
@@ -47,7 +45,6 @@ export default function Statistics() {
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
 
-  // data + ui
   const [currentDate, setCurrentDate] = useState(new Date());
   const [data, setData] = useState({});
   const [loading, setLoading] = useState(true);
@@ -100,7 +97,6 @@ export default function Statistics() {
     setChartWidth(Math.max(minWidth, maxDataPoints * 80));
   }, [maxDataPoints]);
 
-  // -------- API calls --------
   const fetchZones = async () => {
     try {
       setLoadingZones(true);
@@ -219,7 +215,6 @@ export default function Statistics() {
     }
   };
 
-  // -------- Date pickers --------
   const openStartPicker = () => {
     if (Platform.OS === "web") {
       Alert.alert("Not supported on Web", "Please run on Android/iOS.");
@@ -239,7 +234,7 @@ export default function Statistics() {
     setTempStartDate(date);
     setStartDate(date);
     setShowStartPicker(false);
-    setShowEndPicker(true); // ต่อไปเลือก End ได้เลย
+    setShowEndPicker(true); 
   };
   const onConfirmEnd = (date) => {
     setTempEndDate(date);
@@ -247,7 +242,6 @@ export default function Statistics() {
     setShowEndPicker(false);
   };
 
-  // -------- Chart data --------
   const prepareChartData = () => {
     let allTs = [];
     Object.values(data).forEach((s) => s.data.forEach((it) => allTs.push(it.timestamp)));
@@ -357,7 +351,6 @@ export default function Statistics() {
   };
   const formatTime = (date) => (date ? date.toLocaleTimeString() : "");
 
-  // -------- Render helpers --------
   const toggleMetric = (metric) => {
     setSelectedMetrics((prev) => (prev.includes(metric) ? prev.filter((m) => m !== metric) : [...prev, metric]));
   };
@@ -375,7 +368,6 @@ export default function Statistics() {
     </View>
   );
 
-  // -------- Navigate to Export screen --------
   const goToExport = () => {
     if (selectedSensors.length === 0) {
       Alert.alert("Please select at least one sensor");

@@ -1,5 +1,3 @@
-// app/privacy.jsx
-import React from 'react';
 import {
   View,
   Text,
@@ -13,7 +11,6 @@ import {
 import { useRouter } from 'expo-router';
 import { Svg, Path } from 'react-native-svg';
 
-// --- Icons (Minimal Style) ---
 const DocumentTextIcon = () => (
     <Svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#34C759" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></Path>
@@ -36,7 +33,6 @@ const ChevronRightIcon = () => (
     </Svg>
 );
 
-// --- Reusable Components ---
 const Header = ({ title, onBackPress }) => (
   <View style={styles.header}>
     <TouchableOpacity onPress={onBackPress} style={styles.backButton}>
@@ -57,7 +53,6 @@ const SettingsListItem = ({ icon, title, description, onPress }) => (
   </TouchableOpacity>
 );
 
-// --- Main Screen ---
 const PrivacySecurityScreen = () => {
   const router = useRouter();
 
@@ -96,7 +91,6 @@ const PrivacySecurityScreen = () => {
   );
 };
 
-// --- Styles (Clean & Minimal) ---
 const styles = StyleSheet.create({
   container: {
     flex: 1,

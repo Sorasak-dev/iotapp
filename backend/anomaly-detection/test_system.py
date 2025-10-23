@@ -14,7 +14,6 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor
 import random
 
-# เพิ่ม path สำหรับ import modules
 sys.path.append('.')
 
 try:

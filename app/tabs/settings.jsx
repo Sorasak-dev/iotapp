@@ -1,5 +1,4 @@
-// D:\y3\งานจารออย\iotapp-2\app\tabs\settings.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,

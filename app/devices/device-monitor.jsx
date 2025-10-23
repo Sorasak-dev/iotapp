@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, SafeAreaView, Dimensions, Platform, StatusBar } from 'react-native';
 import { FontAwesome5, MaterialIcons, Ionicons } from '@expo/vector-icons';
 import * as Battery from 'expo-battery';
@@ -67,7 +67,6 @@ export default function DeviceMonitor() {
       try {
         const token = await getAuthToken();
         
-        // Use new device data API if deviceId is available
         let apiUrl = API_ENDPOINTS.SENSOR_DATA;
         if (deviceId) {
           apiUrl = `${API_ENDPOINTS.DEVICES}/${deviceId}/data?limit=20`;
@@ -86,7 +85,6 @@ export default function DeviceMonitor() {
         const result = await response.json();
         let data;
 
-        // Handle both old and new API response formats
         if (deviceId && result.data) {
           data = { data: result.data };
         } else {
@@ -241,6 +239,7 @@ export default function DeviceMonitor() {
                 <FontAwesome5 name="microchip" size={20} color="black" />
                 <Text style={styles.sensorTitle}>{deviceName}</Text>
               </View>
+
               {/* Added arrow icon to indicate the card is clickable */}
               <MaterialIcons name="keyboard-arrow-right" size={24} color="black" />
             </View>

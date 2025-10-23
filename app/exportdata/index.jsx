@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -91,7 +91,6 @@ export default function ExportDataScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
-  // from Statistics
   const sensors = useMemo(() => {
     try { return params.sensors ? JSON.parse(params.sensors) : []; } catch { return []; }
   }, [params.sensors]);
@@ -110,18 +109,16 @@ export default function ExportDataScreen() {
   const [endDate, setEndDate] = useState(params.endDate ? new Date(params.endDate) : null);
 
   const [loading, setLoading] = useState(true);
-  const [dataset, setDataset] = useState({}); // {sensorId: {name, rows:[]}}
+  const [dataset, setDataset] = useState({});
   const [maxPoints, setMaxPoints] = useState(0);
   const [exporting, setExporting] = useState(false);
 
-  // hidden chart for export (กว้างขึ้นเพื่อความคม)
   const shotRef = useRef(null);
   const previewWidth = Math.min(windowWidth * 0.9, 380);
   const exportWidth = Math.max(900, maxPoints * 80);
 
   const canExport = selectedData.length && startDate && endDate && sensors.length;
 
-  // fetch data
   useEffect(() => {
     const run = async () => {
       if (!sensors.length || !startDate || !endDate) { setLoading(false); return; }
@@ -159,9 +156,7 @@ export default function ExportDataScreen() {
     run();
   }, [sensors, startDate, endDate]);
 
-  // ----- build chart data from selection -----
   const buildChartData = () => {
-    // union timestamps
     let ts = [];
     Object.values(dataset).forEach(({ rows }) => rows.forEach(r => ts.push(r.timestamp)));
     ts = [...new Set(ts)].sort();
@@ -209,13 +204,11 @@ export default function ExportDataScreen() {
 
   const chartData = buildChartData();
 
-  // ----- helpers -----
   const toggleDataType = (key) => {
     setSelectedData((prev) => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
   };
 
   const downloadWebBase64 = (filename, mime, base64) => {
-    // สร้างลิงก์ดาวน์โหลดบนเว็บ
     const link = document.createElement("a");
     link.href = `data:${mime};base64,${base64}`;
     link.download = filename;
@@ -285,7 +278,6 @@ export default function ExportDataScreen() {
       return;
     }
 
-    // จับภาพกราฟเป็น base64 (web) หรือไฟล์ชั่วคราว (native)
     const shotOptions = isWeb
       ? { format: "png", quality: 1, result: "base64" }
       : { format: "png", quality: 1, result: "tmpfile" };
@@ -293,11 +285,10 @@ export default function ExportDataScreen() {
     const imageResult = await shotRef.current.capture(shotOptions);
 
     if (isWeb) {
-      // web: ใช้ jsPDF ทำไฟล์ PDF
       const { jsPDF } = await import("jspdf");
       const pdf = new jsPDF({ unit: "px", format: "a4" });
       const imgWidth = 500;
-      const imgHeight = 500 * 0.6; // สัดส่วนประมาณ
+      const imgHeight = 500 * 0.6; 
       pdf.setFontSize(14);
       pdf.text("Sensor Chart", 24, 32);
       pdf.setFontSize(10);
@@ -305,10 +296,9 @@ export default function ExportDataScreen() {
       pdf.text(`Date Range: ${fmt(startDate)} - ${fmt(endDate)}`, 24, 60);
       pdf.text(`Selected: ${selectedData.join(", ")}`, 24, 72);
       pdf.addImage(`data:image/png;base64,${imageResult}`, "PNG", 24, 88, imgWidth, imgHeight);
-      const pdfData = pdf.output("datauristring").split(",")[1]; // ตัด header
+      const pdfData = pdf.output("datauristring").split(",")[1]; 
       downloadWebBase64(`report_${fmt(startDate)}_${fmt(endDate)}.pdf`, "application/pdf", pdfData);
     } else {
-      // mobile: ใช้ expo-print
       const base64 =
         await FileSystem.readAsStringAsync(imageResult, { encoding: FileSystem.EncodingType.Base64 });
       const html = `
@@ -345,7 +335,7 @@ export default function ExportDataScreen() {
       if (selectedFormat === "CSV") {
         await exportCSVorExcel(false);
       } else if (selectedFormat === "Excel") {
-        await exportCSVorExcel(true); // ใช้ CSV ที่ Excel เปิดได้
+        await exportCSVorExcel(true); 
       } else if (selectedFormat === "PDF") {
         await exportPDFwithChart();
       }
@@ -357,7 +347,6 @@ export default function ExportDataScreen() {
     }
   };
 
-  // UI
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scroll} contentContainerStyle={{ paddingBottom: 40 }}>

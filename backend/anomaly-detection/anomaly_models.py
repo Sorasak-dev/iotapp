@@ -1,5 +1,3 @@
-# anomaly_models.py - Fixed Version with Feature Alignment
-
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import IsolationForest
@@ -941,14 +939,35 @@ class AnomalyDetectionModels:
         return self.save_models_enhanced(filepath_prefix)
     
     def evaluate_model_enhanced(self, X_test, y_test, model_name='ensemble'):
-        """ประเมินประสิทธิภาพโมเดลแบบขั้นสูง - รวม Feature Alignment"""
+        """ประเมินประสิทธิภาพโมเดลแบบขั้นสูง v2.1 - Support Supervised Models"""
         logger.info(f"ประเมิน model {model_name} v2.1 (Fixed)...")
         
         try:
-            # ทำนายผล
-            y_pred = self.predict_anomalies(X_test, model_name)
+            # ✅ FIX: Handle supervised models separately
+            if model_name in ['random_forest', 'gradient_boosting']:
+                # Supervised models prediction
+                if model_name not in self.models:
+                    logger.error(f"Model {model_name} not found")
+                    return {
+                        'error': f'Model {model_name} not found',
+                        'f1_score': 0,
+                        'precision': 0,
+                        'recall': 0
+                    }
+                
+                model = self.models[model_name]
+                
+                # Clean and align features
+                X_test_clean = self.clean_data_for_training(X_test)
+                
+                # Predict directly (supervised models already return 0/1)
+                y_pred = model.predict(X_test_clean)
+                
+            else:
+                # Unsupervised models prediction (original code)
+                y_pred = self.predict_anomalies(X_test, model_name)
             
-            # Classification Report
+            # Calculate metrics (same for both types)
             report = classification_report(y_test, y_pred, output_dict=True, zero_division=0)
             logger.info(f"\nClassification Report for {model_name}:")
             print(classification_report(y_test, y_pred, zero_division=0))
@@ -975,11 +994,21 @@ class AnomalyDetectionModels:
             logger.info(f"Recall: {recall:.4f}")
             logger.info(f"F1-Score: {f1_score:.4f}")
             
-            # ROC AUC Score (ถ้าเป็นไปได้)
+            # ROC AUC Score
             auc_score = None
             try:
                 if len(np.unique(y_test)) > 1 and len(np.unique(y_pred)) > 1:
-                    auc_score = roc_auc_score(y_test, y_pred)
+                    # Try to get probability scores if available
+                    if model_name in ['random_forest', 'gradient_boosting']:
+                        if hasattr(self.models[model_name], 'predict_proba'):
+                            X_test_clean = self.clean_data_for_training(X_test)
+                            y_proba = self.models[model_name].predict_proba(X_test_clean)[:, 1]
+                            auc_score = roc_auc_score(y_test, y_proba)
+                        else:
+                            auc_score = roc_auc_score(y_test, y_pred)
+                    else:
+                        auc_score = roc_auc_score(y_test, y_pred)
+                    
                     logger.info(f"ROC AUC Score: {auc_score:.4f}")
             except Exception as e:
                 logger.warning(f"Cannot calculate AUC score: {e}")
@@ -996,11 +1025,15 @@ class AnomalyDetectionModels:
                 'f1_score': f1_score,
                 'auc_score': auc_score,
                 'model_performance': self.model_performance.get(model_name, {}),
-                'feature_count': X_test.shape[1] if hasattr(X_test, 'shape') else 0
+                'feature_count': X_test.shape[1] if hasattr(X_test, 'shape') else 0,
+                'model_type': 'supervised' if model_name in ['random_forest', 'gradient_boosting'] else 'unsupervised'
             }
         
         except Exception as e:
             logger.error(f"Error in evaluate_model_enhanced: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            
             # Return minimal result
             dummy_pred = np.zeros(len(y_test))
             return {
@@ -1010,6 +1043,9 @@ class AnomalyDetectionModels:
                 'classification_report': {'accuracy': 0},
                 'specificity': 0,
                 'sensitivity': 0,
+                'precision': 0,
+                'recall': 0,
+                'f1_score': 0,
                 'error': str(e)
             }
     

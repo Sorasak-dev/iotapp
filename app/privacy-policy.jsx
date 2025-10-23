@@ -1,5 +1,3 @@
-// app/privacy-policy.jsx
-import React from 'react';
 import { ScrollView, Text, StyleSheet, SafeAreaView, View, TouchableOpacity, Platform, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
 

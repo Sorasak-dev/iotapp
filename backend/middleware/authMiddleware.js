@@ -1,5 +1,3 @@
-// File: backend/middleware/authMiddleware.js
-
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 
@@ -16,7 +14,7 @@ const authenticateToken = (req, res, next) => {
     req.user = decoded; 
     next();
   } catch (err) {
-    console.error("❌ Token verification failed:", err.message);
+    console.error("Token verification failed:", err.message);
     res.status(403).json({ message: "Invalid or expired token" });
   }
 };

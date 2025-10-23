@@ -1,4 +1,3 @@
-import React from "react";
 import {
   View,
   Text,
@@ -141,7 +140,7 @@ const styles = StyleSheet.create({
   listItem: {
     fontSize: 15,
     color: "#9B9B9B",
-    lineHeight: 28, // Ensures each bullet point is on a new line
+    lineHeight: 28,
     marginLeft: 10,
   },
   blueBorder: {
@@ -157,7 +156,7 @@ const styles = StyleSheet.create({
   },
   image: {
     width: '50%',
-    height: 150, // Adjust height as needed
+    height: 150,
   },
   footer: {
     marginTop: 20,

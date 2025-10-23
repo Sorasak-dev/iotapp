@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -19,7 +19,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
 import { API_ENDPOINTS, API_TIMEOUT, getAuthHeaders } from '../utils/config/api';
 
-// Device images mapping
 const deviceImages = {
   "sensor.png": require("../assets/sensor.png"),
   "sensor2.png": require("../assets/sensor2.png"),
@@ -45,7 +44,6 @@ export default function SelectDeviceScreen() {
     fetchConnectedDevices();
   }, []);
 
-  // Fetch available device templates from API
   const fetchAvailableDevices = async () => {
     try {
       const response = await axios.get(API_ENDPOINTS.DEVICE_TEMPLATES, {
@@ -53,7 +51,6 @@ export default function SelectDeviceScreen() {
       });
 
       if (response.data?.templates) {
-        // Map device templates to match UI format
         const mappedDevices = response.data.templates.map(template => ({
           id: template.id,
           name: template.name,
@@ -71,7 +68,6 @@ export default function SelectDeviceScreen() {
         text2: "Failed to fetch available devices.",
       });
       
-      // Fallback to default devices if API fails
       setAvailableDevices([
         { id: "1", name: "E-MIB1", type: "Temperature & Humidity Sensor", image: deviceImages["sensor.png"] },
         { id: "2", name: "E-MIB2", type: "Temperature & Humidity Sensor", image: deviceImages["sensor2.png"] },
@@ -81,7 +77,6 @@ export default function SelectDeviceScreen() {
     }
   };
 
-  // Get device image based on device ID
   const getDeviceImage = (deviceId) => {
     const imageMap = {
       "1": deviceImages["sensor.png"],
@@ -92,7 +87,6 @@ export default function SelectDeviceScreen() {
     return imageMap[deviceId] || deviceImages["sensor.png"];
   };
 
-  // Get image filename based on device ID 
   const getImageFileName = (deviceId) => {
     const imageMap = {
       "1": "sensor.png",
@@ -103,7 +97,6 @@ export default function SelectDeviceScreen() {
     return imageMap[deviceId] || "sensor.png";
   };
 
-  // Fetch connected devices from API
   const fetchConnectedDevices = async () => {
     try {
       setLoading(true);
@@ -183,7 +176,6 @@ export default function SelectDeviceScreen() {
         return;
       }
 
-      // Check if device is already connected
       const response = await axios.post(
         API_ENDPOINTS.DEVICES,
         {
@@ -231,7 +223,6 @@ export default function SelectDeviceScreen() {
           text1: "Device Already Connected",
           text2: "This device is already connected to your account.",
         });
-        // Update connected devices list
         setConnectedDevices((prev) => [...prev, device.id]);
       } else {
         Toast.show({

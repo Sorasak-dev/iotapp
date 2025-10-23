@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -23,24 +23,19 @@ export default function AddZone() {
   const [zoneName, setZoneName] = useState('');
   const [loading, setLoading] = useState(false);
   
-  // Default placeholder for profile image
   const [profileImage, setProfileImage] = useState(null);
 
-  // Navigate back
   const handleGoBack = () => {
     router.back();
   };
 
-  // Change profile image - in a real app, this would open an image picker
   const handleChangeProfileImage = () => {
-    // This would be where you'd implement an image picker
     Alert.alert(
       t("Profile Image"),
       t("This would open an image picker in a real app")
     );
   };
 
-  // Save the zone
   const handleSaveZone = async () => {
     try {
       if (!zoneName.trim()) {
@@ -55,8 +50,7 @@ export default function AddZone() {
         Alert.alert(t("Error"), t("You must be logged in"));
         return;
       }
-      
-      // Prepare the zone data to save
+
       const zoneData = {
         name: zoneName,
         location: {
@@ -68,7 +62,6 @@ export default function AddZone() {
       };
       
       try {
-        // Save to backend using the new zones API endpoint
         const response = await axios.post(
           API_ENDPOINTS.ZONES,
           zoneData,
@@ -78,7 +71,6 @@ export default function AddZone() {
           }
         );
         
-        // Switch to the newly created zone
         if (response.data && response.data.zone && response.data.zone._id) {
           await axios.post(
             `${API_ENDPOINTS.ZONES}/${response.data.zone._id}/switch`,

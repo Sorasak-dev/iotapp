@@ -15,7 +15,6 @@ const { width, height } = Dimensions.get('window');
 const DeviceMonitorScreen = () => {
   const router = useRouter();
 
-  // Calculate responsive styling
   const isSmallScreen = width < 375;
   const isMediumScreen = width >= 375 && width < 414;
   

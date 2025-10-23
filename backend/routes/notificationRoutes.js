@@ -1,10 +1,8 @@
-// routes/notificationRoutes.js
 const express = require('express');
 const router = express.Router();
 const notificationController = require('../controllers/notificationController');
 const authenticateToken = require('../middleware/authMiddleware');
 
-// Middleware to validate request body for certain routes
 const validateTokenRegistration = (req, res, next) => {
   const { expoPushToken, deviceInfo } = req.body;
   
@@ -59,10 +57,7 @@ const validateNotificationContent = (req, res, next) => {
   next();
 };
 
-// Public health check (no auth required)
 router.get('/health', notificationController.healthCheck);
-
-// ===== USER ENDPOINTS (Require Authentication) =====
 
 /**
  * @route   POST /api/notifications/register-token
@@ -166,8 +161,6 @@ router.get('/tokens',
   notificationController.getActiveTokens
 );
 
-// ===== ADMIN/SYSTEM ENDPOINTS =====
-
 /**
  * @route   POST /api/notifications/send-to-user
  * @desc    Send notification to specific user (Admin)
@@ -190,9 +183,6 @@ router.post('/send-bulk',
   notificationController.sendBulkNotifications
 );
 
-// ===== ERROR HANDLING =====
-
-// Handle 404 for notification routes
 router.use('*', (req, res) => {
   res.status(404).json({
     success: false,

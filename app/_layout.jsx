@@ -1,4 +1,3 @@
-// app/_layout.jsx
 import { Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 

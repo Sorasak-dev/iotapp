@@ -38,6 +38,15 @@ class NodeJSPythonBridge:
         self.simulator = None
         self.initialize_api()
     
+    def initialize_api(self):
+        """Initialize Anomaly Detection API"""
+        try:
+            self.api = AnomalyDetectionAPI(models_path="models/anomaly_detection")
+            logger.info("✅ Anomaly Detection API initialized successfully")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize API: {e}")
+            self.api = None
+    
     def validate_input(self, data):
         """Validate input data from Node.js"""
         required_fields = ['sensor_data']
@@ -72,9 +81,9 @@ class NodeJSPythonBridge:
             sensor_data = input_data['sensor_data']
             options = input_data.get('options', {})
             
-            # Extract options with defaults
+            # Extract options with defaults - ใช้โมเดลที่ดีที่สุด
             method = options.get('method', 'hybrid')
-            model = options.get('model', 'ensemble')
+            model = options.get('model', 'gradient_boosting')  # ✅ ใช้โมเดลที่ดีที่สุด (F1=0.947)
             use_cache = options.get('use_cache', True)
             include_history = options.get('include_history', False)
             health_check = input_data.get('health_check', False)
@@ -199,7 +208,8 @@ class NodeJSPythonBridge:
                     "api_version": "2.1-fixed",
                     "processing_timestamp": datetime.now().isoformat(),
                     "expected_features": 49,
-                    "batch_processing": True
+                    "batch_processing": True,
+                    "model_used": "gradient_boosting"
                 },
                 "timestamp": datetime.now().isoformat()
             }
@@ -253,7 +263,7 @@ class NodeJSPythonBridge:
                     "ml_anomalies_found": False,
                     "total_anomalies": total_anomalies,
                     "alert_level": alert_level,
-                    "health_score": 100 - (total_anomalies * 10),
+                    "health_score": max(0, 100 - (total_anomalies * 10)),
                     "recommendations": []
                 },
                 "performance": {
@@ -283,7 +293,7 @@ class NodeJSPythonBridge:
                 ml_detections.append({
                     "is_anomaly": bool(prediction),
                     "confidence": float(prediction) if isinstance(prediction, (int, float)) else 0.0,
-                    "model_used": "ensemble",
+                    "model_used": "gradient_boosting",
                     "timestamp": datetime.now().isoformat(),
                     "batch_index": i,
                     "feature_count": 49
@@ -312,7 +322,8 @@ class NodeJSPythonBridge:
                     "api_version": "2.1-fixed",
                     "processing_timestamp": datetime.now().isoformat(),
                     "method": "ml_only",
-                    "expected_features": 49
+                    "expected_features": 49,
+                    "model_used": "gradient_boosting"
                 },
                 "timestamp": datetime.now().isoformat()
             }

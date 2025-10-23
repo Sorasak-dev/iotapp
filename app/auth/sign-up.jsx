@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { View, TextInput, StyleSheet, ActivityIndicator, Text, Keyboard, TouchableOpacity, Switch } from 'react-native';
 import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message';

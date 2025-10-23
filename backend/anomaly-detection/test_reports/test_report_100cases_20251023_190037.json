@@ -1,0 +1,116 @@
+{
+  "summary": {
+    "total_tests": 8,
+    "passed": 8,
+    "failed": 0,
+    "skipped": 0,
+    "success_rate": 100.0,
+    "total_duration": 2.7331960201263428,
+    "average_duration": 0.34164950251579285
+  },
+  "detailed_results": {
+    "TestAnomalyDetectionAPI.test_01_api_initialization": {
+      "result": "PASS",
+      "duration": 0.059479713439941406,
+      "error": null,
+      "timestamp": "2025-10-23T19:00:34.587013"
+    },
+    "TestAnomalyDetectionAPI.test_02_rule_based_detection_normal_100_cases": {
+      "result": "PASS",
+      "duration": 0.060881853103637695,
+      "error": null,
+      "timestamp": "2025-10-23T19:00:34.647904"
+    },
+    "TestAnomalyDetectionAPI.test_03_rule_based_detection_anomaly_100_cases": {
+      "result": "PASS",
+      "duration": 0.06197071075439453,
+      "error": null,
+      "timestamp": "2025-10-23T19:00:34.709884"
+    },
+    "TestAnomalyDetectionAPI.test_04_ml_detection_100_cases": {
+      "result": "PASS",
+      "duration": 0.13871312141418457,
+      "error": null,
+      "timestamp": "2025-10-23T19:00:34.848619"
+    },
+    "TestAnomalyDetectionAPI.test_05_hybrid_detection_100_cases": {
+      "result": "PASS",
+      "duration": 0.4557349681854248,
+      "error": null,
+      "timestamp": "2025-10-23T19:00:35.304403"
+    },
+    "TestAnomalyDetectionAPI.test_06_edge_case_handling_100_cases": {
+      "result": "PASS",
+      "duration": 1.8905436992645264,
+      "error": null,
+      "timestamp": "2025-10-23T19:00:37.194957"
+    },
+    "TestRuleBasedDetector.test_01_individual_rules": {
+      "result": "PASS",
+      "duration": 4.9114227294921875e-05,
+      "error": null,
+      "timestamp": "2025-10-23T19:00:37.202931"
+    },
+    "TestMLModels.test_01_model_loading": {
+      "result": "PASS",
+      "duration": 0.06582283973693848,
+      "error": null,
+      "timestamp": "2025-10-23T19:00:37.268816"
+    },
+    "test_case_summary": {
+      "rule_based_normal_detection": {
+        "passed": 100,
+        "total": 100,
+        "success_rate": 100.0
+      },
+      "rule_based_anomaly_detection": {
+        "passed": 66,
+        "total": 100,
+        "success_rate": 66.0
+      },
+      "ml_detection": {
+        "passed": 30,
+        "total": 100,
+        "success_rate": 30.0
+      },
+      "hybrid_detection": {
+        "passed": 100,
+        "total": 100,
+        "success_rate": 100.0
+      },
+      "edge_case_handling": {
+        "passed": 100,
+        "total": 100,
+        "success_rate": 100.0
+      }
+    }
+  },
+  "test_cases_breakdown": {
+    "rule_based_normal_detection": {
+      "passed": 100,
+      "total": 100,
+      "success_rate": 100.0
+    },
+    "rule_based_anomaly_detection": {
+      "passed": 66,
+      "total": 100,
+      "success_rate": 66.0
+    },
+    "ml_detection": {
+      "passed": 30,
+      "total": 100,
+      "success_rate": 30.0
+    },
+    "hybrid_detection": {
+      "passed": 100,
+      "total": 100,
+      "success_rate": 100.0
+    },
+    "edge_case_handling": {
+      "passed": 100,
+      "total": 100,
+      "success_rate": 100.0
+    }
+  },
+  "generated_at": "2025-10-23T19:00:37.268867"
+}

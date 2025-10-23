@@ -1,4 +1,3 @@
-// services/pushNotificationService.js
 const { Expo } = require('expo-server-sdk');
 const PushToken = require('../models/PushToken');
 const Notification = require('../models/Notification');
@@ -6,16 +5,12 @@ const Notification = require('../models/Notification');
 class PushNotificationService {
   constructor() {
     this.expo = new Expo();
-    this.batchSize = 100; // Expo recommends batches of 100
-    this.retryDelay = 1000; // 1 second delay between retries
+    this.batchSize = 100; 
+    this.retryDelay = 1000; 
   }
 
-  /**
-   * Register a new push token for a user
-   */
   async registerToken(userId, expoPushToken, deviceInfo) {
     try {
-      // 🔥 แก้ไขการตรวจสอบ token format ให้รองรับ Development token
       const isValidExpoToken = Expo.isExpoPushToken(expoPushToken);
       const isDevToken = expoPushToken.startsWith('ExpoToken[DEV_');
       const isMockToken = expoPushToken.startsWith('ExponentPushToken[SIMULATOR_') || 
@@ -24,27 +19,22 @@ class PushNotificationService {
       if (!isValidExpoToken && !isDevToken && !isMockToken) {
         throw new Error('Invalid Expo push token format');
       }
-
-      // ⚠️ Log warning สำหรับ development token
       if (isDevToken || isMockToken) {
-        console.log('⚠️ Using development/mock push token - notifications will only work in development');
+        console.log('Using development/mock push token - notifications will only work in development');
       }
 
-      // Check if token already exists
       let existingToken = await PushToken.findOne({ expoPushToken });
       
       if (existingToken) {
-        // Update existing token with new user/device info
         existingToken.userId = userId;
         existingToken.deviceInfo = { ...existingToken.deviceInfo, ...deviceInfo };
         existingToken.isActive = true;
         existingToken.lastUsed = new Date();
         await existingToken.save();
-        console.log(`✅ Updated existing push token for user ${userId}`);
+        console.log(`Updated existing push token for user ${userId}`);
         return existingToken;
       }
 
-      // Deactivate old tokens for the same device
       if (deviceInfo.deviceId) {
         await PushToken.updateMany(
           { 
@@ -56,7 +46,6 @@ class PushNotificationService {
         );
       }
 
-      // Create new token
       const newToken = new PushToken({
         userId,
         expoPushToken,
@@ -66,18 +55,15 @@ class PushNotificationService {
       });
 
       await newToken.save();
-      console.log(`✅ Registered new push token for user ${userId}`);
+      console.log(`Registered new push token for user ${userId}`);
       return newToken;
 
     } catch (error) {
-      console.error('❌ Error registering push token:', error);
+      console.error('Error registering push token:', error);
       throw error;
     }
   }
 
-  /**
-   * Update notification preferences for a user
-   */
   async updatePreferences(userId, preferences) {
     try {
       const tokens = await PushToken.find({ userId, isActive: true });
@@ -86,31 +72,25 @@ class PushNotificationService {
         await token.updatePreferences(preferences);
       }
       
-      console.log(`✅ Updated preferences for user ${userId}`);
+      console.log(`Updated preferences for user ${userId}`);
       return { success: true, tokensUpdated: tokens.length };
 
     } catch (error) {
-      console.error('❌ Error updating preferences:', error);
+      console.error('Error updating preferences:', error);
       throw error;
     }
   }
 
-  /**
-   * Get notification preferences for a user
-   */
   async getPreferences(userId) {
     try {
       const token = await PushToken.findOne({ userId, isActive: true });
       return token ? token.preferences : null;
     } catch (error) {
-      console.error('❌ Error getting preferences:', error);
+      console.error('Error getting preferences:', error);
       throw error;
     }
   }
 
-  /**
-   * Send push notification to specific users
-   */
   async sendToUsers(userIds, title, body, data = {}, options = {}) {
     try {
       const notifications = [];
@@ -136,55 +116,44 @@ class PushNotificationService {
         notifications.push(notification);
       }
 
-      // Queue for delivery
       this.queueNotificationsForDelivery(notifications);
       
-      console.log(`✅ Queued ${notifications.length} notifications for delivery`);
+      console.log(`Queued ${notifications.length} notifications for delivery`);
       return { success: true, notifications };
 
     } catch (error) {
-      console.error('❌ Error sending notifications:', error);
+      console.error('Error sending notifications:', error);
       throw error;
     }
   }
 
-  /**
-   * Send notification to a single user
-   */
   async sendToUser(userId, title, body, data = {}, options = {}) {
     return this.sendToUsers([userId], title, body, data, options);
   }
 
-  /**
-   * Send anomaly alert notifications
-   */
   async sendAnomalyAlert(anomaly) {
     try {
       const { userId, deviceId, anomalyType, alertLevel, message } = anomaly;
       
-      // Get user's notification preferences
       const tokens = await PushToken.findActiveTokensForUser(userId);
       if (tokens.length === 0) {
-        console.log(`⚠️ No active push tokens found for user ${userId}`);
+        console.log(`No active push tokens found for user ${userId}`);
         return { success: false, reason: 'No active tokens' };
       }
 
-      // Check if user wants anomaly alerts
       const userPrefs = tokens[0].preferences;
       if (!userPrefs.anomalyAlerts) {
-        console.log(`⚠️ User ${userId} has disabled anomaly alerts`);
+        console.log(`User ${userId} has disabled anomaly alerts`);
         return { success: false, reason: 'Anomaly alerts disabled' };
       }
 
-      // Check if only critical alerts are enabled
       if (userPrefs.criticalOnly && alertLevel !== 'critical') {
-        console.log(`⚠️ User ${userId} only wants critical alerts, but this is ${alertLevel}`);
+        console.log(`User ${userId} only wants critical alerts, but this is ${alertLevel}`);
         return { success: false, reason: 'Non-critical alert filtered' };
       }
 
-      // Check quiet hours
       if (this.isQuietHours(userPrefs) && alertLevel !== 'critical') {
-        console.log(`⚠️ Quiet hours active for user ${userId}, suppressing ${alertLevel} alert`);
+        console.log(`Quiet hours active for user ${userId}, suppressing ${alertLevel} alert`);
         return { success: false, reason: 'Quiet hours active' };
       }
 
@@ -204,14 +173,11 @@ class PushNotificationService {
       });
 
     } catch (error) {
-      console.error('❌ Error sending anomaly alert:', error);
+      console.error('Error sending anomaly alert:', error);
       throw error;
     }
   }
 
-  /**
-   * Send device status notifications
-   */
   async sendDeviceAlert(userId, deviceId, deviceName, status, message) {
     try {
       const tokens = await PushToken.findActiveTokensForUser(userId);
@@ -237,14 +203,11 @@ class PushNotificationService {
       });
 
     } catch (error) {
-      console.error('❌ Error sending device alert:', error);
+      console.error('Error sending device alert:', error);
       throw error;
     }
   }
 
-  /**
-   * Send test notification
-   */
   async sendTestNotification(userId) {
     try {
       const title = 'Test Notification';
@@ -259,24 +222,20 @@ class PushNotificationService {
       });
 
     } catch (error) {
-      console.error('❌ Error sending test notification:', error);
+      console.error('Error sending test notification:', error);
       throw error;
     }
   }
 
-  /**
-   * Process notification delivery queue
-   */
   async processDeliveryQueue() {
     try {
-      // Get pending notifications
       const pendingNotifications = await Notification.findPendingForDelivery();
       
       if (pendingNotifications.length === 0) {
         return { processed: 0 };
       }
 
-      console.log(`📤 Processing ${pendingNotifications.length} pending notifications`);
+      console.log(`Processing ${pendingNotifications.length} pending notifications`);
 
       let processed = 0;
       const batches = this.chunkArray(pendingNotifications, this.batchSize);
@@ -289,49 +248,40 @@ class PushNotificationService {
       return { processed };
 
     } catch (error) {
-      console.error('❌ Error processing delivery queue:', error);
+      console.error('Error processing delivery queue:', error);
       throw error;
     }
   }
 
-  /**
- * Deliver a batch of notifications
- */
 async deliverNotificationBatch(notifications) {
   try {
     const messages = [];
     const notificationMap = new Map();
-
-    // Prepare messages for each notification
+    
     for (const notification of notifications) {
       const tokens = await PushToken.findActiveTokensForUser(notification.userId);
       
       for (const tokenDoc of tokens) {
-        // Check user preferences
         if (!this.shouldSendNotification(notification, tokenDoc.preferences)) {
           continue;
         }
 
-        // 🔥 Skip sending to development/mock tokens แทนที่จะส่งไป Expo
         const isDevelopmentToken = tokenDoc.expoPushToken.includes('DEV_') || 
                                   tokenDoc.expoPushToken.includes('SIMULATOR_') || 
                                   tokenDoc.expoPushToken.includes('FALLBACK_');
 
         if (isDevelopmentToken) {
-          console.log(`⚠️ Skipping dev token (mock delivery): ${tokenDoc.expoPushToken.substring(0, 40)}...`);
+          console.log(`Skipping dev token (mock delivery): ${tokenDoc.expoPushToken.substring(0, 40)}...`);
           
-          // Mark as successfully sent for development tokens (mock success)
           await notification.markAsSent('mock_dev_token', { 
             status: 'ok', 
             message: 'Development token - mock delivery' 
           });
           await tokenDoc.markSuccess();
           
-          console.log(`✅ Mock sent notification ${notification._id} to dev token`);
+          console.log(`Mock sent notification ${notification._id} to dev token`);
           continue;
         }
-
-        // เฉพาะ production tokens เท่านั้นที่จะส่งไป Expo จริงๆ
         const message = {
           to: tokenDoc.expoPushToken,
           title: notification.title,
@@ -351,20 +301,18 @@ async deliverNotificationBatch(notifications) {
     }
 
     if (messages.length === 0) {
-      console.log('⚠️ No real push tokens to send (only dev tokens processed)');
+      console.log('No real push tokens to send (only dev tokens processed)');
       return;
     }
 
-    console.log(`📤 Sending ${messages.length} real push notifications via Expo`);
+    console.log(`Sending ${messages.length} real push notifications via Expo`);
 
-    // Send via Expo (เฉพาะ real tokens)
     const chunks = this.expo.chunkPushNotifications(messages);
     
     for (const chunk of chunks) {
       try {
         const ticketChunk = await this.expo.sendPushNotificationsAsync(chunk);
         
-        // Process tickets
         for (let i = 0; i < ticketChunk.length; i++) {
           const ticket = ticketChunk[i];
           const message = chunk[i];
@@ -373,18 +321,17 @@ async deliverNotificationBatch(notifications) {
           if (ticket.status === 'ok') {
             await notification.markAsSent(ticket.id, ticket);
             await tokenDoc.markSuccess();
-            console.log(`✅ Sent notification ${notification._id} to ${message.to.substring(0, 30)}...`);
+            console.log(`Sent notification ${notification._id} to ${message.to.substring(0, 30)}...`);
           } else {
             await notification.markAsFailed(ticket.message || 'Unknown error');
             await tokenDoc.markFailure(ticket.message);
-            console.error(`❌ Failed to send notification ${notification._id}:`, ticket.message);
+            console.error(`Failed to send notification ${notification._id}:`, ticket.message);
           }
         }
 
       } catch (error) {
-        console.error('❌ Error sending chunk:', error);
+        console.error('Error sending chunk:', error);
         
-        // Mark all notifications in this chunk as failed
         for (const message of chunk) {
           const { notification, tokenDoc } = notificationMap.get(message.to);
           await notification.markAsFailed(error.message);
@@ -394,25 +341,17 @@ async deliverNotificationBatch(notifications) {
     }
 
   } catch (error) {
-    console.error('❌ Error delivering notification batch:', error);
+    console.error('Error delivering notification batch:', error);
     throw error;
   }
 }
 
-  /**
-   * Queue notifications for delivery (async processing)
-   */
   queueNotificationsForDelivery(notifications) {
-    // In a real application, you might use a job queue like Bull or Agenda
-    // For now, we'll process immediately with a small delay
     setTimeout(() => {
       this.processDeliveryQueue().catch(console.error);
     }, 1000);
   }
 
-  /**
-   * Helper methods
-   */
   isQuietHours(preferences) {
     if (!preferences.quietHoursEnabled) return false;
 
@@ -428,7 +367,6 @@ async deliverNotificationBatch(notifications) {
     if (quietStart < quietEnd) {
       return currentTime >= quietStart && currentTime <= quietEnd;
     } else {
-      // Quiet hours span midnight
       return currentTime >= quietStart || currentTime <= quietEnd;
     }
   }
@@ -469,8 +407,8 @@ async deliverNotificationBatch(notifications) {
       'ml_detected': 'Anomaly Detected'
     };
 
-    const prefix = alertLevel === 'critical' ? '🚨 CRITICAL' : 
-                   alertLevel === 'red' ? '⚠️ ALERT' : '⚠️';
+    const prefix = alertLevel === 'critical' ? 'CRITICAL' : 
+                   alertLevel === 'red' ? 'ALERT' : 'Warning';
     
     return `${prefix} ${titles[anomalyType] || 'Anomaly Detected'}`;
   }
@@ -499,16 +437,13 @@ async deliverNotificationBatch(notifications) {
     return chunks;
   }
 
-  /**
-   * Cleanup methods
-   */
   async cleanupOldTokens(days = 30) {
     try {
       const result = await PushToken.deactivateOldTokens(days);
-      console.log(`🧹 Deactivated ${result.modifiedCount} old push tokens`);
+      console.log(`Deactivated ${result.modifiedCount} old push tokens`);
       return result;
     } catch (error) {
-      console.error('❌ Error cleaning up old tokens:', error);
+      console.error('Error cleaning up old tokens:', error);
       throw error;
     }
   }
@@ -526,14 +461,11 @@ async deliverNotificationBatch(notifications) {
       console.log(`🧹 Cleaned up ${result.deletedCount} old notifications`);
       return result;
     } catch (error) {
-      console.error('❌ Error cleaning up old notifications:', error);
+      console.error('Error cleaning up old notifications:', error);
       throw error;
     }
   }
 
-  /**
-   * Get delivery statistics
-   */
   async getDeliveryStats(days = 7) {
     try {
       const startDate = new Date();
@@ -559,7 +491,7 @@ async deliverNotificationBatch(notifications) {
       }, {});
 
     } catch (error) {
-      console.error('❌ Error getting delivery stats:', error);
+      console.error('Error getting delivery stats:', error);
       throw error;
     }
   }

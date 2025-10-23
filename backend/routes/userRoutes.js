@@ -3,8 +3,6 @@ const express = require('express');
 const { getUser, addUserData, getUserData, changePassword, updateUserProfile } = require('../controllers/userController'); 
 const authenticateToken = require('../middleware/authMiddleware');
 
-// ======================= DEBUG ZONE =======================
-// Debugging imports to ensure they are correctly imported
 console.log('--- Checking Imports ---');
 console.log('getUser function is:', getUser);
 console.log('addUserData function is:', addUserData);
@@ -12,7 +10,6 @@ console.log('getUserData function is:', getUserData);
 console.log('changePassword function is:', changePassword);
 console.log('authenticateToken function is:', authenticateToken);
 console.log('------------------------');
-// ==========================================================
 
 const router = express.Router();
 

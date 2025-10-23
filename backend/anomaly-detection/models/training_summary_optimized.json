@@ -1,0 +1,63 @@
+{
+  "training_date": "2025-10-23T18:36:13.959440",
+  "model_type": "anomaly_detection_ml_optimized",
+  "total_models": 7,
+  "successful_models": 7,
+  "best_model": "gradient_boosting",
+  "best_test_f1_score": 0.9472934472934472,
+  "model_performance": {
+    "random_forest": {
+      "test_f1_score": 0.9442119944211995,
+      "test_precision": 0.9575671852899575,
+      "test_recall": 0.9312242090784044,
+      "test_specificity": 0.9968979423017268
+    },
+    "gradient_boosting": {
+      "test_f1_score": 0.9472934472934472,
+      "test_precision": 0.982274741506647,
+      "test_recall": 0.9147180192572214,
+      "test_specificity": 0.9987591769206907
+    },
+    "isolation_forest": {
+      "test_f1_score": 0.49634214969048956,
+      "test_precision": 0.42,
+      "test_recall": 0.6066024759284732,
+      "test_specificity": 0.9370282287250543
+    },
+    "one_class_svm": {
+      "test_f1_score": 0.5989960959286112,
+      "test_precision": 0.5037523452157598,
+      "test_recall": 0.7386519944979367,
+      "test_specificity": 0.9453003825871161
+    },
+    "local_outlier_factor": {
+      "test_f1_score": 0.5608142493638676,
+      "test_precision": 0.44507269789983844,
+      "test_recall": 0.7579092159559835,
+      "test_specificity": 0.928962878709544
+    },
+    "elliptic_envelope": {
+      "test_f1_score": 0.32400238237045864,
+      "test_precision": 0.2857142857142857,
+      "test_recall": 0.3741403026134801,
+      "test_specificity": 0.9296866921724745
+    },
+    "ensemble": {
+      "test_f1_score": 0.5448408871745419,
+      "test_precision": 0.4194506310319228,
+      "test_recall": 0.7771664374140302,
+      "test_specificity": 0.9191396959983456
+    }
+  },
+  "feature_info": {
+    "total_features": 49,
+    "base_features": 9,
+    "derived_features": 35
+  },
+  "training_config": {
+    "data_ratio": "90-92% normal, 8-10% anomaly",
+    "data_splitting": "64% train, 16% validation, 20% test",
+    "optimization": "ML-optimized parameters for anomaly detection",
+    "models": "Supervised + Unsupervised ensemble"
+  }
+}

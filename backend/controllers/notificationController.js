@@ -1,18 +1,13 @@
-// controllers/notificationController.js
 const pushNotificationService = require('../services/pushNotificationService');
 const PushToken = require('../models/PushToken');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
 
-/**
- * Register device push token
- */
 exports.registerToken = async (req, res) => {
   try {
     const { userId, expoPushToken, deviceInfo } = req.body;
     const authenticatedUserId = req.user.id;
 
-    // Ensure user can only register tokens for themselves
     if (userId !== authenticatedUserId) {
       return res.status(403).json({
         success: false,
@@ -44,7 +39,7 @@ exports.registerToken = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error registering push token:', error);
+    console.error('Error registering push token:', error);
     
     if (error.message.includes('Invalid Expo push token')) {
       return res.status(400).json({
@@ -61,15 +56,11 @@ exports.registerToken = async (req, res) => {
   }
 };
 
-/**
- * Update notification preferences
- */
 exports.updatePreferences = async (req, res) => {
   try {
     const userId = req.user.id;
     const preferences = req.body;
 
-    // Validate preferences
     const allowedPreferences = [
       'enabled', 'anomalyAlerts', 'criticalOnly', 'deviceAlerts', 
       'systemAlerts', 'soundEnabled', 'vibrationEnabled', 
@@ -95,7 +86,7 @@ exports.updatePreferences = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error updating preferences:', error);
+    console.error('Error updating preferences:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to update preferences',
@@ -104,9 +95,6 @@ exports.updatePreferences = async (req, res) => {
   }
 };
 
-/**
- * Get notification preferences
- */
 exports.getPreferences = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -125,7 +113,7 @@ exports.getPreferences = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error getting preferences:', error);
+    console.error('Error getting preferences:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to get preferences',
@@ -134,9 +122,6 @@ exports.getPreferences = async (req, res) => {
   }
 };
 
-/**
- * Send test notification
- */
 exports.sendTestNotification = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -158,7 +143,7 @@ exports.sendTestNotification = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error sending test notification:', error);
+    console.error('Error sending test notification:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to send test notification',
@@ -167,9 +152,6 @@ exports.sendTestNotification = async (req, res) => {
   }
 };
 
-/**
- * Get notification history for user
- */
 exports.getHistory = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -183,7 +165,6 @@ exports.getHistory = async (req, res) => {
       unreadOnly
     } = req.query;
 
-    // Build filter
     const filter = { userId };
 
     if (type) filter.type = type;
@@ -193,14 +174,12 @@ exports.getHistory = async (req, res) => {
       filter.deliveryStatus = { $in: ['delivered', 'sent'] };
     }
 
-    // Date range filter
     if (startDate || endDate) {
       filter.createdAt = {};
       if (startDate) filter.createdAt.$gte = new Date(startDate);
       if (endDate) filter.createdAt.$lte = new Date(endDate + 'T23:59:59');
     }
 
-    // Pagination
     const skip = (page - 1) * limit;
     const limitNum = parseInt(limit);
 
@@ -228,7 +207,7 @@ exports.getHistory = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error getting notification history:', error);
+    console.error('Error getting notification history:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to get notification history',
@@ -237,9 +216,6 @@ exports.getHistory = async (req, res) => {
   }
 };
 
-/**
- * Mark notifications as read
- */
 exports.markAsRead = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -275,7 +251,7 @@ exports.markAsRead = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error marking notifications as read:', error);
+    console.error('Error marking notifications as read:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to mark notifications as read',
@@ -284,9 +260,6 @@ exports.markAsRead = async (req, res) => {
   }
 };
 
-/**
- * Send notification to specific user (Admin only)
- */
 exports.sendToUser = async (req, res) => {
   try {
     const { targetUserId, title, body, data, options } = req.body;
@@ -299,7 +272,6 @@ exports.sendToUser = async (req, res) => {
       });
     }
 
-    // Check if target user exists
     const targetUser = await User.findById(targetUserId);
     if (!targetUser) {
       return res.status(404).json({
@@ -326,7 +298,7 @@ exports.sendToUser = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error sending notification to user:', error);
+    console.error('Error sending notification to user:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to send notification',
@@ -335,9 +307,6 @@ exports.sendToUser = async (req, res) => {
   }
 };
 
-/**
- * Send bulk notifications (Admin only)
- */
 exports.sendBulkNotifications = async (req, res) => {
   try {
     const { userIds, title, body, data, options } = req.body;
@@ -375,7 +344,7 @@ exports.sendBulkNotifications = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error sending bulk notifications:', error);
+    console.error('Error sending bulk notifications:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to send bulk notifications',
@@ -384,9 +353,6 @@ exports.sendBulkNotifications = async (req, res) => {
   }
 };
 
-/**
- * Remove/deactivate push token
- */
 exports.removeToken = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -417,7 +383,7 @@ exports.removeToken = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error removing push token:', error);
+    console.error('Error removing push token:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to remove push token',
@@ -426,9 +392,6 @@ exports.removeToken = async (req, res) => {
   }
 };
 
-/**
- * Get notification statistics
- */
 exports.getStats = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -447,7 +410,7 @@ exports.getStats = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error getting notification stats:', error);
+    console.error('Error getting notification stats:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to get notification statistics',
@@ -456,15 +419,12 @@ exports.getStats = async (req, res) => {
   }
 };
 
-/**
- * Get user's active push tokens (for debugging)
- */
 exports.getActiveTokens = async (req, res) => {
   try {
     const userId = req.user.id;
 
     const tokens = await PushToken.find({ userId, isActive: true })
-      .select('-expoPushToken') // Don't expose actual tokens
+      .select('-expoPushToken') 
       .sort({ lastUsed: -1 });
 
     res.status(200).json({
@@ -482,7 +442,7 @@ exports.getActiveTokens = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error getting active tokens:', error);
+    console.error('Error getting active tokens:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to get active tokens',
@@ -491,9 +451,6 @@ exports.getActiveTokens = async (req, res) => {
   }
 };
 
-/**
- * Health check endpoint
- */
 exports.healthCheck = async (req, res) => {
   try {
     const deliveryStats = await pushNotificationService.getDeliveryStats(1);
@@ -514,7 +471,7 @@ exports.healthCheck = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error in health check:', error);
+    console.error('Error in health check:', error);
     res.status(500).json({
       success: false,
       message: 'Push notification service is unhealthy',

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -20,7 +20,6 @@ import { useTranslation } from "react-i18next";
 import { API_ENDPOINTS, API_TIMEOUT, getAuthHeaders } from '../utils/config/api';
 import WeatherWidget from "../components/WeatherWidget"; 
 
-// Device images mapping 
 const deviceImages = {
   "sensor.png": require("../assets/sensor.png"),
   "sensor2.png": require("../assets/sensor2.png"),
@@ -50,12 +49,10 @@ export default function HomeScreen() {
     setShowDeleteOption(!showDeleteOption);
   };
 
-  // Get device image from local assets based on filename
   const getDeviceImage = (imageFileName) => {
     return deviceImages[imageFileName] || deviceImages["sensor.png"];
   };
 
-  // Manual refresh function
   const handleRefresh = async () => {
     console.log("🔄 Manual refresh triggered");
     if (hasSelectedZone && currentZone) {
@@ -65,7 +62,6 @@ export default function HomeScreen() {
     }
   };
 
-  // Handle adding a new device
   const handleAddDevice = () => {
     if (zones.length === 0) {
       Alert.alert(
@@ -92,7 +88,6 @@ export default function HomeScreen() {
     fetchZones();
   }, []);
 
-  // Auto-refresh every 30 seconds
   useEffect(() => {
     let refreshInterval;
     
@@ -100,7 +95,7 @@ export default function HomeScreen() {
       refreshInterval = setInterval(() => {
         console.log("🔄 Auto-refreshing devices data...");
         fetchDevices(currentZone._id);
-      }, 30000); // 30 seconds
+      }, 30000); 
     }
 
     return () => {
@@ -110,7 +105,6 @@ export default function HomeScreen() {
     };
   }, [hasSelectedZone, currentZone]);
   
-  // ✅ เพิ่ม console.log เพื่อ debug
   console.log("🔍 Debug info:", {
     zonesLength: zones.length,
     hasSelectedZone: hasSelectedZone,
@@ -224,7 +218,6 @@ export default function HomeScreen() {
             };
           } catch (deviceError) {
             console.error(`❌ Error fetching data for device ${device._id}:`, deviceError);
-            // Fallback to original device data if API call fails
             return {
               ...device,
               status: device.status || "Online",
@@ -885,7 +878,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#777',
   },
-  // ✅ ลบ disabledButton style ออก
   addDeviceButton: {
     flexDirection: "row",
     backgroundColor: "#3B82F6",

@@ -19,22 +19,19 @@ const Anomaly = require("./models/Anomaly");
 const PushToken = require("./models/PushToken");
 const Notification = require("./models/Notification");
 
-// Import routes
 const userRoutes = require('./routes/userRoutes'); 
 const anomalyDetectionRoutes = require('./routes/anomalyRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 
-// Import services
 const pushNotificationService = require('./services/pushNotificationService');
 
 const app = express();
 
-// Environment variables
 const mongoURI = process.env.MONGO_URI || "mongodb://localhost:27017/auth-demo";
 const SECRET_KEY = process.env.SECRET_KEY || "your_secret_key";
 const PORT = process.env.PORT || 3000;
 
-// ===== Enhanced System Health Monitor =====
+
 class SystemHealthMonitor {
   constructor() {
     this.metrics = {
@@ -56,31 +53,25 @@ class SystemHealthMonitor {
   
   async checkSystemHealth() {
     try {
-      console.log('🔍 Performing system health check...');
+      console.log('Performing system health check...');
       
-      // Check MongoDB connection
       const mongoHealth = mongoose.connection.readyState === 1;
       
-      // Check Python service
       const pythonHealth = await this.checkPythonService();
       
-      // Check notification service
       const notificationHealth = await this.checkNotificationService();
       
-      // Update metrics
       this.metrics.last_health_check = new Date().toISOString();
       
-      // Calculate overall health score
       const healthScore = this.calculateHealthScore(mongoHealth, pythonHealth, notificationHealth);
       
-      // Alert if health is degraded
       if (healthScore < 0.7) {
         await this.alertAdmins(`System health degraded: ${Math.round(healthScore * 100)}%`);
       } else {
-        this.alerts.consecutive_failures = 0; // Reset failure counter
+        this.alerts.consecutive_failures = 0;
       }
       
-      console.log(`✅ Health check completed. Score: ${Math.round(healthScore * 100)}%`);
+      console.log(`Health check completed. Score: ${Math.round(healthScore * 100)}%`);
       
       return {
         overall_health: healthScore,
@@ -93,7 +84,7 @@ class SystemHealthMonitor {
       };
       
     } catch (error) {
-      console.error('❌ Health check failed:', error);
+      console.error('Health check failed:', error);
       this.metrics.error_count++;
       return { error: error.message };
     }
@@ -106,7 +97,6 @@ class SystemHealthMonitor {
   
   async checkPythonService() {
     try {
-      // Simple ping to Python service
       return pythonProcessManager.process && !pythonProcessManager.process.killed;
     } catch (error) {
       return false;
@@ -125,19 +115,17 @@ class SystemHealthMonitor {
   async alertAdmins(message) {
     this.alerts.consecutive_failures++;
     
-    // Rate limiting: don't spam alerts
     const now = Date.now();
     const lastAlert = this.alerts.last_alert_sent ? new Date(this.alerts.last_alert_sent).getTime() : 0;
     const timeSinceLastAlert = now - lastAlert;
     
-    if (timeSinceLastAlert < 300000) { // 5 minutes
+    if (timeSinceLastAlert < 300000) { 
       return;
     }
     
     if (this.alerts.consecutive_failures >= this.alerts.alert_threshold) {
-      console.error(`🚨 ADMIN ALERT: ${message}`);
+      console.error(`ADMIN ALERT: ${message}`);
       
-      // Send to admin users
       try {
         const adminUsers = await User.find({ role: 'admin' });
         for (const admin of adminUsers) {
@@ -151,19 +139,18 @@ class SystemHealthMonitor {
         }
         this.alerts.last_alert_sent = new Date().toISOString();
       } catch (error) {
-        console.error('❌ Failed to send admin alert:', error);
+        console.error('Failed to send admin alert:', error);
       }
     }
   }
 }
 
-// ===== Enhanced Process Manager =====
 class PythonProcessManager {
   constructor() {
     this.process = null;
     this.restartCount = 0;
     this.maxRestarts = 5;
-    this.restartDelay = 30000; // 30 seconds
+    this.restartDelay = 30000; 
     this.isShuttingDown = false;
     this.healthCheckInterval = null;
     
@@ -177,38 +164,34 @@ class PythonProcessManager {
   
   start() {
     if (this.isShuttingDown) {
-      console.log('🛑 Process manager is shutting down, not starting new process');
+      console.log('Process manager is shutting down, not starting new process');
       return;
     }
     
     const pythonPath = path.join(__dirname, 'anomaly-detection/integration_bridge.py');
     const pythonDir = path.join(__dirname, 'anomaly-detection');
     
-    console.log('🔄 Starting Anomaly Detection Service...');
-    
-    // Check if Python script exists
+    console.log('Starting Anomaly Detection Service...');
+
     const fs = require('fs');
     if (!fs.existsSync(pythonPath)) {
-      console.log('⚠️ Anomaly Detection script not found. Skipping...');
+      console.log('Anomaly Detection script not found. Skipping...');
       return null;
     }
     
-    // Create new process
     this.process = spawn('python', [pythonPath, 'monitor'], {
       cwd: pythonDir,
       stdio: ['pipe', 'pipe', 'pipe']
     });
     
     this.metrics.startTime = Date.now();
-    this.restartCount = 0; // Reset restart count on successful start
+    this.restartCount = 0; 
     
-    // Set up event handlers
     this.setupEventHandlers();
     
-    // Start health monitoring
     this.startHealthCheck();
     
-    console.log(`✅ Anomaly Detection Service started (PID: ${this.process.pid})`);
+    console.log(`Anomaly Detection Service started (PID: ${this.process.pid})`);
     return this.process;
   }
   
@@ -218,32 +201,31 @@ class PythonProcessManager {
     this.process.stdout.on('data', (data) => {
       const output = data.toString().trim();
       if (output) {
-        console.log('🤖 Anomaly Monitor:', output);
+        console.log('Anomaly Monitor:', output);
       }
     });
     
     this.process.stderr.on('data', (data) => {
       const errorMsg = data.toString().trim();
       if (errorMsg && !errorMsg.includes('WARNING') && !errorMsg.includes('INFO')) {
-        console.error('⚠️ Anomaly Monitor Error:', errorMsg);
+        console.error('Anomaly Monitor Error:', errorMsg);
       }
     });
     
     this.process.on('close', (code) => {
       this.metrics.uptime = Date.now() - this.metrics.startTime;
-      console.log(`🛑 Anomaly Monitor stopped with code ${code} (uptime: ${Math.round(this.metrics.uptime/1000)}s)`);
+      console.log(`Anomaly Monitor stopped with code ${code} (uptime: ${Math.round(this.metrics.uptime/1000)}s)`);
       
       this.stopHealthCheck();
       
-      // Auto-restart logic with exponential backoff
       if (!this.isShuttingDown && code !== 0 && this.restartCount < this.maxRestarts) {
         this.restartCount++;
         this.metrics.totalRestarts++;
         this.metrics.lastRestart = Date.now();
-        
-        const delay = this.restartDelay * Math.pow(2, this.restartCount - 1); // Exponential backoff
-        console.log(`🔄 Restarting Anomaly Monitor in ${delay/1000}s (attempt ${this.restartCount}/${this.maxRestarts})`);
-        
+
+        const delay = this.restartDelay * Math.pow(2, this.restartCount - 1);
+        console.log(`Restarting Anomaly Monitor in ${delay/1000}s (attempt ${this.restartCount}/${this.maxRestarts})`);
+
         setTimeout(() => {
           if (!this.isShuttingDown) {
             this.start();
@@ -251,20 +233,18 @@ class PythonProcessManager {
         }, delay);
         
       } else if (this.restartCount >= this.maxRestarts) {
-        console.error('❌ Max restart attempts reached. Manual intervention required.');
-        // Alert admins
+        console.error('Max restart attempts reached. Manual intervention required.');
         systemHealthMonitor.alertAdmins('Anomaly Detection Service failed to start after maximum retries');
       }
     });
     
     this.process.on('error', (error) => {
-      console.error('❌ Anomaly Monitor Process Error:', error.message);
+      console.error('Anomaly Monitor Process Error:', error.message);
       
-      // Specific error handling
       if (error.code === 'ENOENT') {
-        console.error('💡 Python executable not found. Please check Python installation.');
+        console.error('Python executable not found. Please check Python installation.');
       } else if (error.code === 'EACCES') {
-        console.error('💡 Permission denied. Check file permissions.');
+        console.error('Permission denied. Check file permissions.');
       }
     });
   }
@@ -272,10 +252,9 @@ class PythonProcessManager {
   startHealthCheck() {
     this.healthCheckInterval = setInterval(() => {
       if (this.process && !this.process.killed) {
-        // Process is running, update uptime
         this.metrics.uptime = Date.now() - this.metrics.startTime;
       }
-    }, 60000); // Check every minute
+    }, 60000); 
   }
   
   stopHealthCheck() {
@@ -286,22 +265,20 @@ class PythonProcessManager {
   }
   
   async gracefulShutdown() {
-    console.log('🛑 Shutting down Python Process Manager...');
+    console.log('Shutting down Python Process Manager...');
     this.isShuttingDown = true;
     this.stopHealthCheck();
     
     if (this.process && !this.process.killed) {
-      console.log('🛑 Stopping Anomaly Detection Service...');
+      console.log('Stopping Anomaly Detection Service...');
       
       try {
-        // Try graceful shutdown first
         this.process.kill('SIGTERM');
         
-        // Wait for graceful shutdown
         await new Promise((resolve) => {
           const timeout = setTimeout(() => {
             if (this.process && !this.process.killed) {
-              console.log('⚠️ Forcing process termination...');
+              console.log('Forcing process termination...');
               this.process.kill('SIGKILL');
             }
             resolve();
@@ -317,10 +294,9 @@ class PythonProcessManager {
             resolve();
           }
         });
-        
-        console.log('✅ Anomaly Detection Service stopped');
+        console.log('Anomaly Detection Service stopped');
       } catch (error) {
-        console.error('⚠️ Error stopping anomaly monitor:', error.message);
+        console.error('Error stopping anomaly monitor:', error.message);
       }
     }
     
@@ -338,7 +314,6 @@ class PythonProcessManager {
   }
 }
 
-// ===== Input Validation Schemas =====
 const sensorDataSchema = Joi.object({
   deviceId: Joi.string().required().max(50),
   timestamp: Joi.date().iso().required(),
@@ -348,12 +323,11 @@ const sensorDataSchema = Joi.object({
   battery_level: Joi.number().min(0).max(100).allow(null)
 });
 
-// ===== Enhanced Rate Limiting =====
 const rateLimiter = require('express-rate-limit');
 
 const apiLimiter = rateLimiter({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  windowMs: 15 * 60 * 1000, 
+  max: 100, 
   message: {
     success: false,
     message: 'Too many requests, please try again later.'
@@ -364,23 +338,20 @@ const apiLimiter = rateLimiter({
 
 const strictLimiter = rateLimiter({
   windowMs: 15 * 60 * 1000,
-  max: 10, // More restrictive for sensitive endpoints
+  max: 10, 
   message: {
     success: false,
     message: 'Rate limit exceeded for this endpoint.'
   }
 });
 
-// Initialize instances
 const systemHealthMonitor = new SystemHealthMonitor();
 const pythonProcessManager = new PythonProcessManager();
 
-// Middleware
 app.use(cors());
-app.use(bodyParser.json({ limit: '10mb' })); // Add size limit
-app.use(apiLimiter); // Apply rate limiting globally
+app.use(bodyParser.json({ limit: '10mb' })); 
+app.use(apiLimiter); 
 
-// Security headers middleware
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
@@ -388,7 +359,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   
@@ -400,12 +370,10 @@ app.use((req, res, next) => {
   next();
 });
 
-// Routes
 app.use("/api/users", userRoutes);
-app.use("/api", anomalyDetectionRoutes);
+app.use("/api/anomalies", anomalyDetectionRoutes);
 app.use("/api/notifications", notificationRoutes);
 
-// Connect to MongoDB with enhanced error handling
 mongoose
   .connect(mongoURI, {
     serverSelectionTimeoutMS: 5000,
@@ -415,35 +383,32 @@ mongoose
     maxIdleTimeMS: 30000,
   })
   .then(() => {
-    console.log("✅ Connected to MongoDB");
+    console.log("Connected to MongoDB");
     initializePushNotificationCleanup();
     startSystemMonitoring();
   })
   .catch((err) => {
-    console.error("❌ MongoDB connection error:", err);
+    console.error("MongoDB connection error:", err);
     process.exit(1);
   });
 
-// MongoDB connection event handlers
 mongoose.connection.on('error', (err) => {
-  console.error('❌ MongoDB error:', err);
+  console.error('MongoDB error:', err);
 });
 
 mongoose.connection.on('disconnected', () => {
-  console.log('⚠️ MongoDB disconnected');
+  console.log('MongoDB disconnected');
 });
 
 mongoose.connection.on('reconnected', () => {
-  console.log('✅ MongoDB reconnected');
+  console.log('MongoDB reconnected');
 });
 
-// Enhanced sensor data generation
 const generateSensorData = (deviceId) => {
-  const shouldBeNull = Math.random() < 0.05; // Reduced null probability
+  const shouldBeNull = Math.random() < 0.05; 
 
-  // Add device-specific variations
   const deviceVariation = parseInt(deviceId) || 1;
-  const timeVariation = Math.sin(Date.now() / 3600000) * 2; // Hourly variation
+  const timeVariation = Math.sin(Date.now() / 3600000) * 2; 
 
   const temperature = shouldBeNull ? null : 
     parseFloat((Math.random() * (35 - 20) + 20 + deviceVariation + timeVariation).toFixed(2));
@@ -475,13 +440,12 @@ const generateSensorData = (deviceId) => {
     vpd = parseFloat(Math.max(0, saturationVaporPressure - actualVaporPressure).toFixed(2));
   }
 
-  // More realistic voltage and battery simulation
   const baseVoltage = 3.3;
   const voltageVariation = shouldBeNull ? null : 
     parseFloat((baseVoltage + (Math.random() - 0.5) * 0.2).toFixed(2));
   
   const baseBattery = 85;
-  const batteryDrain = Math.random() * 0.1; // Small random drain
+  const batteryDrain = Math.random() * 0.1; 
   const battery_level = shouldBeNull ? null : 
     Math.max(0, parseInt(baseBattery - batteryDrain, 10));
 
@@ -499,7 +463,6 @@ const generateSensorData = (deviceId) => {
   };
 };
 
-// Enhanced device status notification
 const sendDeviceStatusNotification = async (device, status, message) => {
   try {
     if (!device.userId) return;
@@ -512,20 +475,19 @@ const sendDeviceStatusNotification = async (device, status, message) => {
       message
     );
     
-    console.log(`📱 Device status notification sent for ${device.name}: ${status}`);
+    console.log(`Device status notification sent for ${device.name}: ${status}`);
   } catch (error) {
-    console.error(`❌ Failed to send device status notification:`, error);
+    console.error(`Failed to send device status notification:`, error);
   }
 };
 
-// Enhanced sensor data simulation with better error handling
 const simulateSensorDataForAllDevices = async () => {
   try {
-    console.log('📊 Starting sensor data simulation...');
+    console.log('Starting sensor data simulation...');
     const connectedDevices = await Device.find({ status: 'Connected' });
     
     if (connectedDevices.length === 0) {
-      console.log('⚠️ No connected devices found for simulation');
+      console.log('No connected devices found for simulation');
       return;
     }
     
@@ -536,27 +498,22 @@ const simulateSensorDataForAllDevices = async () => {
       try {
         const sensorData = generateSensorData(device.deviceId);
         
-        // Check for potential device status changes
         const lastData = device.data[device.data.length - 1];
         const wasOffline = lastData && (lastData.temperature === null && lastData.humidity === null);
         const isNowOnline = sensorData.temperature !== null && sensorData.humidity !== null;
         
-        // Add new data to device
         device.data.push(sensorData);
         
-        // Keep only last 1000 readings to prevent database bloat
         if (device.data.length > 1000) {
           device.data = device.data.slice(-1000);
         }
         
         await device.save();
         
-        // Send device status notifications
         if (wasOffline && isNowOnline) {
           await sendDeviceStatusNotification(device, 'Online', 'Device is now online and sending data');
         }
         
-        // Check for low battery and send notification
         if (sensorData.battery_level && sensorData.battery_level < 20) {
           await sendDeviceStatusNotification(device, 'Low Battery', `Battery level is ${sensorData.battery_level}%`);
         }
@@ -565,120 +522,104 @@ const simulateSensorDataForAllDevices = async () => {
         
       } catch (deviceError) {
         errorCount++;
-        console.error(`❌ Error generating data for device ${device.deviceId}:`, deviceError.message);
+        console.error(`Error generating data for device ${device.deviceId}:`, deviceError.message);
       }
     }
-    
-    console.log(`✅ Sensor data simulation completed: ${successCount} success, ${errorCount} errors`);
-    
-    // Update system metrics
+
+    console.log(`Sensor data simulation completed: ${successCount} success, ${errorCount} errors`);
+
     systemHealthMonitor.metrics.total_anomalies_processed += successCount;
     systemHealthMonitor.metrics.error_count += errorCount;
     
   } catch (error) {
-    console.error("❌ Error in sensor data simulation:", error);
+    console.error("Error in sensor data simulation:", error);
     systemHealthMonitor.metrics.error_count++;
   }
 };
 
-// Initialize system monitoring
 const startSystemMonitoring = () => {
-  // Health check every 5 minutes
   setInterval(() => {
     systemHealthMonitor.checkSystemHealth();
   }, 5 * 60 * 1000);
-  
-  console.log('📊 System health monitoring started');
+
+  console.log('System health monitoring started');
 };
 
-// Enhanced push notification cleanup
 const initializePushNotificationCleanup = () => {
-  // Clean up old push tokens daily at 2 AM
   cron.schedule('0 2 * * *', async () => {
     try {
-      console.log('🧹 Starting daily push token cleanup...');
+      console.log('Starting daily push token cleanup...');
       await pushNotificationService.cleanupOldTokens(30);
-      console.log('✅ Push token cleanup completed');
+      console.log('Push token cleanup completed');
     } catch (error) {
-      console.error('❌ Push token cleanup failed:', error);
+      console.error('Push token cleanup failed:', error);
     }
   });
 
-  // Clean up old notifications weekly on Sunday at 3 AM
   cron.schedule('0 3 * * 0', async () => {
     try {
-      console.log('🧹 Starting weekly notification cleanup...');
+      console.log('Starting weekly notification cleanup...');
       await pushNotificationService.cleanupOldNotifications(90);
-      console.log('✅ Notification cleanup completed');
+      console.log('Notification cleanup completed');
     } catch (error) {
-      console.error('❌ Notification cleanup failed:', error);
+      console.error('Notification cleanup failed:', error);
     }
   });
 
-  // Process notification delivery queue every 30 seconds
   cron.schedule('*/30 * * * * *', async () => {
     try {
       await pushNotificationService.processDeliveryQueue();
     } catch (error) {
-      console.error('❌ Notification delivery processing failed:', error);
+      console.error('Notification delivery processing failed:', error);
     }
   });
 
-  console.log('📱 Push notification cleanup jobs initialized');
+  console.log('Push notification cleanup jobs initialized');
 };
 
-// Start sensor data simulation every 1 hour with jitter
 const startSensorSimulation = () => {
-  // Start immediately with small delay
   setTimeout(simulateSensorDataForAllDevices, 5000);
   
-  // Then run every hour with small random jitter to prevent thundering herd
   setInterval(() => {
-    const jitter = Math.random() * 60000; // Up to 1 minute jitter
+    const jitter = Math.random() * 60000; 
     setTimeout(simulateSensorDataForAllDevices, jitter);
-  }, 3600000); // 1 hour
-  
-  console.log('📊 Sensor data simulation started');
+  }, 3600000); 
+
+  console.log('Sensor data simulation started');
 };
 
-// Enhanced graceful shutdown
 const gracefulShutdown = async () => {
-  console.log('\n🛑 Shutting down server gracefully...');
+  console.log('Shutting down server gracefully...');
   
   try {
-    // Stop Python Process Manager
     await pythonProcessManager.gracefulShutdown();
     
-    // Close MongoDB connection
     await mongoose.connection.close();
-    console.log('📡 MongoDB connection closed');
-    
-    console.log('✅ Server shutdown complete');
+    console.log('MongoDB connection closed');
+
+    console.log('Server shutdown complete');
     process.exit(0);
     
   } catch (error) {
-    console.error('❌ Error during shutdown:', error);
+    console.error('Error during shutdown:', error);
     process.exit(1);
   }
 };
 
-// Enhanced signal handlers
 process.on('SIGINT', gracefulShutdown);
 process.on('SIGTERM', gracefulShutdown);
 
-// Handle uncaught exceptions with better logging
 process.on('uncaughtException', (error) => {
-  console.error('❌ Uncaught Exception:', error);
+  console.error('Uncaught Exception:', error);
   console.error('Stack trace:', error.stack);
   gracefulShutdown();
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
   gracefulShutdown();
 });
 
-// Routes
 app.get('/', (req, res) => {
   res.json({
     message: 'EMIB Backend Server with Enhanced Anomaly Detection',
@@ -695,7 +636,6 @@ app.get('/', (req, res) => {
   });
 });
 
-// Enhanced health check endpoint
 app.get('/api/health', async (req, res) => {
   try {
     const health = await systemHealthMonitor.checkSystemHealth();
@@ -723,7 +663,6 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// API: Get available device templates
 app.get("/api/device-templates", (req, res) => {
   const deviceTemplates = [
     {
@@ -762,11 +701,9 @@ app.get("/api/device-templates", (req, res) => {
   });
 });
 
-// Enhanced routes with validation
 app.use("/api/devices", require("./routes/deviceRoutes"));
 app.use("/api/zones", require("./routes/zoneRoutes"));
 
-// Enhanced Sign Up with better validation
 app.post("/api/signup", strictLimiter, async (req, res, next) => {
   const { error } = userValidationSchema.validate(req.body);
   if (error) return res.status(400).json({ 
@@ -786,7 +723,6 @@ app.post("/api/signup", strictLimiter, async (req, res, next) => {
     const newUser = new User({ email, password });
     await newUser.save();
     
-    // Send welcome notification after successful signup
     try {
       setTimeout(async () => {
         await pushNotificationService.sendToUser(
@@ -804,7 +740,7 @@ app.post("/api/signup", strictLimiter, async (req, res, next) => {
         );
       }, 5000);
     } catch (pushError) {
-      console.error('❌ Failed to send welcome notification:', pushError);
+      console.error('Failed to send welcome notification:', pushError);
     }
     
     res.status(201).json({ 
@@ -816,7 +752,6 @@ app.post("/api/signup", strictLimiter, async (req, res, next) => {
   }
 });
 
-// Enhanced Sign In
 app.post("/api/signin", strictLimiter, async (req, res, next) => {
   const { error } = userValidationSchema.validate(req.body);
   if (error) return res.status(400).json({ 
@@ -855,13 +790,11 @@ app.post("/api/signin", strictLimiter, async (req, res, next) => {
   }
 });
 
-// Legacy API: Get sensor data (enhanced with better error handling)
 app.get('/api/user/sensor-data', authenticateToken, async (req, res, next) => {
   try {
     const userId = req.user.id;
     const { startDate, endDate, deviceId } = req.query;
 
-    // Input validation
     if (startDate && !Date.parse(startDate)) {
       return res.status(400).json({ 
         success: false,
@@ -876,7 +809,6 @@ app.get('/api/user/sensor-data', authenticateToken, async (req, res, next) => {
       });
     }
 
-    // Get user's device(s)
     const deviceQuery = { userId };
     if (deviceId) {
       deviceQuery.deviceId = deviceId;
@@ -892,7 +824,6 @@ app.get('/api/user/sensor-data', authenticateToken, async (req, res, next) => {
 
     let filteredData = device.data || [];
 
-    // Date filtering
     if (startDate && endDate) {
       filteredData = device.data.filter(item => {
         const itemDate = new Date(item.timestamp);
@@ -904,7 +835,6 @@ app.get('/api/user/sensor-data', authenticateToken, async (req, res, next) => {
       const daysDiff = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
 
       if (daysDiff <= 2) {
-        // Return raw data for short periods
         res.status(200).json({ 
           success: true,
           data: filteredData,
@@ -916,7 +846,6 @@ app.get('/api/user/sensor-data', authenticateToken, async (req, res, next) => {
           dataPoints: filteredData.length
         });
       } else {
-        // Calculate daily averages for longer periods
         const dailyData = {};
         filteredData.forEach(item => {
           const date = new Date(item.timestamp).toISOString().split("T")[0];
@@ -932,7 +861,6 @@ app.get('/api/user/sensor-data', authenticateToken, async (req, res, next) => {
             };
           }
           
-          // Aggregate non-null values
           ['temperature', 'humidity', 'dew_point', 'vpd', 'voltage', 'battery_level'].forEach(field => {
             if (item[field] !== null && item[field] !== undefined) {
               dailyData[date][field].sum += item[field];
@@ -970,7 +898,6 @@ app.get('/api/user/sensor-data', authenticateToken, async (req, res, next) => {
         });
       }
     } else {
-      // Return recent data (last 100 points)
       const recentData = filteredData.slice(-100);
       res.status(200).json({ 
         success: true,
@@ -988,11 +915,9 @@ app.get('/api/user/sensor-data', authenticateToken, async (req, res, next) => {
   }
 });
 
-// Enhanced error handling middleware
 const enhancedErrorHandler = (err, req, res, next) => {
-  console.error('❌ Error:', err);
-  
-  // Mongoose validation error
+  console.error('Error:', err);
+
   if (err.name === 'ValidationError') {
     const errors = Object.values(err.errors).map(e => e.message);
     return res.status(400).json({
@@ -1002,7 +927,6 @@ const enhancedErrorHandler = (err, req, res, next) => {
     });
   }
   
-  // Mongoose duplicate key error
   if (err.code === 11000) {
     return res.status(409).json({
       success: false,
@@ -1010,7 +934,6 @@ const enhancedErrorHandler = (err, req, res, next) => {
     });
   }
   
-  // JWT errors
   if (err.name === 'JsonWebTokenError') {
     return res.status(401).json({
       success: false,
@@ -1025,7 +948,6 @@ const enhancedErrorHandler = (err, req, res, next) => {
     });
   }
   
-  // Default error
   res.status(err.status || 500).json({
     success: false,
     message: err.message || 'Internal Server Error',
@@ -1033,10 +955,8 @@ const enhancedErrorHandler = (err, req, res, next) => {
   });
 };
 
-// Apply enhanced error handler
 app.use(enhancedErrorHandler);
 
-// Create test user function
 const createTestUser = async () => {
   try {
     const testEmail = "test@example.com";
@@ -1047,74 +967,64 @@ const createTestUser = async () => {
         password: await bcrypt.hash("password123", 10),
       });
       await user.save();
-      console.log("✅ Created test user:", testEmail);
+      console.log("Created test user:", testEmail);
     }
     return user._id;
   } catch (error) {
-    console.error("❌ Error creating test user:", error);
+    console.error("Error creating test user:", error);
     throw error;
   }
 };
 
-// Initialize and start the server
 const initializeServer = async () => {
   try {
-    console.log('🚀 Initializing Enhanced EMIB Server...');
+    console.log('Initializing Enhanced EMIB Server...');
     
-    // Create test user
     await createTestUser();
     
-    // Start sensor data generation
     startSensorSimulation();
     
-    // Start Python Anomaly Detection Service
-    // setTimeout(() => {
-    //   pythonProcessManager.start();
-    // }, 10000); // Wait 10 seconds for server stability
+    setTimeout(() => {
+      pythonProcessManager.start();
+      console.log('Python Anomaly Detection Service enabled');
+    }, 10000);
     
-    // *** DISABLED ANOMALY DETECTION SERVICE ***
-    console.log('⚠️ Python Anomaly Detection Service is disabled');
-    
-    // Log Push Notification Service status
     try {
       const deliveryStats = await pushNotificationService.getDeliveryStats(1);
-      console.log('📱 Push Notification Service initialized');
-      console.log('📊 Last 24h delivery stats:', deliveryStats);
+      console.log('Push Notification Service initialized');
+      console.log('Last 24h delivery stats:', deliveryStats);
     } catch (error) {
-      console.error('⚠️ Push Notification Service warning:', error.message);
+      console.error('Push Notification Service warning:', error.message);
     }
-    
-    console.log("✅ All services initialized successfully");
+
+    console.log("All services initialized successfully");
   } catch (error) {
-    console.error("❌ Server initialization error:", error);
+    console.error("Server initialization error:", error);
     process.exit(1);
   }
 };
 
-// Start the server with proper error handling
 const startServer = () => {
   const server = app.listen(PORT, () => {
-    console.log(`✅ Enhanced EMIB Server running on http://localhost:${PORT}`);
-    console.log(`📱 Push Notifications: Available`);
-    console.log(`🤖 Anomaly Detection: Enhanced ML + Rules`);
-    console.log(`🔒 Security: Input validation, Rate limiting, Error handling`);
-    console.log(`📊 Health Monitoring: Active`);
-    console.log(`\n📚 Available endpoints:`);
+    console.log(`Enhanced EMIB Server running on http://localhost:${PORT}`);
+    console.log(`Push Notifications: Available`);
+    console.log(`Anomaly Detection: Enhanced ML + Rules`);
+    console.log(`Security: Input validation, Rate limiting, Error handling`);
+    console.log(`Health Monitoring: Active`);
+    console.log(`Available endpoints:`);
     console.log(`   - GET /api/health - Enhanced system health check`);
     console.log(`   - GET /api/notifications/health - Push notification health`);
     console.log(`   - POST /api/notifications/register-token - Register device`);
     console.log(`   - POST /api/notifications/test - Send test notification`);
     console.log(`   - GET /api/device-templates - Available device templates`);
     
-    // Initialize server after successful start
     initializeServer();
   });
 
-  // Handle server errors
   server.on('error', (error) => {
-    console.error('❌ Server error:', error);
+    console.error('Server error:', error);
     if (error.code === 'EADDRINUSE') {
-      console.error(`❌ Port ${PORT} is already in use`);
+      console.error(`Port ${PORT} is already in use`);
     }
     gracefulShutdown();
   });
@@ -1122,5 +1032,4 @@ const startServer = () => {
   return server;
 };
 
-// Start the server
 startServer();

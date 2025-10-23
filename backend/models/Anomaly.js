@@ -1,8 +1,6 @@
 const mongoose = require('mongoose');
 
-// Schema สำหรับ Anomaly Detection API v2.1 - Clean Version
 const anomalySchema = new mongoose.Schema({
-  // ข้อมูลพื้นฐาน
   deviceId: {
     type: String,
     required: true,
@@ -21,7 +19,6 @@ const anomalySchema = new mongoose.Schema({
     index: true
   },
   
-  // ข้อมูลเซนเซอร์ที่ใช้ในการตรวจจับ
   sensorData: {
     temperature: { type: Number, default: null },
     humidity: { type: Number, default: null },
@@ -34,7 +31,6 @@ const anomalySchema = new mongoose.Schema({
     vpd: { type: Number, default: null }
   },
   
-  // ผลการตรวจจับจาก Rule-based
   ruleBasedDetection: {
     anomaliesFound: { type: Boolean, default: false },
     anomalies: [{
@@ -53,7 +49,6 @@ const anomalySchema = new mongoose.Schema({
     totalAnomalies: { type: Number, default: 0 }
   },
   
-  // ผลการตรวจจับจาก ML Models
   mlDetection: {
     anomaliesFound: { type: Boolean, default: false },
     modelUsed: { 
@@ -70,7 +65,6 @@ const anomalySchema = new mongoose.Schema({
     error: { type: String, default: null }
   },
   
-  // สรุปผลรวม
   summary: {
     ruleAnomaliesFound: { type: Boolean, default: false },
     mlAnomaliesFound: { type: Boolean, default: false },
@@ -88,7 +82,6 @@ const anomalySchema = new mongoose.Schema({
     priorityScore: { type: Number, min: 0, max: 5, default: 0 },
     healthScore: { type: Number, min: 0, max: 100, default: 100 },
     
-    // คะแนนความเชื่อมั่น
     confidenceScores: {
       ruleBased: { type: Number, min: 0, max: 1, default: 0 },
       mlBased: { type: Number, min: 0, max: 1, default: 0 },
@@ -96,7 +89,6 @@ const anomalySchema = new mongoose.Schema({
       weightedAverage: { type: Number, min: 0, max: 1, default: 0 }
     },
     
-    // คำแนะนำ
     recommendations: [{
       type: { type: String, required: true },
       message: { type: String, required: true },
@@ -110,7 +102,6 @@ const anomalySchema = new mongoose.Schema({
       severityImpact: { type: String, default: 'medium' }
     }],
     
-    // Metadata การวิเคราะห์
     analysisMetadata: {
       ruleDetectionTypes: [{ type: String }],
       mlModelConfidenceAvg: { type: Number, default: 0 },
@@ -119,16 +110,14 @@ const anomalySchema = new mongoose.Schema({
     }
   },
   
-  // ข้อมูล Performance
   performance: {
-    responseTime: { type: Number, default: 0 }, // seconds
+    responseTime: { type: Number, default: 0 }, 
     dataPointsProcessed: { type: Number, default: 1 },
     cacheUsed: { type: Boolean, default: false },
     featureAlignments: { type: Number, default: 0 },
     modelsAvailable: { type: Boolean, default: false }
   },
   
-  // ข้อมูล Metadata
   metadata: {
     apiVersion: { type: String, default: '2.1-fixed' },
     processingTimestamp: { type: Date, default: Date.now },
@@ -136,7 +125,6 @@ const anomalySchema = new mongoose.Schema({
     expectedFeatures: { type: Number, default: 49 }
   },
   
-  // Alert message ที่พร้อมแสดง
   alertMessage: {
     level: { 
       type: String, 
@@ -154,20 +142,17 @@ const anomalySchema = new mongoose.Schema({
     recommendations: [{ type: mongoose.Schema.Types.Mixed }]
   },
   
-  // สถานะการประมวลผล
   status: {
     type: String,
     enum: ['processing', 'completed', 'error'],
     default: 'completed'
   },
   
-  // ข้อผิดพลาด (ถ้ามี)
   error: {
     type: String,
     default: null
   },
   
-  // สถานะการแก้ไข
   resolved: {
     type: Boolean,
     default: false,
@@ -192,7 +177,6 @@ const anomalySchema = new mongoose.Schema({
   collection: 'anomalies'
 });
 
-// Indexes สำหรับ Performance
 anomalySchema.index({ deviceId: 1, timestamp: -1 });
 anomalySchema.index({ userId: 1, timestamp: -1 });
 anomalySchema.index({ timestamp: -1 });
@@ -203,12 +187,10 @@ anomalySchema.index({ status: 1, timestamp: -1 });
 anomalySchema.index({ resolved: 1, timestamp: -1 });
 anomalySchema.index({ 'summary.alertLevel': 1, resolved: 1 });
 
-// Virtual สำหรับ formatted timestamp
 anomalySchema.virtual('formattedTimestamp').get(function() {
   return this.timestamp.toISOString();
 });
 
-// Virtual สำหรับ human readable time
 anomalySchema.virtual('timeAgo').get(function() {
   const now = new Date();
   const diff = now - this.timestamp;
@@ -222,7 +204,6 @@ anomalySchema.virtual('timeAgo').get(function() {
   return 'เมื่อสักครู่';
 });
 
-// Static methods สำหรับการ query ที่ซับซ้อน
 anomalySchema.statics.findByDeviceAndDateRange = function(deviceId, startDate, endDate) {
   return this.find({
     deviceId: deviceId,
@@ -311,7 +292,6 @@ anomalySchema.statics.getDeviceStats = function(userId, days = 7) {
   ]);
 };
 
-// Instance methods
 anomalySchema.methods.isHighPriority = function() {
   return this.summary.alertLevel === 'red' || this.summary.priorityScore >= 3;
 };
@@ -326,7 +306,6 @@ anomalySchema.methods.getMainRecommendation = function() {
 
 anomalySchema.methods.getPrimaryAnomalyType = function() {
   if (this.ruleBasedDetection.anomalies && this.ruleBasedDetection.anomalies.length > 0) {
-    // หา anomaly ที่มี priority สูงสุด
     const highest = this.ruleBasedDetection.anomalies.reduce((prev, current) => 
       (prev.priority > current.priority) ? prev : current
     );
@@ -341,7 +320,6 @@ anomalySchema.methods.toResponseFormat = function() {
     deviceId: this.deviceId,
     timestamp: this.timestamp,
     
-    // ข้อมูลหลัก
     summary: {
       alertLevel: this.summary.alertLevel,
       riskLevel: this.summary.riskLevel,
@@ -350,28 +328,22 @@ anomalySchema.methods.toResponseFormat = function() {
       recommendations: this.summary.recommendations.slice(0, 3)
     },
     
-    // Alert message
     alertMessage: this.alertMessage,
     
-    // Performance info
     performance: this.performance,
     
-    // Status
     status: this.status,
     resolved: this.resolved,
     resolvedAt: this.resolvedAt,
     
-    // Helper properties
     isHighPriority: this.isHighPriority(),
     primaryType: this.getPrimaryAnomalyType(),
     timeAgo: this.timeAgo,
     
-    // API version
     apiVersion: this.metadata.apiVersion
   };
 };
 
-// สำหรับ legacy compatibility
 anomalySchema.methods.toLegacyFormat = function() {
   const primaryType = this.getPrimaryAnomalyType();
   const mainRecommendation = this.getMainRecommendation();
@@ -394,7 +366,6 @@ anomalySchema.methods.toLegacyFormat = function() {
     created_at: this.createdAt,
     updated_at: this.updatedAt,
     
-    // เพิ่มข้อมูลจาก v2.1
     health_score: this.summary.healthScore,
     risk_level: this.summary.riskLevel,
     main_recommendation: mainRecommendation,
@@ -402,18 +373,14 @@ anomalySchema.methods.toLegacyFormat = function() {
   };
 };
 
-// Pre-save middleware
 anomalySchema.pre('save', function(next) {
-  // ตรวจสอบและปรับค่า health score
   if (this.summary.healthScore < 0) this.summary.healthScore = 0;
   if (this.summary.healthScore > 100) this.summary.healthScore = 100;
   
-  // ตรวจสอบความสอดคล้องของ alert level และ priority
   if (this.summary.alertLevel === 'red' && this.summary.priorityScore < 2) {
     this.summary.priorityScore = 3;
   }
   
-  // สร้าง alert message หากยังไม่มีหรือเป็นค่า default
   if (!this.alertMessage.title || this.alertMessage.title === 'System Normal') {
     this.alertMessage = this.generateAlertMessage();
   }
@@ -421,7 +388,6 @@ anomalySchema.pre('save', function(next) {
   next();
 });
 
-// Method สำหรับสร้าง alert message
 anomalySchema.methods.generateAlertMessage = function() {
   const summary = this.summary;
   

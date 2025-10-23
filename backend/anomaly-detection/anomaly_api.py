@@ -83,7 +83,7 @@ class AnomalyDetectionAPI:
         
         try:
             logger.info("Loading ML models v2.1 (Fixed)...")
-            print("โหลดโมเดลขั้นสูง v2.1...")
+           
             
             # พยายามโหลดโมเดล
             try:
@@ -104,15 +104,13 @@ class AnomalyDetectionAPI:
                 # Validate loaded models
                 loaded_models = list(self.ml_detector.models.keys())
                 logger.info(f"Successfully loaded models: {loaded_models}")
-                print(f"โหลด scalers สำเร็จ")
-                print(f"โหลด feature info สำเร็จ (version 2.1)")
                 
                 # โหลดโมเดลแต่ละตัว
                 for model_name in loaded_models:
-                    print(f"โหลด {model_name} สำเร็จ")
-                
-                print(f"โหลดโมเดลขั้นสูงเสร็จสิ้น ({len(loaded_models)} โมเดล)")
-                
+                    logger.info(f"โหลด {model_name} สำเร็จ")
+
+                logger.info(f"โหลดโมเดลขั้นสูงเสร็จสิ้น ({len(loaded_models)} โมเดล)")
+
                 self.health_status['models_loaded'] = True
                 self.health_status['service_status'] = 'active'
                 
@@ -122,7 +120,7 @@ class AnomalyDetectionAPI:
                 self.health_status['last_error'] = f"Model files not found: {str(e)}"
                 self.health_status['service_status'] = 'degraded'
                 logger.warning("Run 'python train_models.py' to create models")
-                print("ไม่พบไฟล์โมเดล - ทำงานใน rule-based mode เท่านั้น")
+                logger.info("ไม่พบไฟล์โมเดล - ทำงานใน rule-based mode เท่านั้น")
                 
             except Exception as e:
                 logger.error(f"Failed to load ML models: {e}")
@@ -130,7 +128,7 @@ class AnomalyDetectionAPI:
                 self.health_status['last_error'] = str(e)
                 self.health_status['service_status'] = 'degraded'
                 logger.info("Service running in rule-based mode only")
-                print("ไม่สามารถโหลดโมเดล ML ได้ - ใช้ rule-based detection เท่านั้น")
+                logger.info("ไม่สามารถโหลดโมเดล ML ได้ - ใช้ rule-based detection เท่านั้น")
             
             self.performance_metrics['model_load_time'] = time.time() - start_time
             logger.info(f"ML models loaded successfully in {self.performance_metrics['model_load_time']:.2f}s")
@@ -1117,48 +1115,47 @@ class SensorSimulator:
 
 # Example usage and testing
 if __name__ == "__main__":
-    print("Testing Enhanced Anomaly Detection API v2.1 (Fixed)")
-    print("=" * 80)
+    logger.info("Testing Enhanced Anomaly Detection API v2.1 (Fixed)")
+    logger.info("=" * 80)
     
     # Create API instance
     api = AnomalyDetectionAPI()
     
     # Check health status
     health = api.get_health_status()
-    print(f"\nSystem Health: {health['service_status']}")
-    print(f"API Version: {health['api_version']}")
-    print(f"ML Models: {'Loaded' if health['models_loaded'] else 'Not Available'}")
-    print(f"Uptime: {health['uptime_hours']:.2f} hours")
-    print(f"Feature Alignment: {'Enabled' if health['capabilities']['feature_alignment'] else 'Disabled'}")
-    print(f"Expected Features: {health['system_resources']['expected_features']}")
-    
+    logger.info(f"\nSystem Health: {health['service_status']}")
+    logger.info(f"API Version: {health['api_version']}")
+    logger.info(f"ML Models: {'Loaded' if health['models_loaded'] else 'Not Available'}")
+    logger.info(f"Uptime: {health['uptime_hours']:.2f} hours")
+    logger.info(f"Feature Alignment: {'Enabled' if health['capabilities']['feature_alignment'] else 'Disabled'}")
+    logger.info(f"Expected Features: {health['system_resources']['expected_features']}")
+
     # Create enhanced data simulator
     simulator = SensorSimulator()
     
     # Test normal data with environmental conditions
-    print("\n" + "="*60)
-    print("Testing Enhanced Normal Data:")
-    
+    logger.info("\n" + "="*60)
+    logger.info("Testing Enhanced Normal Data:")
     simulator.set_environmental_condition('season', 'summer')
     normal_data = simulator.generate_normal_data()
-    
-    print(f"Temperature: {normal_data['temperature']:.1f}°C")
-    print(f"Humidity: {normal_data['humidity']:.1f}%")
-    print(f"VPD: {normal_data['vpd']:.2f} kPa")
-    print(f"Voltage: {normal_data['voltage']:.2f}V")
-    print(f"Battery: {normal_data['battery_level']:.0f}%")
-    
+
+    logger.info(f"Temperature: {normal_data['temperature']:.1f}°C")
+    logger.info(f"Humidity: {normal_data['humidity']:.1f}%")
+    logger.info(f"VPD: {normal_data['vpd']:.2f} kPa")
+    logger.info(f"Voltage: {normal_data['voltage']:.2f}V")
+    logger.info(f"Battery: {normal_data['battery_level']:.0f}%")
+
     results = api.detect_anomalies_hybrid([normal_data])
     alert = api.generate_alert_message(results)
-    
-    print(f"\n{alert['icon']} {alert['title']}")
-    print(f"Health Score: {alert.get('health_score', 'N/A')}/100")
-    print(f"Response Time: {results.get('performance', {}).get('response_time', 0):.3f}s")
-    print(f"Feature Alignments: {results.get('performance', {}).get('feature_alignments', 0)}")
-    
+
+    logger.info(f"\n{alert['icon']} {alert['title']}")
+    logger.info(f"Health Score: {alert.get('health_score', 'N/A')}/100")
+    logger.info(f"Response Time: {results.get('performance', {}).get('response_time', 0):.3f}s")
+    logger.info(f"Feature Alignments: {results.get('performance', {}).get('feature_alignments', 0)}")
+
     # Test various anomaly types
-    print("\n" + "="*60)
-    print("Testing Enhanced Anomaly Detection:")
+    logger.info("\n" + "="*60)
+    logger.info("Testing Enhanced Anomaly Detection:")
     
     anomaly_types = [
         ('sudden_drop', 'high'),
@@ -1168,33 +1165,33 @@ if __name__ == "__main__":
     ]
     
     for anomaly_type, severity in anomaly_types:
-        print(f"\nTesting {anomaly_type} (severity: {severity}):")
+        logger.info(f"\nTesting {anomaly_type} (severity: {severity}):")
         
         anomaly_data = simulator.generate_anomaly_data(anomaly_type, severity)
         results = api.detect_anomalies_hybrid([anomaly_data])
         alert = api.generate_alert_message(results)
-        
-        print(f"{alert['icon']} {alert['title']}")
-        print(f"Risk Level: {alert.get('risk_level', 'Unknown')}")
-        print(f"Health Score: {alert.get('health_score', 'N/A')}/100")
-        
+
+        logger.info(f"{alert['icon']} {alert['title']}")
+        logger.info(f"Risk Level: {alert.get('risk_level', 'Unknown')}")
+        logger.info(f"Health Score: {alert.get('health_score', 'N/A')}/100")
+
         if alert.get('recommendations'):
             top_rec = alert['recommendations'][0]
-            print(f"Action: {top_rec.get('action', 'No action specified')[:60]}...")
-    
+            logger.info(f"Action: {top_rec.get('action', 'No action specified')[:60]}...")
+
     # Show final statistics
     final_health = api.get_health_status()
     cache_stats = api.get_cache_stats()
+
+    logger.info(f"\n" + "="*60)
+    logger.info("Final API Statistics (Fixed Version):")
+    logger.info(f"  Predictions: {final_health['performance_metrics']['prediction_count']}")
+    logger.info(f"  Success Rate: {final_health['performance_metrics']['success_rate']:.1%}")
+    logger.info(f"  Cache Hit Rate: {cache_stats['hit_rate']:.1%}")
+    logger.info(f"  Avg Response Time: {final_health['performance_metrics']['average_response_time']:.3f}s")
+    logger.info(f"  Memory Usage: {final_health['system_resources']['memory_usage_mb']:.1f} MB")
+    logger.info(f"  Feature Alignments: {final_health['performance_metrics']['feature_alignment_count']}")
     
-    print(f"\n" + "="*60)
-    print("Final API Statistics (Fixed Version):")
-    print(f"  Predictions: {final_health['performance_metrics']['prediction_count']}")
-    print(f"  Success Rate: {final_health['performance_metrics']['success_rate']:.1%}")
-    print(f"  Cache Hit Rate: {cache_stats['hit_rate']:.1%}")
-    print(f"  Avg Response Time: {final_health['performance_metrics']['average_response_time']:.3f}s")
-    print(f"  Memory Usage: {final_health['system_resources']['memory_usage_mb']:.1f} MB")
-    print(f"  Feature Alignments: {final_health['performance_metrics']['feature_alignment_count']}")
-    
-    print(f"\nEnhanced API v2.1 (Fixed) testing completed successfully!")
-    print("✅ Feature mismatch issues resolved!")
-    print("✅ 49-feature alignment working correctly!")
+    logger.info(f"\nEnhanced API v2.1 (Fixed) testing completed successfully!")
+    logger.info("✅ Feature mismatch issues resolved!")
+    logger.info("✅ 49-feature alignment working correctly!")

@@ -1,4 +1,3 @@
-// models/Notification.js
 const mongoose = require('mongoose');
 
 const notificationSchema = new mongoose.Schema({
@@ -41,7 +40,6 @@ const notificationSchema = new mongoose.Schema({
     enum: ['low', 'normal', 'high', 'critical'],
     default: 'normal'
   },
-  // Related entities
   deviceId: {
     type: String,
     index: true
@@ -54,7 +52,6 @@ const notificationSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId
   },
   
-  // Delivery tracking
   deliveryStatus: {
     type: String,
     enum: ['pending', 'sent', 'delivered', 'failed', 'read'],
@@ -65,7 +62,6 @@ const notificationSchema = new mongoose.Schema({
   deliveredAt: Date,
   readAt: Date,
   
-  // Expo push notification details
   expoPushTicket: {
     id: String,
     status: String,
@@ -78,9 +74,8 @@ const notificationSchema = new mongoose.Schema({
     details: mongoose.Schema.Types.Mixed
   },
   
-  // Targeting
   targetTokens: [{
-    type: String // Expo push tokens that received this notification
+    type: String 
   }],
   successfulDeliveries: {
     type: Number,
@@ -91,25 +86,21 @@ const notificationSchema = new mongoose.Schema({
     default: 0
   },
   
-  // Scheduling
   scheduledFor: Date,
   expiresAt: Date,
   
-  // User interaction
   clicked: {
     type: Boolean,
     default: false
   },
   clickedAt: Date,
   
-  // Admin/System flags
   isSystemGenerated: {
     type: Boolean,
     default: false
   },
-  batchId: String, // For grouping related notifications
+  batchId: String,
   
-  // Error details
   errorMessage: String,
   retryCount: {
     type: Number,
@@ -123,7 +114,6 @@ const notificationSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Indexes for performance
 notificationSchema.index({ userId: 1, createdAt: -1 });
 notificationSchema.index({ userId: 1, deliveryStatus: 1 });
 notificationSchema.index({ userId: 1, type: 1 });
@@ -133,7 +123,6 @@ notificationSchema.index({ deliveryStatus: 1, scheduledFor: 1 });
 notificationSchema.index({ createdAt: -1 });
 notificationSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-// Methods
 notificationSchema.methods.markAsSent = function(ticketId, ticketData) {
   this.deliveryStatus = 'sent';
   this.sentAt = new Date();
@@ -182,7 +171,6 @@ notificationSchema.methods.canRetry = function() {
          (!this.expiresAt || new Date() < this.expiresAt);
 };
 
-// Static methods
 notificationSchema.statics.findUnreadForUser = function(userId) {
   return this.find({ 
     userId, 

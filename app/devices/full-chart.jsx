@@ -1,5 +1,4 @@
-// cSpell: words datetimepicker
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -36,7 +35,6 @@ const FullChart = () => {
         setLoading(true); 
         const token = await AsyncStorage.getItem('token');
         
-        // Use new device data API if deviceId is available
         let apiUrl = API_ENDPOINTS.SENSOR_DATA;
         if (deviceId) {
           apiUrl = `${API_ENDPOINTS.DEVICES}/${deviceId}/data?limit=1000`;
@@ -49,7 +47,6 @@ const FullChart = () => {
         const result = await response.json();
         let data;
 
-        // Handle both old and new API response formats
         if (deviceId && result.data) {
           data = result.data;
         } else if (result.data && Array.isArray(result.data)) {

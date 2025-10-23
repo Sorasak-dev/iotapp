@@ -1,5 +1,4 @@
-// D:\y3\งานจารออย\iotapp-2\app\features\edit_profile.jsx
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   View,
   Text,

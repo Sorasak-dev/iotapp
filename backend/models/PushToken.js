@@ -1,4 +1,3 @@
-// models/PushToken.js
 const mongoose = require('mongoose');
 
 const pushTokenSchema = new mongoose.Schema({
@@ -23,7 +22,7 @@ const pushTokenSchema = new mongoose.Schema({
     deviceName: String,
     osVersion: String,
     appVersion: String,
-    deviceId: String // unique device identifier
+    deviceId: String 
   },
   isActive: {
     type: Boolean,
@@ -56,13 +55,11 @@ const pushTokenSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Index for efficient queries
 pushTokenSchema.index({ userId: 1, isActive: 1 });
 pushTokenSchema.index({ expoPushToken: 1, isActive: 1 });
 pushTokenSchema.index({ 'deviceInfo.platform': 1 });
 pushTokenSchema.index({ createdAt: -1 });
 
-// Methods
 pushTokenSchema.methods.markAsUsed = function() {
   this.lastUsed = new Date();
   return this.save();
@@ -79,7 +76,6 @@ pushTokenSchema.methods.markFailure = function(error) {
   this.lastFailure = new Date();
   this.failureCount += 1;
   
-  // Deactivate token after 5 consecutive failures
   if (this.failureCount >= 5) {
     this.isActive = false;
   }
@@ -92,7 +88,6 @@ pushTokenSchema.methods.updatePreferences = function(newPreferences) {
   return this.save();
 };
 
-// Static methods
 pushTokenSchema.statics.findActiveTokensForUser = function(userId) {
   return this.find({ 
     userId, 

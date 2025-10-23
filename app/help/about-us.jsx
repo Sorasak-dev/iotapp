@@ -1,4 +1,3 @@
-import React from "react";
 import { ScrollView, Text, View, SafeAreaView, Dimensions } from "react-native";
 import tw from "twrnc";
 import Support from "../components/Support";
@@ -7,7 +6,6 @@ import BackButton from "../components/BackButton";
 const { width, height } = Dimensions.get('window');
 
 export default function About() {
-  // Calculate responsive padding based on screen width
   const isSmallScreen = width < 375;
   const isMediumScreen = width >= 375 && width < 414;
   const isLargeScreen = width >= 414;
