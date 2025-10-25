@@ -5,8 +5,44 @@ const User = require('../models/User');
 
 exports.registerToken = async (req, res) => {
   try {
+    console.log('Received registration request:', {
+      body: {
+        userId: req.body.userId,
+        hasExpoPushToken: !!req.body.expoPushToken,
+        tokenLength: req.body.expoPushToken?.length,
+        tokenStart: req.body.expoPushToken?.substring(0, 30),
+        deviceInfo: req.body.deviceInfo
+      },
+      authenticatedUser: req.user.id
+    });
+
     const { userId, expoPushToken, deviceInfo } = req.body;
     const authenticatedUserId = req.user.id;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'userId is required'
+      });
+    }
+
+    if (!expoPushToken || typeof expoPushToken !== 'string' || expoPushToken.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid expoPushToken is required'
+      });
+    }
+
+    const isValidFormat = expoPushToken.startsWith('ExponentPushToken[') || 
+                         expoPushToken.startsWith('ExpoPushToken[') ||
+                         expoPushToken.startsWith('ExpoToken[');
+    
+    if (!isValidFormat) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid Expo push token format. Token must start with ExponentPushToken[ or ExpoPushToken['
+      });
+    }
 
     if (userId !== authenticatedUserId) {
       return res.status(403).json({
@@ -15,18 +51,22 @@ exports.registerToken = async (req, res) => {
       });
     }
 
-    if (!expoPushToken) {
-      return res.status(400).json({
-        success: false,
-        message: 'Expo push token is required'
-      });
-    }
+    console.log('Registering push token:', {
+      userId,
+      token: expoPushToken.substring(0, 30) + '...',
+      platform: deviceInfo?.platform
+    });
 
     const token = await pushNotificationService.registerToken(
       authenticatedUserId,
       expoPushToken,
       deviceInfo || {}
     );
+
+    console.log('Push token registered successfully:', {
+      tokenId: token._id,
+      isActive: token.isActive
+    });
 
     res.status(200).json({
       success: true,
@@ -40,7 +80,7 @@ exports.registerToken = async (req, res) => {
 
   } catch (error) {
     console.error('Error registering push token:', error);
-    
+
     if (error.message.includes('Invalid Expo push token')) {
       return res.status(400).json({
         success: false,
@@ -51,7 +91,7 @@ exports.registerToken = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to register push token',
-      error: error.message
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -479,3 +519,5 @@ exports.healthCheck = async (req, res) => {
     });
   }
 };
+
+module.exports = exports;

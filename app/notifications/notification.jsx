@@ -42,7 +42,7 @@ const getAuthToken = async () => {
 const AnomalyService = {
   getHistory: async (token, filters = {}) => {
     try {
-      console.log('Fetching notification anomaly history with filters:', filters);
+      console.log('[Notification] Fetching anomaly history with filters:', filters);
       
       const queryParams = new URLSearchParams();
       if (filters.deviceId) queryParams.append('deviceId', filters.deviceId);
@@ -64,10 +64,11 @@ const AnomalyService = {
       }
       
       const result = await response.json();
+      console.log('[Notification] Anomaly history response:', result?.data?.anomalies?.length || 0, 'items');
       return result;
       
     } catch (error) {
-      console.error('Error fetching notification anomaly history:', error);
+      console.error('[Notification] Error fetching anomaly history:', error);
       return {
         success: true,
         data: {
@@ -94,7 +95,7 @@ const AnomalyService = {
       return result;
       
     } catch (error) {
-      console.error('Error fetching notification stats:', error);
+      console.error('[Notification] Error fetching stats:', error);
       return {
         success: true,
         data: {
@@ -124,7 +125,7 @@ const AnomalyService = {
       return result;
       
     } catch (error) {
-      console.error('Error resolving notification anomaly:', error);
+      console.error('[Notification] Error resolving anomaly:', error);
       throw error;
     }
   }
@@ -174,7 +175,7 @@ export default function NotificationScreen() {
         setAnomalyStats(stats.data);
       }
     } catch (error) {
-      console.error('Error loading anomaly stats:', error);
+      console.error('[Notification] Error loading anomaly stats:', error);
     }
   };
 
@@ -188,46 +189,110 @@ export default function NotificationScreen() {
         sort: '-timestamp'
       });
       
+      console.log('[Notification] Processing response...');
+      
       if (response.success && response.data?.anomalies) {
-        const formattedNotifications = response.data.anomalies.map(anomaly => ({
-          id: anomaly._id,
-          title: getAnomalyTitle(anomaly.anomalyType || anomaly.type),
-          message: anomaly.message || `${anomaly.anomalyType || anomaly.type} detected on ${anomaly.deviceId || 'Unknown Device'}`,
-          location: anomaly.deviceId || "Unknown Device",
-          type: getSeverityType(anomaly.alertLevel), 
-          time: formatTime(anomaly.timestamp),
-          date: formatDate(anomaly.timestamp),
-          isRead: anomaly.resolved, 
-          severity: anomaly.alertLevel, 
-          confidence_score: anomaly.mlResults?.confidence, 
-          status: anomaly.resolved ? 'resolved' : 'unresolved',
-          device_id: anomaly.deviceId, 
-          anomaly_data: anomaly.sensorData, 
-          resolved_at: anomaly.resolvedAt,
-          resolved_by: anomaly.resolvedBy,
-          resolution_notes: anomaly.notes,
-          timestamp: anomaly.timestamp,
-          isPushNotification: false 
-        }));
+        const anomaliesArray = response.data.anomalies;
         
+        console.log(`[Notification] Found ${anomaliesArray.length} anomalies`);
+        
+        if (anomaliesArray.length > 0) {
+          console.log(`[Notification] First anomaly:`, JSON.stringify(anomaliesArray[0], null, 2));
+        }
+        
+        const formattedNotifications = anomaliesArray.map((anomaly, index) => {
+          const detectionMethod = anomaly?.detectionMethod || 
+                                 anomaly?.detection_method || 
+                                 'unknown';
+          
+          const isML = detectionMethod === 'ml_based' || 
+                      detectionMethod === 'hybrid' ||
+                      anomaly?.mlResults?.confidence > 0 ||
+                      anomaly?.anomalyType === 'ml_detected' ||
+                      anomaly?.type === 'ml_detected';
+          
+          const message = anomaly?.message || 
+                         anomaly?.alertMessage?.message ||
+                         anomaly?.details ||
+                         `${anomaly?.anomalyType || anomaly?.type || 'Alert'} detected on ${anomaly?.deviceId || 'Unknown Device'}`;
+          
+          const alertLevel = anomaly?.alertLevel || 
+                            anomaly?.alert_level ||
+                            anomaly?.summary?.alertLevel || 
+                            'yellow';
+          
+          let sensorData = anomaly?.sensorData || 
+                          anomaly?.sensor_data ||
+                          anomaly?.data ||
+                          null;
+          
+          if (sensorData && typeof sensorData === 'object') {
+            const hasData = Object.values(sensorData).some(val => 
+              val !== null && val !== undefined
+            );
+            if (!hasData) {
+              sensorData = null;
+            }
+          }
+          
+          if (index < 3) {
+            console.log(`[Notification] Anomaly ${index}:`, {
+              anomalyType: anomaly?.anomalyType,
+              detectionMethod,
+              isML,
+              alertLevel,
+              hasSensorData: !!sensorData,
+              message: message.substring(0, 50)
+            });
+          }
+          
+          return {
+            id: anomaly._id,
+            title: getAnomalyTitle(anomaly.anomalyType || anomaly.type),
+            message: message,
+            location: anomaly.deviceId || "Unknown Device",
+            type: getSeverityType(alertLevel),
+            time: formatTime(anomaly.timestamp),
+            date: formatDate(anomaly.timestamp),
+            isRead: anomaly.resolved,
+            severity: alertLevel,
+            confidence_score: anomaly.mlResults?.confidence,
+            status: anomaly.resolved ? 'resolved' : 'unresolved',
+            deviceId: anomaly.deviceId,
+            anomaly_data: sensorData,
+            resolved_at: anomaly.resolvedAt,
+            resolved_by: anomaly.resolvedBy,
+            resolution_notes: anomaly.notes,
+            timestamp: anomaly.timestamp,
+            isPushNotification: false,
+            isML: isML,
+            detectionMethod: detectionMethod
+          };
+        });
+
+        console.log(`[Notification] Formatted ${formattedNotifications.length} notifications`);
+        console.log(`[Notification] ML anomalies: ${formattedNotifications.filter(n => n.isML).length}`);
+        console.log(`[Notification] With sensor data: ${formattedNotifications.filter(n => n.anomaly_data).length}`);
+
         const localNotifications = await getLocalNotifications();
         const allNotifications = [...formattedNotifications, ...localNotifications]
           .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         
         setNotifications(allNotifications);
       } else {
+        console.warn('[Notification] No anomalies in response');
         const localNotifications = await getLocalNotifications();
         setNotifications(localNotifications);
       }
     } catch (error) {
-      console.error('Error loading notifications:', error);
+      console.error('[Notification] Error loading notifications:', error);
       Alert.alert('Error', 'Failed to load notifications');
       
       try {
         const localNotifications = await getLocalNotifications();
         setNotifications(localNotifications);
       } catch (localError) {
-        console.error('Error loading local notifications:', localError);
+        console.error('[Notification] Error loading local notifications:', localError);
       }
     } finally {
       setIsLoading(false);
@@ -263,7 +328,7 @@ export default function NotificationScreen() {
         }));
       }
     } catch (error) {
-      console.error('Error loading local notifications:', error);
+      console.error('[Notification] Error loading local notifications:', error);
     }
     return [];
   };
@@ -272,11 +337,14 @@ export default function NotificationScreen() {
     const titleMap = {
       'sudden_drop': 'Sudden Value Drop',
       'sudden_spike': 'Sudden Value Spike',
+      'constant_value': 'Constant Values',
+      'missing_data': 'Missing Data',
       'vpd_too_low': 'VPD Too Low',
       'low_voltage': 'Low Voltage Alert',
+      'high_fluctuation': 'High Fluctuation',
       'dew_point_close': 'Dew Point Alert',
       'battery_depleted': 'Battery Depleted',
-      'ml_detected': 'AI Anomaly Detection',
+      'ml_detected': 'Unusual Pattern Detected', 
       'temperature_high': 'High Temperature Alert',
       'temperature_low': 'Low Temperature Alert',
       'humidity_high': 'High Humidity Alert',
@@ -359,6 +427,8 @@ export default function NotificationScreen() {
       return <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />;
     } else if (title.includes("Data") || title.includes("Error")) {
       return <Ionicons name="close-circle" size={24} color="#2196F3" />;
+    } else if (title.includes("Unusual Pattern") || title.includes("AI")) {
+      return <Ionicons name="analytics" size={24} color="#FF9800" />; 
     } else {
       return <Ionicons name="warning" size={24} color="#FF5722" />;
     }
@@ -386,7 +456,7 @@ export default function NotificationScreen() {
       
       Alert.alert('Success', 'Notification marked as resolved');
     } catch (error) {
-      console.error('Error resolving notification:', error);
+      console.error('[Notification] Error resolving notification:', error);
       Alert.alert('Error', 'Failed to resolve notification');
     }
   };
@@ -402,7 +472,7 @@ export default function NotificationScreen() {
         await AsyncStorage.setItem('localNotifications', JSON.stringify(updatedNotifications));
       }
     } catch (error) {
-      console.error('Error marking local notification as read:', error);
+      console.error('[Notification] Error marking local notification as read:', error);
     }
   };
 
@@ -438,7 +508,7 @@ export default function NotificationScreen() {
         await AsyncStorage.setItem('localNotifications', JSON.stringify(updatedNotifications));
       }
     } catch (error) {
-      console.error('Error deleting local notification:', error);
+      console.error('[Notification] Error deleting local notification:', error);
     }
   };
 
@@ -460,7 +530,7 @@ export default function NotificationScreen() {
       setMenuVisible(false);
       Alert.alert('Success', 'All notifications marked as read');
     } catch (error) {
-      console.error('Error marking all as read:', error);
+      console.error('[Notification] Error marking all as read:', error);
       Alert.alert('Error', 'Failed to mark notifications as read');
     }
   };
@@ -482,7 +552,7 @@ export default function NotificationScreen() {
               setNotifications([]);
               setMenuVisible(false);
             } catch (error) {
-              console.error('Error deleting all notifications:', error);
+              console.error('[Notification] Error deleting all notifications:', error);
             }
           },
           style: "destructive"
@@ -508,7 +578,7 @@ export default function NotificationScreen() {
       router.push({
         pathname: "/sensor-detail",
         params: {
-          deviceId: notification.device_id,
+          deviceId: notification.deviceId,
           anomalyId: notification.id
         }
       });
@@ -520,7 +590,7 @@ export default function NotificationScreen() {
       await notificationService.sendTestNotification();
       Alert.alert('Test Sent', 'Local test notification sent');
     } catch (error) {
-      console.error('Error sending test notification:', error);
+      console.error('[Notification] Error sending test notification:', error);
       Alert.alert('Error', 'Failed to send test notification');
     }
   };
@@ -531,6 +601,7 @@ export default function NotificationScreen() {
       style={[
         styles.notificationContainer,
         { backgroundColor: getBackgroundColor(item.type, item.isRead) },
+        item.isML && styles.mlNotification, 
       ]}
     >
       <View style={styles.notificationIcon}>
@@ -540,9 +611,32 @@ export default function NotificationScreen() {
         <Text style={styles.notificationTitle} numberOfLines={1} ellipsizeMode="tail">
           {item.title}
         </Text>
-        <Text style={styles.notificationMessage} numberOfLines={1} ellipsizeMode="tail">
+        <Text style={styles.notificationMessage} numberOfLines={2} ellipsizeMode="tail">
           {item.message || item.body}
         </Text>
+        
+        {item.anomaly_data && Object.keys(item.anomaly_data).some(key => 
+          item.anomaly_data[key] !== null && item.anomaly_data[key] !== undefined
+        ) && (
+          <View style={styles.sensorDataPreview}>
+            {item.anomaly_data.temperature !== undefined && item.anomaly_data.temperature !== null && (
+              <Text style={styles.sensorText}>
+                🌡️ {item.anomaly_data.temperature.toFixed(1)}°C
+              </Text>
+            )}
+            {item.anomaly_data.humidity !== undefined && item.anomaly_data.humidity !== null && (
+              <Text style={styles.sensorText}>
+                💧 {item.anomaly_data.humidity.toFixed(1)}%
+              </Text>
+            )}
+            {item.anomaly_data.vpd !== undefined && item.anomaly_data.vpd !== null && (
+              <Text style={styles.sensorText}>
+                📊 {item.anomaly_data.vpd.toFixed(2)} kPa
+              </Text>
+            )}
+          </View>
+        )}
+        
         <View style={styles.notificationFooter}>
           <Ionicons name="location-outline" size={12} color="gray" />
           <Text style={styles.notificationLocation} numberOfLines={1} ellipsizeMode="tail">
@@ -877,6 +971,11 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
+
+  mlNotification: {
+    borderLeftWidth: 4,
+    borderLeftColor: "#FF9800",
+  },
   
   notificationIcon: { 
     marginRight: 12,
@@ -905,6 +1004,22 @@ const styles = StyleSheet.create({
     color: "#666",
     marginBottom: 8,
     lineHeight: 18,
+  },
+
+  sensorDataPreview: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 8,
+    backgroundColor: '#F0F4FF',
+    padding: 8,
+    borderRadius: 6,
+  },
+
+  sensorText: {
+    fontSize: 12,
+    color: '#333',
+    marginRight: 12,
+    fontWeight: '500',
   },
 
   notificationFooter: { 

@@ -13,9 +13,7 @@
       "backgroundColor": "#ffffff"
     },
     "scheme": "emib",
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.yourcompany.emib"
@@ -38,10 +36,7 @@
         {
           "icon": "./app/assets/icon.png",
           "color": "#ffffff",
-          "defaultChannel": "default",
-          "sounds": [
-            "./app/assets/sounds/notification.wav"
-          ]
+          "defaultChannel": "default"
         }
       ]
     ],

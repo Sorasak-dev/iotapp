@@ -54,8 +54,8 @@ const anomalySchema = new mongoose.Schema({
     modelUsed: { 
       type: String, 
       enum: ['isolation_forest', 'one_class_svm', 'local_outlier_factor', 
-             'elliptic_envelope', 'ensemble'], 
-      default: 'ensemble' 
+             'elliptic_envelope', 'ensemble', 'gradient_boosting'], 
+      default: 'gradient_boosting' 
     },
     confidence: { type: Number, min: 0, max: 1, default: 0 },
     featureCount: { type: Number, default: 49 },
@@ -198,10 +198,10 @@ anomalySchema.virtual('timeAgo').get(function() {
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
   
-  if (days > 0) return `${days} วันที่แล้ว`;
-  if (hours > 0) return `${hours} ชั่วโมงที่แล้ว`;
-  if (minutes > 0) return `${minutes} นาทีที่แล้ว`;
-  return 'เมื่อสักครู่';
+  if (days > 0) return `${days} day${days > 1 ? 's' : ''} ago`;
+  if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+  if (minutes > 0) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+  return 'Just now';
 });
 
 anomalySchema.statics.findByDeviceAndDateRange = function(deviceId, startDate, endDate) {
@@ -314,11 +314,52 @@ anomalySchema.methods.getPrimaryAnomalyType = function() {
   return 'ml_detected';
 };
 
+anomalySchema.methods.toFrontendFormat = function() {
+  let anomalyType = 'unknown';
+  let message = 'No details available';
+  let detectionMethod = 'unknown';
+  
+  if (this.ruleBasedDetection?.anomalies?.length > 0) {
+    const firstAnomaly = this.ruleBasedDetection.anomalies[0];
+    anomalyType = firstAnomaly.type;
+    message = firstAnomaly.message;
+    detectionMethod = 'rule_based';
+  }
+  else if (this.mlDetection?.anomaliesFound) {
+    anomalyType = 'ml_detected';
+    message = this.alertMessage?.message || 'Machine learning detected anomaly';
+    detectionMethod = 'ml_based';
+  }
+  
+  return {
+    _id: this._id,
+    deviceId: this.deviceId,
+    userId: this.userId,
+    timestamp: this.timestamp,
+    anomalyType: anomalyType,
+    message: message,
+    alertLevel: this.summary?.alertLevel || 'yellow',
+    detectionMethod: detectionMethod,
+    resolved: this.resolved,
+    resolvedAt: this.resolvedAt,
+    notes: this.notes,
+    sensorData: this.sensorData,
+    mlResults: {
+      confidence: this.mlDetection?.confidence || 0,
+      model_used: this.mlDetection?.modelUsed || 'unknown'
+    },
+    createdAt: this.createdAt,
+    updatedAt: this.updatedAt
+  };
+};
+
 anomalySchema.methods.toResponseFormat = function() {
   return {
     id: this._id,
     deviceId: this.deviceId,
     timestamp: this.timestamp,
+    
+    sensorData: this.sensorData,
     
     summary: {
       alertLevel: this.summary.alertLevel,
@@ -350,7 +391,7 @@ anomalySchema.methods.toLegacyFormat = function() {
   
   return {
     _id: this._id,
-    device_id: this.deviceId,
+    deviceId: this.deviceId,
     device_name: this.deviceId,
     type: primaryType,
     severity: this.summary.alertLevel,
@@ -358,18 +399,26 @@ anomalySchema.methods.toLegacyFormat = function() {
     timestamp: this.timestamp,
     status: this.resolved ? 'resolved' : 'unresolved',
     confidence_score: this.summary.confidenceScores.combined,
+    
     data: this.sensorData,
+    sensorData: this.sensorData,
+    
     resolved_at: this.resolvedAt,
     resolved_by: this.resolvedBy,
     resolution_notes: this.notes,
-    detection_method: 'hybrid',
+    detection_method: this.mlDetection?.anomaliesFound ? 'ml_based' : 'rule_based',
     created_at: this.createdAt,
     updated_at: this.updatedAt,
     
     health_score: this.summary.healthScore,
     risk_level: this.summary.riskLevel,
     main_recommendation: mainRecommendation,
-    total_anomalies: this.summary.totalAnomalies
+    total_anomalies: this.summary.totalAnomalies,
+    
+    mlResults: {
+      confidence: this.mlDetection?.confidence || 0,
+      model_used: this.mlDetection?.modelUsed || 'unknown'
+    }
   };
 };
 
@@ -380,7 +429,7 @@ anomalySchema.pre('save', function(next) {
   if (this.summary.alertLevel === 'red' && this.summary.priorityScore < 2) {
     this.summary.priorityScore = 3;
   }
-  
+
   if (!this.alertMessage.title || this.alertMessage.title === 'System Normal') {
     this.alertMessage = this.generateAlertMessage();
   }

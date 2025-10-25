@@ -7,6 +7,7 @@ import Toast from 'react-native-toast-message';
 import { MaterialIcons, FontAwesome } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { API_ENDPOINTS, API_TIMEOUT, getAuthHeaders } from '../utils/config/api';
+import notificationService from '../utils/NotificationService';
 
 export default function SignIn() {
   const [email, setEmail] = useState('');
@@ -78,6 +79,35 @@ export default function SignIn() {
       if (response.ok) {
         await AsyncStorage.setItem('token', data.token);
         await AsyncStorage.setItem('email', email);
+        
+        if (data.token) {
+          try {
+            const base64Url = data.token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(
+              atob(base64)
+                .split('')
+                .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                .join('')
+            );
+            
+            const decoded = JSON.parse(jsonPayload);
+            if (decoded.id) {
+              await AsyncStorage.setItem('userId', decoded.id);
+              console.log('[SignIn] UserId saved:', decoded.id);
+            }
+          } catch (e) {
+            console.error('[SignIn] Error decoding token:', e);
+          }
+        }
+
+        console.log('[SignIn] Re-initializing notification service after login...');
+        try {
+          await notificationService.initialize();
+          console.log('[SignIn] Notification service re-initialized');
+        } catch (notifError) {
+          console.error('[SignIn] Failed to re-initialize notifications:', notifError);
+        }
 
         showToast('success', 'Login Successful', 'You have successfully signed in.');
         router.push('/tabs/home');

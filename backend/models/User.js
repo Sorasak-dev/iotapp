@@ -40,7 +40,13 @@ const userSchema = new mongoose.Schema(
       required: [true, "Password is required"],
     },
     name: { type: String, default: "" },
-    username: { type: String, default: "", unique: true, sparse: true, trim: true },
+    username: { 
+      type: String, 
+      default: null, 
+      unique: true, 
+      sparse: true, 
+      trim: true 
+    },
     phone: { type: String, default: "" },
     gender: { type: String, default: "" },
     profileImageUrl: { type: String, default: "" },
@@ -92,6 +98,10 @@ const userSchema = new mongoose.Schema(
 );
 
 userSchema.pre("save", async function (next) {
+  if (this.username === "") {
+    this.username = null;
+  }
+  
   if (this.isModified("password") && !this._skipHashing) {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);

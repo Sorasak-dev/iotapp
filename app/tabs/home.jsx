@@ -17,7 +17,7 @@ import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTranslation } from "react-i18next";
-import { API_ENDPOINTS, API_TIMEOUT, getAuthHeaders } from '../utils/config/api';
+import { API_ENDPOINTS, ANOMALY_ENDPOINTS, API_TIMEOUT, getAuthHeaders } from '../utils/config/api';
 import WeatherWidget from "../components/WeatherWidget"; 
 
 const deviceImages = {
@@ -45,6 +45,8 @@ export default function HomeScreen() {
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
   
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  
   const toggleDeleteMode = () => {
     setShowDeleteOption(!showDeleteOption);
   };
@@ -54,12 +56,13 @@ export default function HomeScreen() {
   };
 
   const handleRefresh = async () => {
-    console.log("🔄 Manual refresh triggered");
+    console.log("Manual refresh triggered");
     if (hasSelectedZone && currentZone) {
       await fetchDevices(currentZone._id);
     } else {
       await fetchDevices();
     }
+    await fetchUnreadNotificationCount();
   };
 
   const handleAddDevice = () => {
@@ -86,6 +89,7 @@ export default function HomeScreen() {
   useEffect(() => {
     updateDate();
     fetchZones();
+    fetchUnreadNotificationCount();
   }, []);
 
   useEffect(() => {
@@ -93,8 +97,9 @@ export default function HomeScreen() {
     
     if (hasSelectedZone && currentZone) {
       refreshInterval = setInterval(() => {
-        console.log("🔄 Auto-refreshing devices data...");
+        console.log("Auto-refreshing devices data...");
         fetchDevices(currentZone._id);
+        fetchUnreadNotificationCount();
       }, 30000); 
     }
 
@@ -105,11 +110,56 @@ export default function HomeScreen() {
     };
   }, [hasSelectedZone, currentZone]);
   
-  console.log("🔍 Debug info:", {
+  console.log("Debug info:", {
     zonesLength: zones.length,
     hasSelectedZone: hasSelectedZone,
-    currentZone: currentZone?.name || "null"
+    currentZone: currentZone?.name || "null",
+    unreadNotifications: unreadNotificationCount
   });
+
+  const fetchUnreadNotificationCount = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        console.error("No token found");
+        return;
+      }
+
+      console.log('Fetching unread notification count...');
+
+      const response = await axios.get(
+        `${ANOMALY_ENDPOINTS.HISTORY}?resolved=false&limit=100`,
+        {
+          headers: getAuthHeaders(token),
+          timeout: API_TIMEOUT
+        }
+      );
+
+      console.log('Anomaly response:', response.data);
+
+      let count = 0;
+      
+      if (response.data?.success && response.data?.data?.anomalies) {
+        count = response.data.data.anomalies.length;
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        count = response.data.data.length;
+      }
+
+      const storedNotifications = await AsyncStorage.getItem('localNotifications');
+      if (storedNotifications) {
+        const localNotifs = JSON.parse(storedNotifications);
+        const unreadLocal = localNotifs.filter(notif => !notif.read).length;
+        count += unreadLocal;
+      }
+
+      console.log(`Unread notifications: ${count}`);
+      setUnreadNotificationCount(count);
+      
+    } catch (error) {
+      console.error("Error fetching notification count:", error);
+      setUnreadNotificationCount(0);
+    }
+  };
 
   const fetchZones = async () => {
     try {
@@ -125,7 +175,7 @@ export default function HomeScreen() {
         timeout: API_TIMEOUT
       });
 
-      console.log("📡 Zones Data:", response.data);
+      console.log("Zones Data:", response.data);
 
       if (response.data && response.data.zones) {
         const userCreatedZones = response.data.zones.filter(zone => !zone.isDefault);
@@ -158,7 +208,7 @@ export default function HomeScreen() {
         await fetchDevices();
       }
     } catch (error) {
-      console.error("❌ Error fetching zones:", error);
+      console.error("Error fetching zones:", error);
       setHasSelectedZone(false);
       await fetchDevices();
     } finally {
@@ -184,7 +234,7 @@ export default function HomeScreen() {
         timeout: API_TIMEOUT
       });
 
-      console.log("📡 Devices Data:", response.data);
+      console.log("Devices Data:", response.data);
 
       if (Array.isArray(response.data)) {
         const connectedDevices = await Promise.all(response.data.map(async (device) => {
@@ -194,7 +244,7 @@ export default function HomeScreen() {
               timeout: API_TIMEOUT
             });
 
-            console.log(`📊 Latest data for ${device.name}:`, dataResponse.data);
+            console.log(`Latest data for ${device.name}:`, dataResponse.data);
 
             let latestReading = null;
             let dataCount = 0;
@@ -217,7 +267,7 @@ export default function HomeScreen() {
               lastReading: latestReading 
             };
           } catch (deviceError) {
-            console.error(`❌ Error fetching data for device ${device._id}:`, deviceError);
+            console.error(`Error fetching data for device ${device._id}:`, deviceError);
             return {
               ...device,
               status: device.status || "Online",
@@ -234,7 +284,7 @@ export default function HomeScreen() {
         setDevices([]);
       }
     } catch (error) {
-      console.error("❌ Error fetching devices:", error);
+      console.error("Error fetching devices:", error);
       if (error.response?.status === 401 || error.response?.status === 403) {
         await AsyncStorage.removeItem("token");
         Alert.alert("Session Expired", "Please log in again.");
@@ -344,7 +394,7 @@ export default function HomeScreen() {
         setDevices(devices.filter((device) => device._id !== deviceId));
       }
     } catch (error) {
-      console.error("❌ Error deleting device:", error);
+      console.error("Error deleting device:", error);
       if (error.response?.status === 401 || error.response?.status === 403) {
         await AsyncStorage.removeItem("token");
         Alert.alert("Session Expired", "Please log in again.");
@@ -500,8 +550,20 @@ export default function HomeScreen() {
             <Ionicons name="chevron-down" size={20} color="#333" />
           </TouchableOpacity>
           <View style={styles.headerActions}>
-            <TouchableOpacity onPress={() => router.push("/notifications/notification")}>
+            <TouchableOpacity 
+              style={styles.notificationButton}
+              onPress={() => {
+                router.push("/notifications/notification");
+              }}
+            >
               <Ionicons name="notifications-outline" size={24} color="black" />
+              {unreadNotificationCount > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -653,6 +715,29 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: "row",
     alignItems: "center",
+  },
+  notificationButton: {
+    position: 'relative',
+    padding: 4,
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: '#FF3B30',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 5,
+    borderWidth: 2,
+    borderColor: '#f5f7fa',
+  },
+  notificationBadgeText: {
+    color: 'white',
+    fontSize: 11,
+    fontWeight: '700',
   },
   zoneSelector: {
     flexDirection: 'row',

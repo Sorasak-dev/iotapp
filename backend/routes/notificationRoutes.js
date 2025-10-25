@@ -6,10 +6,21 @@ const authenticateToken = require('../middleware/authMiddleware');
 const validateTokenRegistration = (req, res, next) => {
   const { expoPushToken, deviceInfo } = req.body;
   
-  if (!expoPushToken || typeof expoPushToken !== 'string') {
+  if (!expoPushToken || typeof expoPushToken !== 'string' || expoPushToken.trim() === '') {
     return res.status(400).json({
       success: false,
       message: 'Valid expoPushToken is required'
+    });
+  }
+
+  const isValidFormat = expoPushToken.startsWith('ExponentPushToken[') || 
+                       expoPushToken.startsWith('ExpoPushToken[') ||
+                       expoPushToken.startsWith('ExpoToken[');
+  
+  if (!isValidFormat) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid Expo push token format. Token must start with ExponentPushToken[ or ExpoPushToken['
     });
   }
 

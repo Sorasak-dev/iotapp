@@ -5,13 +5,11 @@ import logging
 from datetime import datetime
 import os
 
-# เพิ่ม path สำหรับ import modules
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 try:
     from anomaly_api import AnomalyDetectionAPI
 except ImportError as e:
-    # Fallback ถ้าไม่สามารถ import ได้
     print(json.dumps({
         "error": f"Failed to import required modules: {str(e)}",
         "status": "error",
@@ -19,7 +17,6 @@ except ImportError as e:
     }))
     sys.exit(1)
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -42,9 +39,9 @@ class NodeJSPythonBridge:
         """Initialize Anomaly Detection API"""
         try:
             self.api = AnomalyDetectionAPI(models_path="models/anomaly_detection")
-            logger.info("✅ Anomaly Detection API initialized successfully")
+            logger.info("Anomaly Detection API initialized successfully")
         except Exception as e:
-            logger.error(f"❌ Failed to initialize API: {e}")
+            logger.error(f"Failed to initialize API: {e}")
             self.api = None
     
     def validate_input(self, data):
@@ -64,7 +61,6 @@ class NodeJSPythonBridge:
         if len(data['sensor_data']) == 0:
             raise ValueError("sensor_data array cannot be empty")
         
-        # Validate each sensor data point
         for i, sensor_point in enumerate(data['sensor_data']):
             if not isinstance(sensor_point, dict):
                 raise ValueError(f"sensor_data[{i}] must be an object")
@@ -75,26 +71,22 @@ class NodeJSPythonBridge:
     def process_request(self, input_data):
         """Process request from Node.js"""
         try:
-            # Validate input
             self.validate_input(input_data)
             
             sensor_data = input_data['sensor_data']
             options = input_data.get('options', {})
             
-            # Extract options with defaults - ใช้โมเดลที่ดีที่สุด
             method = options.get('method', 'hybrid')
-            model = options.get('model', 'gradient_boosting')  # ✅ ใช้โมเดลที่ดีที่สุด (F1=0.947)
+            model = options.get('model', 'gradient_boosting')  
             use_cache = options.get('use_cache', True)
             include_history = options.get('include_history', False)
             health_check = input_data.get('health_check', False)
             
             logger.info(f"Processing request: method={method}, model={model}, data_points={len(sensor_data)}")
             
-            # ถ้าเป็น health check ส่งข้อมูลง่ายๆ กลับ
             if health_check:
                 return self.generate_health_check_response()
             
-            # Process anomaly detection
             if method == 'hybrid':
                 results = []
                 for data_point in sensor_data:
@@ -106,7 +98,6 @@ class NodeJSPythonBridge:
                     )
                     results.append(result)
                 
-                # ถ้ามีหลาย data points รวมผลลัพธ์
                 if len(results) == 1:
                     return results[0]
                 else:
@@ -118,13 +109,12 @@ class NodeJSPythonBridge:
                     result = self.api.detect_anomalies_rules(data_point)
                     rule_results.append(result)
                 
-                return self.format_rule_based_response(rule_results)
+                return self.format_rule_based_response(rule_results, sensor_data)
                 
             elif method == 'ml_based':
                 if not self.api.health_status['models_loaded']:
                     return self.generate_ml_unavailable_response()
                 
-                # Prepare data for ML detection
                 X_data = []
                 for data_point in sensor_data:
                     X = self.api.preprocess_sensor_data_fixed(data_point)
@@ -177,14 +167,12 @@ class NodeJSPythonBridge:
                     alert_levels.append(result['summary'].get('alert_level', 'green'))
                     health_scores.append(result['summary'].get('health_score', 100))
             
-            # Determine overall alert level
             overall_alert_level = 'green'
             if 'red' in alert_levels:
                 overall_alert_level = 'red'
             elif 'yellow' in alert_levels:
                 overall_alert_level = 'yellow'
             
-            # Calculate average health score
             avg_health_score = sum(health_scores) / len(health_scores) if health_scores else 100
             
             return {
@@ -218,7 +206,7 @@ class NodeJSPythonBridge:
             logger.error(f"Error combining results: {e}")
             return self.generate_error_response(f"Failed to combine results: {str(e)}")
     
-    def format_rule_based_response(self, rule_results):
+    def format_rule_based_response(self, rule_results, sensor_data):
         """Format rule-based only response"""
         try:
             all_anomalies = []
@@ -228,7 +216,9 @@ class NodeJSPythonBridge:
             rule_detections = []
             total_anomalies = 0
             
-            for anomaly in all_anomalies:
+            for i, anomaly in enumerate(all_anomalies):
+                sensor_point = sensor_data[i] if i < len(sensor_data) else {}
+                
                 rule_detections.append({
                     "is_anomaly": True,
                     "anomaly_type": anomaly.get('type', 'unknown'),
@@ -236,17 +226,21 @@ class NodeJSPythonBridge:
                     "message": anomaly.get('message', 'Anomaly detected'),
                     "priority": anomaly.get('priority', 1),
                     "confidence": anomaly.get('confidence', 0.95),
-                    "timestamp": anomaly.get('timestamp', datetime.now().isoformat())
+                    "timestamp": anomaly.get('timestamp', datetime.now().isoformat()),
+                    "data": sensor_point,
+                    "sensor_data": sensor_point
                 })
                 total_anomalies += 1
             
-            # ถ้าไม่มี anomaly
             if total_anomalies == 0:
+                sensor_point = sensor_data[0] if len(sensor_data) > 0 else {}
                 rule_detections.append({
                     "is_anomaly": False,
                     "message": "No anomalies detected",
                     "confidence": 0.95,
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": datetime.now().isoformat(),
+                    "data": sensor_point,
+                    "sensor_data": sensor_point
                 })
             
             alert_level = 'green'
@@ -290,13 +284,17 @@ class NodeJSPythonBridge:
             ml_detections = []
             
             for i, prediction in enumerate(ml_results):
+                sensor_point = sensor_data[i] if i < len(sensor_data) else {}
+                
                 ml_detections.append({
                     "is_anomaly": bool(prediction),
                     "confidence": float(prediction) if isinstance(prediction, (int, float)) else 0.0,
                     "model_used": "gradient_boosting",
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": sensor_point.get('timestamp', datetime.now().isoformat()),
                     "batch_index": i,
-                    "feature_count": 49
+                    "feature_count": 49,
+                    "data": sensor_point,
+                    "sensor_data": sensor_point
                 })
             
             anomaly_count = sum(1 for d in ml_detections if d['is_anomaly'])
@@ -371,10 +369,8 @@ class NodeJSPythonBridge:
 def main():
     """Main function สำหรับรับข้อมูลจาก Node.js"""
     try:
-        # Initialize bridge
         bridge = NodeJSPythonBridge()
         
-        # อ่านข้อมูลจาก stdin
         input_line = sys.stdin.read().strip()
         
         if not input_line:
@@ -385,7 +381,6 @@ def main():
             }))
             sys.exit(1)
         
-        # Parse JSON input
         try:
             input_data = json.loads(input_line)
         except json.JSONDecodeError as e:
@@ -396,10 +391,8 @@ def main():
             }))
             sys.exit(1)
         
-        # Process request
         result = bridge.process_request(input_data)
         
-        # Output result
         print(json.dumps(result, indent=None, separators=(',', ':')))
         
     except Exception as e:

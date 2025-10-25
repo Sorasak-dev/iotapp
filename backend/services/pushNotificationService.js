@@ -10,18 +10,22 @@ class PushNotificationService {
   }
 
   async registerToken(userId, expoPushToken, deviceInfo) {
-    try {
-      const isValidExpoToken = Expo.isExpoPushToken(expoPushToken);
-      const isDevToken = expoPushToken.startsWith('ExpoToken[DEV_');
-      const isMockToken = expoPushToken.startsWith('ExponentPushToken[SIMULATOR_') || 
-                         expoPushToken.startsWith('ExponentPushToken[FALLBACK_');
-      
-      if (!isValidExpoToken && !isDevToken && !isMockToken) {
-        throw new Error('Invalid Expo push token format');
-      }
-      if (isDevToken || isMockToken) {
-        console.log('Using development/mock push token - notifications will only work in development');
-      }
+  try {
+    const isValidExpoToken = Expo.isExpoPushToken(expoPushToken);
+    const isDevToken = expoPushToken.startsWith('ExpoToken[DEV_') ||
+                      expoPushToken.startsWith('ExpoPushToken[DEV_');
+    const isMockToken = expoPushToken.startsWith('ExponentPushToken[SIMULATOR_') || 
+                       expoPushToken.startsWith('ExponentPushToken[FALLBACK_') ||
+                       expoPushToken.startsWith('ExpoPushToken[SIMULATOR_') ||
+                       expoPushToken.startsWith('ExpoPushToken[FALLBACK_');
+    
+    if (!isValidExpoToken && !isDevToken && !isMockToken) {
+      throw new Error('Invalid Expo push token format');
+    }
+    
+    if (isDevToken || isMockToken) {
+      console.log('Using development/mock push token - notifications will only work in development');
+    }
 
       let existingToken = await PushToken.findOne({ expoPushToken });
       

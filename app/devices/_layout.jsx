@@ -7,10 +7,12 @@ export default function DevicesLayout() {
         headerShown: false, 
       }}
     >
+            <Stack.Screen name="sensor-detail"/>      
             <Stack.Screen name="device-monitor"/>
             <Stack.Screen name="selectdevice"/>
-            <Stack.Screen name="sensor-detail"/>
             <Stack.Screen name="full-chart"/>
+            <Stack.Screen name="error-history"/>
+            <Stack.Screen name="edit-device"/>
         </Stack>
     );
 }

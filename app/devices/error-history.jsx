@@ -16,7 +16,7 @@ import Icon from "react-native-vector-icons/MaterialIcons";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
-import { ANOMALY_ENDPOINTS, getAuthHeaders } from "../utils/config/api"; 
+import { API_ENDPOINTS, ANOMALY_ENDPOINTS, getAuthHeaders, AnomalyService } from '../utils/config/api';
 
 const isIOS = Platform.OS === "ios";
 
@@ -30,102 +30,6 @@ const getAuthToken = async () => {
   } catch (error) {
     console.error("Error retrieving token:", error);
     throw error;
-  }
-};
-
-const AnomalyService = {
-  getHistory: async (token, filters = {}) => {
-    try {
-      console.log('📡 Fetching anomaly history with filters:', filters);
-      
-      const queryParams = new URLSearchParams();
-      if (filters.deviceId) queryParams.append('deviceId', filters.deviceId);
-      if (filters.resolved !== undefined) queryParams.append('resolved', filters.resolved);
-      if (filters.limit) queryParams.append('limit', filters.limit);
-      if (filters.page) queryParams.append('page', filters.page);
-      if (filters.alertLevel) queryParams.append('alertLevel', filters.alertLevel);
-      if (filters.startDate) queryParams.append('startDate', filters.startDate);
-      if (filters.endDate) queryParams.append('endDate', filters.endDate);
-      
-      const url = `${ANOMALY_ENDPOINTS.HISTORY}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-      
-      const response = await fetch(url, {
-        headers: getAuthHeaders(token),
-        timeout: 10000
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      return result;
-      
-    } catch (error) {
-      console.error('❌ Error fetching anomaly history:', error);
-      return {
-        success: true,
-        data: {
-          anomalies: [],
-          pagination: { page: 1, limit: 20, total: 0 }
-        }
-      };
-    }
-  },
-
-  getStats: async (token, days = 7) => {
-    try {
-      console.log(`📊 Fetching anomaly stats for ${days} days`);
-      
-      const url = `${ANOMALY_ENDPOINTS.STATS}?days=${days}`;
-      const response = await fetch(url, {
-        headers: getAuthHeaders(token),
-        timeout: 10000
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      return result;
-      
-    } catch (error) {
-      console.error('❌ Error fetching anomaly stats:', error);
-      return {
-        success: true,
-        data: {
-          total_anomalies: 0,
-          resolved_count: 0,
-          unresolved_count: 0,
-          alertStats: []
-        }
-      };
-    }
-  },
-
-  resolveAnomaly: async (token, anomalyId, notes = '') => {
-    try {
-      console.log(`✅ Resolving anomaly ${anomalyId}`);
-      
-      const response = await fetch(ANOMALY_ENDPOINTS.RESOLVE(anomalyId), {
-        method: 'PUT',
-        headers: getAuthHeaders(token),
-        body: JSON.stringify({ notes }),
-        timeout: 10000
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      return result;
-      
-    } catch (error) {
-      console.error('❌ Error resolving anomaly:', error);
-      throw error;
-    }
   }
 };
 
@@ -176,7 +80,6 @@ export default function ErrorHistory() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState("all");
-  const [stats, setStats] = useState(null);
 
   useEffect(() => {
     if (errorHistory) {
@@ -200,10 +103,7 @@ export default function ErrorHistory() {
   }, [errorHistory]);
 
   const fetchData = async () => {
-    await Promise.all([
-      fetchHistoricalErrors(),
-      fetchStats()
-    ]);
+    await fetchHistoricalErrors();
   };
 
   const fetchHistoricalErrors = async () => {
@@ -216,7 +116,7 @@ export default function ErrorHistory() {
         page: 1
       });
 
-      console.log('✅ Anomaly history response:', data);
+      console.log('Anomaly history FULL response:', JSON.stringify(data, null, 2));
 
       let anomaliesArray = [];
       
@@ -225,31 +125,89 @@ export default function ErrorHistory() {
       } else if (data?.data && Array.isArray(data.data)) {
         anomaliesArray = data.data;
       } else {
-        console.warn('⚠️ Unexpected API response structure:', data);
+        console.warn('Unexpected API response structure:', data);
         anomaliesArray = [];
       }
 
+      console.log(`Total anomalies found: ${anomaliesArray.length}`);
+
       const existingKeys = new Set();
 
-      const formattedHistory = anomaliesArray.map((item, index) => ({
-        id: generateUniqueKey(item, index, 'historical', existingKeys),
-        type: formatAnomalyType(item?.anomalyType || item?.type || 'unknown'),
-        timestamp: item?.timestamp || new Date().toISOString(),
-        details: item?.message || 'No details available',
-        alertLevel: item?.alertLevel || 'yellow', 
-        detectionMethod: item?.detectionMethod || 'unknown',
-        score: item?.mlResults?.confidence ? item.mlResults.confidence.toFixed(2) : undefined,
-        isAnomalyDetection: item?.detectionMethod === 'ml_based' || item?.detectionMethod === 'hybrid',
-        resolved: item?.resolved || false,
-        notes: item?.notes || null,
-        deviceId: item?.deviceId || 'Unknown',
-        sensorData: item?.sensorData || null
-      }));
+      const formattedHistory = anomaliesArray.map((item, index) => {
+        if (index < 3) {
+          console.log(`Anomaly ${index}:`, JSON.stringify(item, null, 2));
+        }
+        
+        const detectionMethod = item?.detectionMethod || 
+                               item?.detection_method || 
+                               'unknown';
+        
+        const isML = detectionMethod === 'ml_based' || 
+                    detectionMethod === 'hybrid' ||
+                    item?.mlResults?.confidence > 0 ||
+                    item?.anomalyType === 'ml_detected' ||
+                    item?.type === 'ml_detected';
+        
+        let message = item?.message || 
+                     item?.alertMessage?.message ||
+                     item?.details ||
+                     'No details available';
+        
+        const alertLevel = item?.alertLevel || 
+                          item?.alert_level ||
+                          item?.summary?.alertLevel || 
+                          'yellow';
+        
+        let sensorData = item?.sensorData || 
+                        item?.sensor_data ||
+                        item?.data ||
+                        null;
+        
+        if (sensorData && typeof sensorData === 'object') {
+          const hasData = Object.values(sensorData).some(val => 
+            val !== null && val !== undefined
+          );
+          if (!hasData) {
+            sensorData = null;
+          }
+        }
+        
+        if (index < 3) {
+          console.log(`Anomaly ${index} processed:`, {
+            detectionMethod,
+            isML,
+            alertLevel,
+            hasSensorData: !!sensorData,
+            sensorData: sensorData,
+            message: message
+          });
+        }
+        
+        return {
+          id: generateUniqueKey(item, index, 'historical', existingKeys),
+          type: formatAnomalyType(item?.anomalyType || item?.type || 'unknown'),
+          timestamp: item?.timestamp || new Date().toISOString(),
+          details: message,
+          alertLevel: alertLevel,
+          detectionMethod: detectionMethod,
+          score: item?.mlResults?.confidence ? item.mlResults.confidence.toFixed(2) : undefined,
+          isAnomalyDetection: isML,
+          resolved: item?.resolved || false,
+          notes: item?.notes || null,
+          deviceId: item?.deviceId || 'Unknown',
+          sensorData: sensorData
+        };
+      });
 
-      setHistoricalErrors(deduplicateErrors(formattedHistory));
+      const deduplicated = deduplicateErrors(formattedHistory);
+      console.log(`After deduplication: ${deduplicated.length} anomalies`);
+      console.log(`ML anomalies: ${deduplicated.filter(e => e.isAnomalyDetection).length}`);
+      console.log(`With sensor data: ${deduplicated.filter(e => e.sensorData).length}`);
+
+      setHistoricalErrors(deduplicated);
 
     } catch (error) {
-      console.error("❌ Error fetching historical errors:", error);
+      console.error("Error fetching historical errors:", error);
       setHistoricalErrors([]);
       
       if (error.message && error.message.includes('401')) {
@@ -268,16 +226,6 @@ export default function ErrorHistory() {
     }
   };
 
-  const fetchStats = async () => {
-    try {
-      const token = await getAuthToken();
-      const statsData = await AnomalyService.getStats(token, 7);
-      setStats(statsData);
-    } catch (error) {
-      console.error("❌ Error fetching stats:", error);
-    }
-  };
-
   const formatAnomalyType = (type) => {
     const typeMap = {
       'sudden_drop': 'Sudden Value Drop',
@@ -289,9 +237,13 @@ export default function ErrorHistory() {
       'vpd_too_low': 'VPD Too Low',
       'dew_point_close': 'Dew Point Alert',
       'battery_depleted': 'Battery Depleted',
-      'ml_detected': 'AI Anomaly Detection (Gradient Boosting)' 
+      'ml_detected': 'Unusual Pattern Detected',
+      'temperature_high': 'High Temperature',
+      'temperature_low': 'Low Temperature',
+      'humidity_high': 'High Humidity',
+      'humidity_low': 'Low Humidity'
     };
-    return typeMap[type] || type;
+    return typeMap[type] || 'Sensor Alert';
   };
 
   const handleResolveAnomaly = async (anomalyId) => {
@@ -319,7 +271,7 @@ export default function ErrorHistory() {
                 
                 Alert.alert('Success', 'Anomaly marked as resolved');
               } catch (error) {
-                console.error('❌ Error resolving anomaly:', error);
+                console.error('Error resolving anomaly:', error);
                 Alert.alert('Error', 'Failed to resolve anomaly');
               }
             }
@@ -328,7 +280,7 @@ export default function ErrorHistory() {
         'plain-text'
       );
     } catch (error) {
-      console.error('❌ Error in resolve process:', error);
+      console.error('Error in resolve process:', error);
     }
   };
 
@@ -349,12 +301,15 @@ export default function ErrorHistory() {
   }, [currentErrors, historicalErrors]);
 
   const filteredErrors = useMemo(() => {
-    return allErrors.filter((error) => {
+    const filtered = allErrors.filter((error) => {
       if (filter === "all") return true;
       if (filter === "basic") return !error.isAnomalyDetection && !error.score;
       if (filter === "anomaly") return error.isAnomalyDetection || !!error.score;
       return true;
     });
+
+    console.log(`Filter "${filter}": ${filtered.length} errors`);
+    return filtered;
   }, [allErrors, filter]);
 
   const errorsWithRenderKeys = useMemo(() => {
@@ -381,28 +336,6 @@ export default function ErrorHistory() {
             <Text style={styles.header}>Anomaly History</Text>
           </View>
 
-          {/* Stats Summary */}
-          {stats?.data?.alertStats && Array.isArray(stats.data.alertStats) && (
-            <View style={styles.statsContainer}>
-              <Text style={styles.statsTitle}>Last 7 Days Summary</Text>
-              <View style={styles.statsGrid}>
-                {stats.data.alertStats.map((stat, index) => {
-                  const existingKeys = new Set();
-                  return (
-                    <View key={generateUniqueKey(stat, index, 'stat', existingKeys)} style={[
-                      styles.statBox,
-                      { backgroundColor: stat._id === 'red' ? '#FFEBEE' : stat._id === 'yellow' ? '#FFF8E1' : '#E8F5E8' }
-                    ]}>
-                      <Text style={styles.statNumber}>{stat.count}</Text>
-                      <Text style={styles.statLabel}>{stat._id?.toUpperCase() || 'UNKNOWN'}</Text>
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
-          )}
-
-          {/* Filters */}
           <View style={styles.filtersContainer}>
             <TouchableOpacity
               onPress={() => setFilter("all")}
@@ -454,7 +387,6 @@ export default function ErrorHistory() {
             </TouchableOpacity>
           </View>
 
-          {/* Error List */}
           {loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color="#1976D2" />
@@ -514,10 +446,59 @@ export default function ErrorHistory() {
 
                   <Text style={styles.errorDetails}>{error.details}</Text>
 
-                  {error.score && (
-                    <Text style={styles.anomalyScore}>
-                      AI Confidence: {error.score}
-                    </Text>
+                  {error.sensorData && Object.keys(error.sensorData).some(key => 
+                    error.sensorData[key] !== null && error.sensorData[key] !== undefined
+                  ) ? (
+                    <View style={styles.sensorInfoBox}>
+                      {error.sensorData.temperature !== undefined && error.sensorData.temperature !== null && (
+                        <View style={styles.sensorInfoRow}>
+                          <Text style={styles.sensorInfoIcon}>🌡️</Text>
+                          <Text style={styles.sensorInfoText}>
+                            Temperature: {error.sensorData.temperature.toFixed(1)}°C
+                          </Text>
+                        </View>
+                      )}
+                      {error.sensorData.humidity !== undefined && error.sensorData.humidity !== null && (
+                        <View style={styles.sensorInfoRow}>
+                          <Text style={styles.sensorInfoIcon}>💧</Text>
+                          <Text style={styles.sensorInfoText}>
+                            Humidity: {error.sensorData.humidity.toFixed(1)}%
+                          </Text>
+                        </View>
+                      )}
+                      {error.sensorData.vpd !== undefined && error.sensorData.vpd !== null && (
+                        <View style={styles.sensorInfoRow}>
+                          <Text style={styles.sensorInfoIcon}>📊</Text>
+                          <Text style={styles.sensorInfoText}>
+                            VPD: {error.sensorData.vpd.toFixed(2)} kPa
+                          </Text>
+                        </View>
+                      )}
+                      {error.sensorData.voltage !== undefined && error.sensorData.voltage !== null && (
+                        <View style={styles.sensorInfoRow}>
+                          <Text style={styles.sensorInfoIcon}>⚡</Text>
+                          <Text style={styles.sensorInfoText}>
+                            Voltage: {error.sensorData.voltage.toFixed(2)}V
+                          </Text>
+                        </View>
+                      )}
+                      {error.sensorData.battery_level !== undefined && error.sensorData.battery_level !== null && (
+                        <View style={styles.sensorInfoRow}>
+                          <Text style={styles.sensorInfoIcon}>🔋</Text>
+                          <Text style={styles.sensorInfoText}>
+                            Battery: {error.sensorData.battery_level.toFixed(0)}%
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  ) : (
+                    error.isAnomalyDetection && (
+                      <View style={styles.noSensorDataBox}>
+                        <Text style={styles.noSensorDataText}>
+                          ℹ️ Sensor data not available for this detection
+                        </Text>
+                      </View>
+                    )
                   )}
 
                   {error.notes && (
@@ -558,8 +539,7 @@ export default function ErrorHistory() {
             <Icon name="info" size={20} color="#1976D2" />
             <Text style={styles.infoText}>
               Basic Errors are detected by system rules. AI Detected anomalies use 
-              Gradient Boosting machine learning (F1-score 94.7%) to identify unusual 
-              patterns in sensor data.
+              machine learning to identify unusual patterns in sensor data.
             </Text>
           </View>
         </View>
@@ -597,42 +577,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     flex: 1,
     marginLeft: 10,
-  },
-  statsContainer: {
-    backgroundColor: "white",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  statsTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 12,
-  },
-  statsGrid: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-  },
-  statBox: {
-    alignItems: "center",
-    padding: 12,
-    borderRadius: 8,
-    minWidth: 60,
-  },
-  statNumber: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  statLabel: {
-    fontSize: 10,
-    color: "#666",
-    marginTop: 4,
   },
   filtersContainer: {
     flexDirection: "row",
@@ -741,11 +685,38 @@ const styles = StyleSheet.create({
     color: "#555",
     marginBottom: 8,
   },
-  anomalyScore: {
-    fontSize: 14,
-    color: "#FF9800",
-    fontWeight: "500",
+  sensorInfoBox: {
+    backgroundColor: '#F0F4FF',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
     marginBottom: 8,
+  },
+  sensorInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  sensorInfoIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  sensorInfoText: {
+    fontSize: 13,
+    color: '#333',
+    fontWeight: '500',
+  },
+  noSensorDataBox: {
+    backgroundColor: '#FFF8E1',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  noSensorDataText: {
+    fontSize: 13,
+    color: '#F57C00',
+    fontStyle: 'italic',
   },
   errorNotes: {
     fontSize: 14,

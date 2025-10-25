@@ -295,7 +295,7 @@ class NotificationService {
         body: `${anomalyData.type} detected on ${anomalyData.device_name}`,
         data: {
           anomalyId: anomalyData._id,
-          deviceId: anomalyData.device_id,
+          deviceId: anomalyData.deviceId,
           type: 'anomaly',
           severity: anomalyData.severity,
         },

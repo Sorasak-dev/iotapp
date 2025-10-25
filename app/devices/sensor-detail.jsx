@@ -4,7 +4,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import { API_ENDPOINTS, ANOMALY_ENDPOINTS, getAuthHeaders } from '../utils/config/api';
+import { API_ENDPOINTS, ANOMALY_ENDPOINTS, getAuthHeaders, AnomalyService } from '../utils/config/api';
 import { useRouter } from 'expo-router';
 
 const screenWidth = Dimensions.get('window').width;
@@ -20,171 +20,6 @@ const getAuthToken = async () => {
   } catch (error) {
     console.error('Error retrieving token:', error);
     throw error;
-  }
-};
-
-const AnomalyService = {
-  detectAnomaly: async (token, sensorData) => {
-    try {
-      console.log('🔍 Real-time anomaly detection (Hybrid: Gradient Boosting + Rules)');
-      
-      const response = await fetch(ANOMALY_ENDPOINTS.DETECT, {
-        method: 'POST',
-        headers: getAuthHeaders(token),
-        body: JSON.stringify(sensorData),
-        timeout: 30000
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      console.log('✅ Detection result:', result);
-      
-      return {
-        success: true,
-        ...result
-      };
-      
-    } catch (error) {
-      console.error('❌ Detection error:', error);
-      return {
-        success: false,
-        message: error.message || 'Detection failed',
-        alert_level: 'green',
-        health_score: 100,
-        is_anomaly: false
-      };
-    }
-  },
-
-  getHistory: async (token, filters = {}) => {
-    try {
-      console.log('📡 Fetching anomaly history with filters:', filters);
-      
-      const queryParams = new URLSearchParams();
-      if (filters.deviceId) queryParams.append('deviceId', filters.deviceId);
-      if (filters.resolved !== undefined) queryParams.append('resolved', filters.resolved);
-      if (filters.limit) queryParams.append('limit', filters.limit);
-      if (filters.page) queryParams.append('page', filters.page);
-      if (filters.alertLevel) queryParams.append('alertLevel', filters.alertLevel);
-      
-      const url = `${ANOMALY_ENDPOINTS.HISTORY}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-      
-      const response = await fetch(url, {
-        headers: getAuthHeaders(token),
-        timeout: 10000
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      return result;
-      
-    } catch (error) {
-      console.error('❌ Error fetching anomaly history:', error);
-      return {
-        success: true,
-        data: {
-          anomalies: [],
-          pagination: { page: 1, limit: 20, total: 0 }
-        }
-      };
-    }
-  },
-
-  getStats: async (token, days = 7) => {
-    try {
-      console.log(`📊 Fetching anomaly stats for ${days} days`);
-      
-      const url = `${ANOMALY_ENDPOINTS.STATS}?days=${days}`;
-      const response = await fetch(url, {
-        headers: getAuthHeaders(token),
-        timeout: 10000
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      return result;
-      
-    } catch (error) {
-      console.error('❌ Error fetching anomaly stats:', error);
-      return {
-        success: true,
-        data: {
-          total_anomalies: 0,
-          resolved_count: 0,
-          unresolved_count: 0,
-          resolution_rate: 0,
-          accuracy_rate: 95.2
-        }
-      };
-    }
-  },
-
-  checkHealth: async () => {
-    try {
-      console.log('💓 Checking anomaly service health');
-      
-      const response = await fetch(ANOMALY_ENDPOINTS.HEALTH, {
-        timeout: 5000
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      return result;
-      
-    } catch (error) {
-      console.error('❌ Health check failed:', error);
-      return {
-        success: true,
-        data: {
-          status: 'offline',
-          service_status: 'offline',
-          model_ready: true,
-          active_model: 'Gradient Boosting Hybrid',
-          last_check: new Date().toISOString()
-        }
-      };
-    }
-  },
-
-  checkDevice: async (token, deviceId) => {
-    try {
-      console.log(`🔍 Checking device ${deviceId} for anomalies`);
-      
-      const response = await fetch(ANOMALY_ENDPOINTS.CHECK_DEVICE(deviceId), {
-        method: 'POST',
-        headers: getAuthHeaders(token),
-        timeout: 30000
-      });
-      
-      if (!response.ok) {
-        if (response.status === 429) {
-          throw new Error('Rate limit exceeded - please wait before checking again');
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      return result;
-      
-    } catch (error) {
-      console.error('❌ Error checking device:', error);
-      return {
-        success: false,
-        message: error.message || 'Device check failed'
-      };
-    }
   }
 };
 
@@ -223,21 +58,28 @@ export default function SensorDetail() {
           setDeviceName(deviceData.name);
         }
         if (deviceData && (deviceData._id || deviceData.deviceId)) {
-          setDeviceId(deviceData._id || deviceData.deviceId);
+          const id = deviceData._id || deviceData.deviceId;
+          setDeviceId(id);
+          
+          setTimeout(() => {
+            fetchSensorData(id);
+            checkAnomalyHealth();
+            loadAnomalyStats(id);
+          }, 100);
         }
       } catch (error) {
         console.error("Error parsing device data:", error);
       }
+    } else {
+      fetchSensorData(null);
+      checkAnomalyHealth();
+      loadAnomalyStats(null);
     }
-    
-    fetchSensorData();
-    checkAnomalyHealth();
-    loadAnomalyStats();
-  }, []);
+  }, [device]);
 
   const checkAnomalyHealth = async () => {
     try {
-      console.log('💓 Checking anomaly service health...');
+      console.log('Checking anomaly service health...');
       const healthData = await AnomalyService.checkHealth();
       
       if (healthData && healthData.data) {
@@ -248,7 +90,7 @@ export default function SensorDetail() {
         });
       }
     } catch (error) {
-      console.error('❌ Error in checkAnomalyHealth:', error);
+      console.error('Error in checkAnomalyHealth:', error);
       setModelStatus({
         model_ready: true,
         active_model: 'Gradient Boosting Hybrid',
@@ -257,11 +99,14 @@ export default function SensorDetail() {
     }
   };
 
-  const loadAnomalyStats = async () => {
+  const loadAnomalyStats = async (currentDeviceId = null) => {
     try {
-      console.log('📊 Loading anomaly stats...');
+      console.log('Loading anomaly stats...');
       const token = await getAuthToken();
-      const stats = await AnomalyService.getStats(token, 7);
+    
+      const targetDeviceId = currentDeviceId || deviceId;
+      
+      const stats = await AnomalyService.getStats(token, 1);
       
       if (stats && stats.data) {
         setAnomalyStats({
@@ -272,7 +117,7 @@ export default function SensorDetail() {
         });
       }
     } catch (error) {
-      console.error('❌ Error loading anomaly stats:', error);
+      console.error('Error loading anomaly stats:', error);
       setAnomalyStats({
         total_anomalies: 0,
         unresolved_count: 0,
@@ -291,22 +136,24 @@ export default function SensorDetail() {
     return mapping[alertLevel] || 'medium';
   };
 
-  const loadRecentAnomalies = async () => {
+  const loadRecentAnomalies = async (currentDeviceId = null) => {
     try {
-      console.log('📡 Loading recent anomalies...');
+      console.log('Loading recent anomalies...');
       
-      if (!deviceId) {
-        console.warn('⚠️ No deviceId available');
+      const targetDeviceId = currentDeviceId || deviceId;
+      
+      if (!targetDeviceId) {
+        console.warn('No deviceId available');
         return [];
       }
 
       const token = await getAuthToken();
       const filters = {
-        deviceId: deviceId,
+        deviceId: targetDeviceId,
         limit: 5,
         resolved: false
       };
-      
+
       const response = await AnomalyService.getHistory(token, filters);
       
       if (response && response.success && response.data && response.data.anomalies) {
@@ -329,7 +176,7 @@ export default function SensorDetail() {
       return [];
       
     } catch (error) {
-      console.error('❌ Error loading recent anomalies:', error);
+      console.error('Error loading recent anomalies:', error);
       return [];
     }
   };
@@ -355,10 +202,10 @@ export default function SensorDetail() {
 
   const detectAnomaliesRealtime = async (latestReading) => {
     try {
-      console.log('🔍 Running real-time anomaly detection...');
+      console.log('Running real-time anomaly detection...');
       
       if (!latestReading) {
-        console.warn('⚠️ No sensor reading available');
+        console.warn('No sensor reading available');
         return [];
       }
 
@@ -380,7 +227,7 @@ export default function SensorDetail() {
       const result = await AnomalyService.detectAnomaly(token, sensorData);
       
       if (!result.success) {
-        console.warn('⚠️ Detection failed:', result.message);
+        console.warn('Detection failed:', result.message);
         return [];
       }
 
@@ -426,26 +273,28 @@ export default function SensorDetail() {
       }
 
       if (result.details?.recommendations && result.details.recommendations.length > 0) {
-        console.log('📋 Recommendations:', result.details.recommendations);
+        console.log('Recommendations:', result.details.recommendations);
       }
 
-      console.log(`✅ Detected ${detectedAnomalies.length} anomalies`);
+      console.log(`Detected ${detectedAnomalies.length} anomalies`);
       return detectedAnomalies;
       
     } catch (error) {
-      console.error('❌ Error in real-time detection:', error);
+      console.error('Error in real-time detection:', error);
       return [];
     }
   };
 
-  const fetchSensorData = async () => {
+  const fetchSensorData = async (currentDeviceId = null) => {
     try {
       setIsLoading(true);
       const token = await getAuthToken();
       
+      const targetDeviceId = currentDeviceId || deviceId;
+      
       let apiUrl;
-      if (deviceId) {
-        apiUrl = `${API_ENDPOINTS.DEVICES}/${deviceId}/data?limit=100`;
+      if (targetDeviceId) {
+        apiUrl = `${API_ENDPOINTS.DEVICES}/${targetDeviceId}/data?limit=100`;
       } else {
         apiUrl = API_ENDPOINTS.SENSOR_DATA;
       }
@@ -461,7 +310,7 @@ export default function SensorDetail() {
       const result = await response.json();
       let data;
       
-      if (deviceId && result.data) {
+      if (targetDeviceId && result.data) {
         data = { success: true, data: result.data };
       } else {
         data = result;
@@ -496,9 +345,9 @@ export default function SensorDetail() {
 
       let recentAnomalies = [];
       try {
-        recentAnomalies = await loadRecentAnomalies();
+        recentAnomalies = await loadRecentAnomalies(targetDeviceId);
       } catch (anomalyError) {
-        console.error('❌ Failed to load recent anomalies:', anomalyError);
+        console.error('Failed to load recent anomalies:', anomalyError);
         recentAnomalies = [];
       }
 
@@ -540,7 +389,7 @@ export default function SensorDetail() {
       }
 
     } catch (error) {
-      console.error("❌ Error fetching sensor data:", error);
+      console.error("Error fetching sensor data:", error);
       Alert.alert('Error', error.message || 'Failed to fetch sensor data');
     } finally {
       setIsLoading(false);
@@ -548,15 +397,12 @@ export default function SensorDetail() {
   };
 
   const handleViewErrorHistory = () => {
-    router.push({
-      pathname: "/notifications/error-history", 
-      params: { 
-        errorHistory: JSON.stringify(currentIssues),
-        deviceId: deviceId,
-        deviceName: deviceName
-      }
-    });
-  };
+  navigation.navigate('error-history', {
+    errorHistory: JSON.stringify(currentIssues),
+    deviceId: deviceId,
+    deviceName: deviceName
+  });
+};
 
   const handleGoBack = () => {
     navigation.goBack();
@@ -597,8 +443,8 @@ export default function SensorDetail() {
   };
 
   const refreshAnomalyData = async () => {
-    await fetchSensorData();
-    await loadAnomalyStats();
+    await fetchSensorData(deviceId);
+    await loadAnomalyStats(deviceId);
   };
 
   return (
@@ -631,7 +477,7 @@ export default function SensorDetail() {
             {anomalyStats && (
               <View style={styles.statsContainer}>
                 <Text style={styles.statsText}>
-                  Last 7 days: {anomalyStats.total_anomalies} anomalies detected
+                  Last 24 hours: {anomalyStats.total_anomalies} anomalies detected
                 </Text>
                 {anomalyStats.unresolved_count > 0 && (
                   <Text style={styles.unresolvedText}>

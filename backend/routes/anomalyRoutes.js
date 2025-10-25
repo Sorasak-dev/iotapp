@@ -39,6 +39,23 @@ const detectLimiter = rateLimit({
   }
 });
 
+function formatAnomalyTitle(type) {
+  const typeMap = {
+    'sudden_drop': 'Sudden Value Drop',
+    'sudden_spike': 'Sudden Value Spike',
+    'vpd_too_low': 'VPD Too Low',
+    'low_voltage': 'Low Voltage',
+    'dew_point_close': 'Dew Point Alert',
+    'battery_depleted': 'Battery Depleted',
+    'ml_detected': 'Unusual Pattern Detected',
+    'temperature_high': 'High Temperature',
+    'temperature_low': 'Low Temperature',
+    'humidity_high': 'High Humidity',
+    'humidity_low': 'Low Humidity'
+  };
+  return typeMap[type] || 'Sensor Alert';
+}
+
 function generateAlertMessage(result) {
   const summary = result.summary || {};
   const totalAnomalies = summary.total_anomalies || 0;
@@ -72,7 +89,8 @@ function generateRecommendations(result) {
           priority: 'high',
           message: 'Battery level critically low',
           action: 'Replace or recharge battery immediately',
-          estimated_time: '5-10 minutes'
+          estimatedTime: '5-10 minutes',
+          severityImpact: 'high'
         });
       } else if (type === 'low_voltage') {
         recommendations.push({
@@ -80,7 +98,8 @@ function generateRecommendations(result) {
           priority: 'high',
           message: 'Voltage below normal threshold',
           action: 'Check electrical connections and power supply',
-          estimated_time: '10-15 minutes'
+          estimatedTime: '10-15 minutes',
+          severityImpact: 'high'
         });
       } else if (type === 'sudden_drop') {
         recommendations.push({
@@ -88,7 +107,8 @@ function generateRecommendations(result) {
           priority: 'high',
           message: 'Sudden drop in sensor readings',
           action: 'Inspect sensor connections and physical condition',
-          estimated_time: '15-20 minutes'
+          estimatedTime: '15-20 minutes',
+          severityImpact: 'high'
         });
       } else if (type === 'vpd_too_low') {
         recommendations.push({
@@ -96,7 +116,8 @@ function generateRecommendations(result) {
           priority: 'medium',
           message: 'Vapor Pressure Deficit below optimal range',
           action: 'Improve ventilation or adjust humidity control',
-          estimated_time: '20-30 minutes'
+          estimatedTime: '20-30 minutes',
+          severityImpact: 'medium'
         });
       } else if (type === 'dew_point_close') {
         recommendations.push({
@@ -104,7 +125,8 @@ function generateRecommendations(result) {
           priority: 'high',
           message: 'High risk of condensation',
           action: 'Increase air circulation to prevent moisture buildup',
-          estimated_time: '10-15 minutes'
+          estimatedTime: '10-15 minutes',
+          severityImpact: 'high'
         });
       }
     }
@@ -119,12 +141,243 @@ function generateRecommendations(result) {
       priority: 'medium',
       message: 'Unusual pattern detected by ML model',
       action: 'Monitor system closely and investigate potential causes',
-      estimated_time: '30-60 minutes'
+      estimatedTime: '30-60 minutes',
+      severityImpact: 'medium'
     });
   }
   
   return recommendations;
 }
+
+const createAnomalyRecord = (detection, deviceId, userId, detectionMethod) => {
+  const timestamp = new Date(detection.timestamp || new Date());
+  const sensorData = detection.data || detection.sensor_data || {};
+  
+  const anomalyRecord = {
+    deviceId,
+    userId,
+    timestamp,
+    
+    sensorData: {
+      temperature: sensorData.temperature || null,
+      humidity: sensorData.humidity || null,
+      co2: sensorData.co2 || null,
+      ec: sensorData.ec || null,
+      ph: sensorData.ph || null,
+      voltage: sensorData.voltage || null,
+      battery_level: sensorData.battery_level || null,
+      dew_point: sensorData.dew_point || null,
+      vpd: sensorData.vpd || null
+    },
+    
+    status: 'completed',
+    resolved: false
+  };
+  
+  if (detectionMethod === 'rule_based') {
+    const anomalyType = detection.anomaly_type || 'unknown';
+    const alertLevel = detection.alert_level || 'yellow';
+    const message = detection.message || 'Anomaly detected';
+    
+    anomalyRecord.ruleBasedDetection = {
+      anomaliesFound: true,
+      anomalies: [{
+        type: anomalyType,
+        alertLevel: alertLevel,
+        message: message,
+        priority: alertLevel === 'red' ? 4 : 2,
+        confidence: detection.confidence || 0.95,
+        timestamp: timestamp,
+        data: sensorData
+      }],
+      totalAnomalies: 1
+    };
+    
+    anomalyRecord.mlDetection = {
+      anomaliesFound: false,
+      modelsAvailable: false
+    };
+    
+    anomalyRecord.summary = {
+      ruleAnomaliesFound: true,
+      mlAnomaliesFound: false,
+      totalAnomalies: 1,
+      alertLevel: alertLevel,
+      riskLevel: alertLevel === 'red' ? 'high' : 'medium',
+      priorityScore: alertLevel === 'red' ? 4 : 2,
+      healthScore: alertLevel === 'red' ? 60 : 80,
+      confidenceScores: {
+        ruleBased: detection.confidence || 0.95,
+        mlBased: 0,
+        combined: detection.confidence || 0.95,
+        weightedAverage: detection.confidence || 0.95
+      },
+      recommendations: [],
+      analysisMetadata: {
+        ruleDetectionTypes: [anomalyType],
+        mlModelConfidenceAvg: 0,
+        detectionConsensus: false,
+        featureAlignmentUsed: false
+      }
+    };
+    
+    anomalyRecord.alertMessage = {
+      level: alertLevel === 'red' ? 'critical' : 'warning',
+      title: formatAnomalyTitle(anomalyType),
+      message: message,
+      icon: alertLevel === 'red' ? 'CRITICAL' : 'WARNING',
+      confidence: detection.confidence || 0.95,
+      priorityScore: alertLevel === 'red' ? 4 : 2,
+      healthScore: alertLevel === 'red' ? 60 : 80,
+      riskLevel: alertLevel === 'red' ? 'high' : 'medium',
+      totalAnomalies: 1,
+      recommendations: []
+    };
+    
+  } else if (detectionMethod === 'ml_based') {
+    const issues = [];
+    let anomalyType = 'ml_detected';
+    let alertLevel = 'yellow';
+    
+    if (sensorData.temperature !== undefined && sensorData.temperature !== null) {
+      if (sensorData.temperature > 35) {
+        issues.push(`High temperature (${sensorData.temperature.toFixed(1)}°C)`);
+        anomalyType = 'temperature_high';
+        if (sensorData.temperature > 40) alertLevel = 'red';
+      } else if (sensorData.temperature < 15) {
+        issues.push(`Low temperature (${sensorData.temperature.toFixed(1)}°C)`);
+        anomalyType = 'temperature_low';
+        if (sensorData.temperature < 10) alertLevel = 'red';
+      }
+    }
+    
+    if (sensorData.humidity !== undefined && sensorData.humidity !== null) {
+      if (sensorData.humidity > 85) {
+        issues.push(`High humidity (${sensorData.humidity.toFixed(1)}%)`);
+        if (anomalyType === 'ml_detected') anomalyType = 'humidity_high';
+        if (sensorData.humidity > 90) alertLevel = 'red';
+      } else if (sensorData.humidity < 25) {
+        issues.push(`Low humidity (${sensorData.humidity.toFixed(1)}%)`);
+        if (anomalyType === 'ml_detected') anomalyType = 'humidity_low';
+        if (sensorData.humidity < 20) alertLevel = 'red';
+      }
+    }
+    
+    if (sensorData.vpd !== undefined && sensorData.vpd !== null) {
+      if (sensorData.vpd < 0.5) {
+        issues.push(`VPD too low (${sensorData.vpd.toFixed(2)} kPa)`);
+        if (anomalyType === 'ml_detected') anomalyType = 'vpd_too_low';
+      }
+    }
+    
+    if (sensorData.voltage !== undefined && sensorData.voltage !== null) {
+      if (sensorData.voltage < 3.0) {
+        issues.push(`Low voltage (${sensorData.voltage.toFixed(2)}V)`);
+        if (anomalyType === 'ml_detected') anomalyType = 'low_voltage';
+        if (sensorData.voltage < 2.5) alertLevel = 'red';
+      }
+    }
+    
+    if (sensorData.battery_level !== undefined && sensorData.battery_level !== null) {
+      if (sensorData.battery_level < 20) {
+        issues.push(`Low battery (${sensorData.battery_level.toFixed(0)}%)`);
+        if (anomalyType === 'ml_detected') anomalyType = 'battery_depleted';
+        if (sensorData.battery_level < 15) alertLevel = 'red';
+      }
+    }
+    
+    let detailedMessage = 'Machine learning detected unusual pattern';
+    if (issues.length > 0) {
+      detailedMessage = `ML detected: ${issues.join(', ')}`;
+    } else {
+      const values = [];
+      if (sensorData.temperature) values.push(`T=${sensorData.temperature.toFixed(1)}°C`);
+      if (sensorData.humidity) values.push(`H=${sensorData.humidity.toFixed(1)}%`);
+      if (sensorData.vpd) values.push(`VPD=${sensorData.vpd.toFixed(2)}`);
+      
+      if (values.length > 0) {
+        detailedMessage = `ML detected anomaly (${values.join(', ')})`;
+      }
+    }
+    
+    const confidence = detection.confidence || 1.0;
+    const healthScore = alertLevel === 'red' ? 50 : 70;
+    
+    anomalyRecord.ruleBasedDetection = {
+      anomaliesFound: false,
+      anomalies: [],
+      totalAnomalies: 0
+    };
+    
+    anomalyRecord.mlDetection = {
+      anomaliesFound: true,
+      modelUsed: detection.model_used || 'gradient_boosting',
+      confidence: confidence,
+      featureCount: 49,
+      modelsAvailable: true,
+      predictions: [{
+        is_anomaly: true,
+        confidence: confidence,
+        model: detection.model_used || 'gradient_boosting'
+      }],
+      batchIndex: 0,
+      error: null
+    };
+    
+    anomalyRecord.summary = {
+      ruleAnomaliesFound: false,
+      mlAnomaliesFound: true,
+      totalAnomalies: 1,
+      alertLevel: alertLevel,
+      riskLevel: alertLevel === 'red' ? 'high' : 'medium',
+      priorityScore: alertLevel === 'red' ? 4 : 2,
+      healthScore: healthScore,
+      confidenceScores: {
+        ruleBased: 0,
+        mlBased: confidence,
+        combined: confidence,
+        weightedAverage: confidence
+      },
+      recommendations: [],
+      analysisMetadata: {
+        ruleDetectionTypes: [],
+        mlModelConfidenceAvg: confidence,
+        detectionConsensus: false,
+        featureAlignmentUsed: true
+      }
+    };
+    
+    anomalyRecord.alertMessage = {
+      level: alertLevel === 'red' ? 'critical' : 'warning',
+      title: formatAnomalyTitle(anomalyType),
+      message: detailedMessage,
+      icon: alertLevel === 'red' ? 'CRITICAL' : 'WARNING',
+      confidence: confidence,
+      priorityScore: alertLevel === 'red' ? 4 : 2,
+      healthScore: healthScore,
+      riskLevel: alertLevel === 'red' ? 'high' : 'medium',
+      totalAnomalies: 1,
+      recommendations: []
+    };
+  }
+  
+  anomalyRecord.performance = {
+    responseTime: 0,
+    dataPointsProcessed: 1,
+    cacheUsed: false,
+    featureAlignments: 0,
+    modelsAvailable: detectionMethod === 'ml_based'
+  };
+  
+  anomalyRecord.metadata = {
+    apiVersion: '2.1-fixed',
+    processingTimestamp: timestamp,
+    dataHistorySize: 1,
+    expectedFeatures: 49
+  };
+  
+  return anomalyRecord;
+};
 
 router.post('/detect', authenticateToken, detectLimiter, async (req, res, next) => {
   try {
@@ -268,132 +521,27 @@ router.post('/detect', authenticateToken, detectLimiter, async (req, res, next) 
 });
 
 const transformAnomalyForPush = (anomaly) => {
+  let anomalyType = 'unknown';
+  let alertLevel = anomaly.summary?.alertLevel || 'yellow';
+  let message = anomaly.alertMessage?.message || 'Anomaly detected';
+  
+  if (anomaly.ruleBasedDetection?.anomalies?.length > 0) {
+    const firstAnomaly = anomaly.ruleBasedDetection.anomalies[0];
+    anomalyType = firstAnomaly.type;
+    message = firstAnomaly.message;
+  } else if (anomaly.mlDetection?.anomaliesFound) {
+    anomalyType = 'ml_detected';
+  }
+  
   return {
     _id: anomaly._id,
     userId: anomaly.userId,
     deviceId: anomaly.deviceId,
-    anomalyType: anomaly.anomalyType,
-    alertLevel: anomaly.alertLevel,
-    message: anomaly.message,
+    anomalyType: anomalyType,
+    alertLevel: alertLevel,
+    message: message,
     timestamp: anomaly.timestamp
   };
-};
-
-const createAnomalyRecord = (detection, deviceId, userId, detectionMethod) => {
-  const baseRecord = {
-    deviceId,
-    userId,
-    timestamp: new Date(detection.timestamp || new Date()),
-    message: detection.message || 'Anomaly detected',
-    detectionMethod,
-    resolved: false
-  };
-
-  if (detectionMethod === 'rule_based') {
-    return {
-      ...baseRecord,
-      anomalyType: detection.anomaly_type || 'unknown',
-      alertLevel: detection.alert_level || 'yellow',
-      sensorData: detection.data || {}
-    };
-  } else if (detectionMethod === 'ml_based') {
-    const sensorData = detection.data || detection.sensor_data || {};
-
-    const issues = [];
-    let anomalyType = 'ml_detected';
-    
-    if (sensorData.temperature !== undefined && sensorData.temperature !== null) {
-      if (sensorData.temperature > 35) {
-        issues.push(`High temperature (${sensorData.temperature.toFixed(1)}°C)`);
-        anomalyType = 'temperature_high';
-      } else if (sensorData.temperature < 15) {
-        issues.push(`Low temperature (${sensorData.temperature.toFixed(1)}°C)`);
-        anomalyType = 'temperature_low';
-      }
-    }
-    
-    if (sensorData.humidity !== undefined && sensorData.humidity !== null) {
-      if (sensorData.humidity > 85) {
-        issues.push(`High humidity (${sensorData.humidity.toFixed(1)}%)`);
-        if (anomalyType === 'ml_detected') anomalyType = 'humidity_high';
-      } else if (sensorData.humidity < 25) {
-        issues.push(`Low humidity (${sensorData.humidity.toFixed(1)}%)`);
-        if (anomalyType === 'ml_detected') anomalyType = 'humidity_low';
-      }
-    }
-    
-    if (sensorData.vpd !== undefined && sensorData.vpd !== null) {
-      if (sensorData.vpd < 0.5) {
-        issues.push(`VPD too low (${sensorData.vpd.toFixed(2)} kPa)`);
-        if (anomalyType === 'ml_detected') anomalyType = 'vpd_too_low';
-      } else if (sensorData.vpd > 3.0) {
-        issues.push(`VPD too high (${sensorData.vpd.toFixed(2)} kPa)`);
-      }
-    }
-    
-    if (sensorData.voltage !== undefined && sensorData.voltage !== null) {
-      if (sensorData.voltage < 3.0) {
-        issues.push(`Low voltage (${sensorData.voltage.toFixed(2)}V)`);
-        if (anomalyType === 'ml_detected') anomalyType = 'low_voltage';
-      }
-    }
-    
-    if (sensorData.battery_level !== undefined && sensorData.battery_level !== null) {
-      if (sensorData.battery_level < 20) {
-        issues.push(`Low battery (${sensorData.battery_level.toFixed(0)}%)`);
-        if (anomalyType === 'ml_detected') anomalyType = 'battery_depleted';
-      }
-    }
-    
-    if (sensorData.dew_point !== undefined && sensorData.temperature !== undefined) {
-      const dewPointDiff = sensorData.temperature - sensorData.dew_point;
-      if (dewPointDiff < 2) {
-        issues.push(`Dew point close to temperature (diff: ${dewPointDiff.toFixed(1)}°C)`);
-        if (anomalyType === 'ml_detected') anomalyType = 'dew_point_close';
-      }
-    }
-    
-    let detailedMessage = 'Machine learning model detected unusual pattern';
-    if (issues.length > 0) {
-      detailedMessage = `ML detected: ${issues.join(', ')}`;
-    } else {
-      const values = [];
-      if (sensorData.temperature) values.push(`T=${sensorData.temperature.toFixed(1)}°C`);
-      if (sensorData.humidity) values.push(`H=${sensorData.humidity.toFixed(1)}%`);
-      if (sensorData.vpd) values.push(`VPD=${sensorData.vpd.toFixed(2)}`);
-      
-      if (values.length > 0) {
-        detailedMessage = `ML detected anomaly (${values.join(', ')})`;
-      }
-    }
-    
-    let alertLevel = 'yellow';
-    
-    if (sensorData.temperature > 40 || sensorData.temperature < 10 ||
-        sensorData.humidity > 90 || sensorData.humidity < 20 ||
-        sensorData.battery_level < 15 ||
-        sensorData.voltage < 2.5 ||
-        (sensorData.dew_point && sensorData.temperature && 
-         (sensorData.temperature - sensorData.dew_point) < 1)) {
-      alertLevel = 'red';
-    }
-    
-    return {
-      ...baseRecord,
-      anomalyType: anomalyType,
-      alertLevel: alertLevel,
-      message: detailedMessage,
-      sensorData: sensorData, 
-      mlResults: {
-        confidence: detection.confidence || 0,
-        model_used: detection.model_used || 'gradient_boosting',
-        detected_issues: issues,
-        raw_data: sensorData
-      }
-    };
-  }
-
-  return baseRecord;
 };
 
 const sendAnomalyNotification = async (anomaly) => {
@@ -550,8 +698,8 @@ router.get('/anomalies/types', (req, res) => {
     },
     ml_based: {
       ml_detected: {
-        name: 'ML Anomaly',
-        description: 'Machine learning model detected unusual pattern',
+        name: 'Unusual Pattern Detected',
+        description: 'Machine learning detected unusual sensor pattern',
         severity: 'medium',
         action: 'Monitor system and investigate potential causes'
       }
@@ -615,7 +763,7 @@ router.get('/', authenticateToken, async (req, res) => {
     }
     
     if (alertLevel) {
-      query.alertLevel = alertLevel;
+      query['summary.alertLevel'] = alertLevel;
     }
     
     if (startDate || endDate) {
@@ -630,15 +778,16 @@ router.get('/', authenticateToken, async (req, res) => {
     const anomalies = await Anomaly.find(query)
       .sort({ timestamp: -1 })
       .limit(limitNum)
-      .skip(skip)
-      .lean();
+      .skip(skip);
     
     const total = await Anomaly.countDocuments(query);
+    
+    const formattedAnomalies = anomalies.map(anomaly => anomaly.toFrontendFormat());
     
     res.json({
       success: true,
       data: {
-        anomalies,
+        anomalies: formattedAnomalies,
         pagination: {
           page: parseInt(page),
           limit: limitNum,
@@ -686,7 +835,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
       },
       {
         $group: {
-          _id: '$alertLevel',
+          _id: '$summary.alertLevel',
           count: { $sum: 1 }
         }
       }
@@ -700,7 +849,13 @@ router.get('/stats', authenticateToken, async (req, res) => {
       },
       {
         $group: {
-          _id: '$detectionMethod',
+          _id: {
+            $cond: [
+              '$mlDetection.anomaliesFound',
+              'ml_based',
+              'rule_based'
+            ]
+          },
           count: { $sum: 1 }
         }
       }
@@ -765,7 +920,7 @@ router.put('/:id/resolve', authenticateToken, async (req, res) => {
     
     res.json({
       success: true,
-      data: anomaly,
+      data: anomaly.toFrontendFormat(),
       message: 'Anomaly resolved successfully'
     });
     

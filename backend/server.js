@@ -302,7 +302,7 @@ class PythonProcessManager {
     
     this.process = null;
   }
-  
+
   getStatus() {
     return {
       running: this.process && !this.process.killed,
@@ -325,9 +325,11 @@ const sensorDataSchema = Joi.object({
 
 const rateLimiter = require('express-rate-limit');
 
+const isDevelopment = process.env.NODE_ENV !== 'production';
+
 const apiLimiter = rateLimiter({
   windowMs: 15 * 60 * 1000, 
-  max: 100, 
+  max: isDevelopment ? 10000 : 200, 
   message: {
     success: false,
     message: 'Too many requests, please try again later.'
@@ -337,12 +339,14 @@ const apiLimiter = rateLimiter({
 });
 
 const strictLimiter = rateLimiter({
-  windowMs: 15 * 60 * 1000,
-  max: 10, 
+  windowMs: 15 * 60 * 1000, 
+  max: isDevelopment ? 1000 : 20, 
   message: {
     success: false,
     message: 'Rate limit exceeded for this endpoint.'
-  }
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 const systemHealthMonitor = new SystemHealthMonitor();
@@ -711,17 +715,39 @@ app.post("/api/signup", strictLimiter, async (req, res, next) => {
     message: error.details[0].message 
   });
 
-  const { email, password } = req.body;
+  const { email, password, username } = req.body;
 
   try {
-    const userExists = await User.findOne({ email });
-    if (userExists) return res.status(409).json({ 
-      success: false,
-      message: "Email already exists" 
-    });
+    let cleanedUsername = null;
+    if (username !== undefined && username !== null && username.trim() !== '') {
+      cleanedUsername = username.trim();
+    }
+
+    const userExists = await User.findOne({ email: email.toLowerCase() });
+    if (userExists) {
+      return res.status(409).json({ 
+        success: false,
+        message: "Email already exists" 
+      });
+    }
     
-    const newUser = new User({ email, password });
+    const userData = { 
+      email: email.toLowerCase(), 
+      password
+    };
+    
+    if (cleanedUsername !== null) {
+      userData.username = cleanedUsername;
+    }
+    
+    const newUser = new User(userData);
     await newUser.save();
+    
+    try {
+      await newUser.createDefaultZone();
+    } catch (zoneError) {
+      console.error('Failed to create default zone:', zoneError);
+    }
     
     try {
       setTimeout(async () => {
@@ -748,6 +774,13 @@ app.post("/api/signup", strictLimiter, async (req, res, next) => {
       message: "User created successfully!" 
     });
   } catch (err) {
+    if (err.code === 11000) {
+      const field = Object.keys(err.keyPattern)[0];
+      return res.status(409).json({
+        success: false,
+        message: `${field === 'email' ? 'Email' : 'Username'} already exists`
+      });
+    }
     next(err);
   }
 });
@@ -1007,6 +1040,8 @@ const initializeServer = async () => {
 const startServer = () => {
   const server = app.listen(PORT, () => {
     console.log(`Enhanced EMIB Server running on http://localhost:${PORT}`);
+    console.log(`Environment: ${isDevelopment ? 'DEVELOPMENT' : 'PRODUCTION'}`);
+    console.log(`Rate Limits: API=${isDevelopment ? '10000' : '200'}/15min, Auth=${isDevelopment ? '1000' : '20'}/15min`);
     console.log(`Push Notifications: Available`);
     console.log(`Anomaly Detection: Enhanced ML + Rules`);
     console.log(`Security: Input validation, Rate limiting, Error handling`);

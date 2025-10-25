@@ -7,7 +7,6 @@ export default function NotificationsLayout() {
           headerShown: false, 
         }}
       >
-            <Stack.Screen name="error-history"/>
             <Stack.Screen name="notification"/>
         </Stack>
     );

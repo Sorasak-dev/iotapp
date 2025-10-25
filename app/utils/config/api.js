@@ -41,21 +41,32 @@ export const getAuthHeaders = (token) => ({
 export const PushNotificationService = {
   registerToken: async (token, userId, pushToken, deviceInfo) => {
     try {
-      console.log('Registering push token...', { userId, deviceInfo });
+      console.log('📤 Registering push token via API...', { 
+        userId, 
+        pushToken: pushToken?.substring(0, 30) + '...', 
+        deviceInfo 
+      });
+      
+      if (!pushToken || typeof pushToken !== 'string' || pushToken.trim() === '') {
+        throw new Error('Invalid pushToken provided');
+      }
       
       const response = await fetch(`${API_ENDPOINTS.NOTIFICATIONS}/register-token`, {
         method: 'POST',
         headers: getAuthHeaders(token),
         body: JSON.stringify({
           userId,
-          token: pushToken,
+          expoPushToken: pushToken,  
           deviceInfo,
         }),
         timeout: API_TIMEOUT
       });
       
+      console.log('API Response status:', response.status);
+      
       if (!response.ok) {
         const errorData = await response.text();
+        console.error('API Error:', errorData);
         throw new Error(`HTTP error! status: ${response.status}, message: ${errorData}`);
       }
       
@@ -65,7 +76,7 @@ export const PushNotificationService = {
       
     } catch (error) {
       console.error('Error registering push token:', error);
-      return { 
+      return {
         success: false, 
         error: error.message || 'Failed to register push token' 
       };
@@ -275,11 +286,6 @@ export const PushNotificationService = {
 };
 
 export const AnomalyService = {
-  /**
-   * @param {string} token 
-   * @param {Object} sensorData 
-   * @returns {Promise<Object>} 
-   */
   detectAnomaly: async (token, sensorData) => {
     try {
       console.log('Real-time anomaly detection (Hybrid: Gradient Boosting + Rules)');
@@ -312,28 +318,6 @@ export const AnomalyService = {
       const result = await response.json();
       console.log('Detection result:', result);
       
-      /**
-       * Response format:
-       * {
-       *   success: true,
-       *   alert_level: "green"|"yellow"|"red",
-       *   health_score: 0-100,
-       *   message: "...",
-       *   is_anomaly: true|false,
-       *   details: {
-       *     rule_based_detection: [...],
-       *     ml_detection: [...],
-       *     summary: {...},
-       *     recommendations: [...]
-       *   },
-       *   metadata: {
-       *     model_used: "gradient_boosting",
-       *     detection_method: "hybrid",
-       *     processing_time: 0.05
-       *   }
-       * }
-       */
-      
       return {
         success: true,
         ...result
@@ -358,7 +342,7 @@ export const AnomalyService = {
       
       const queryParams = new URLSearchParams();
       
-      if (filters.device_id) queryParams.append('deviceId', filters.device_id);
+      if (filters.deviceId) queryParams.append('deviceId', filters.deviceId);
       if (filters.status === 'unresolved') queryParams.append('resolved', 'false');
       if (filters.status === 'resolved') queryParams.append('resolved', 'true');
       if (filters.limit) queryParams.append('limit', filters.limit);
@@ -373,7 +357,7 @@ export const AnomalyService = {
         headers: getAuthHeaders(token),
         timeout: API_TIMEOUT
       });
-      
+
       if (!response.ok) {
         if (response.status === 404) {
           return {
