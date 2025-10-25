@@ -13,7 +13,9 @@
       "backgroundColor": "#ffffff"
     },
     "scheme": "emib",
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.yourcompany.emib"
@@ -38,7 +40,8 @@
           "color": "#ffffff",
           "defaultChannel": "default"
         }
-      ]
+      ],
+      "expo-font"
     ],
     "extra": {
       "router": {

@@ -179,7 +179,8 @@ class PythonProcessManager {
       return null;
     }
     
-    this.process = spawn('python', [pythonPath, 'monitor'], {
+    const pythonExecutable = path.join(__dirname, 'anomaly-detection', 'venv', 'bin', 'python');
+    this.process = spawn(pythonExecutable, [pythonPath, 'monitor'], {
       cwd: pythonDir,
       stdio: ['pipe', 'pipe', 'pipe']
     });
@@ -893,7 +894,7 @@ app.get('/api/user/sensor-data', authenticateToken, async (req, res, next) => {
               timestamp: item.timestamp,
             };
           }
-          
+
           ['temperature', 'humidity', 'dew_point', 'vpd', 'voltage', 'battery_level'].forEach(field => {
             if (item[field] !== null && item[field] !== undefined) {
               dailyData[date][field].sum += item[field];

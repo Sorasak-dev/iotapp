@@ -22,6 +22,8 @@ PODS:
     - ExpoModulesCore
   - ExpoFileSystem (18.0.12):
     - ExpoModulesCore
+  - ExpoFont (13.0.4):
+    - ExpoModulesCore
   - ExpoHead (4.0.21):
     - ExpoModulesCore
   - ExpoImagePicker (16.0.6):
@@ -65,6 +67,8 @@ PODS:
   - ExpoSecureStore (14.0.1):
     - ExpoModulesCore
   - ExpoSharing (13.0.1):
+    - ExpoModulesCore
+  - ExpoSystemUI (4.0.9):
     - ExpoModulesCore
   - fast_float (6.1.4)
   - FBLazyVector (0.76.9)
@@ -2010,6 +2014,7 @@ DEPENDENCIES:
   - ExpoCrypto (from `../node_modules/expo-crypto/ios`)
   - ExpoDevice (from `../node_modules/expo-device/ios`)
   - ExpoFileSystem (from `../node_modules/expo-file-system/ios`)
+  - ExpoFont (from `../node_modules/expo-font/ios`)
   - ExpoHead (from `../node_modules/expo-router/ios`)
   - ExpoImagePicker (from `../node_modules/expo-image-picker/ios`)
   - ExpoKeepAwake (from `../node_modules/expo-keep-awake/ios`)
@@ -2021,6 +2026,7 @@ DEPENDENCIES:
   - ExpoPrint (from `../node_modules/expo-print/ios`)
   - ExpoSecureStore (from `../node_modules/expo-secure-store/ios`)
   - ExpoSharing (from `../node_modules/expo-sharing/ios`)
+  - ExpoSystemUI (from `../node_modules/expo-system-ui/ios`)
   - fast_float (from `../node_modules/react-native/third-party-podspecs/fast_float.podspec`)
   - FBLazyVector (from `../node_modules/react-native/Libraries/FBLazyVector`)
   - fmt (from `../node_modules/react-native/third-party-podspecs/fmt.podspec`)
@@ -2127,6 +2133,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-device/ios"
   ExpoFileSystem:
     :path: "../node_modules/expo-file-system/ios"
+  ExpoFont:
+    :path: "../node_modules/expo-font/ios"
   ExpoHead:
     :path: "../node_modules/expo-router/ios"
   ExpoImagePicker:
@@ -2149,6 +2157,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-secure-store/ios"
   ExpoSharing:
     :path: "../node_modules/expo-sharing/ios"
+  ExpoSystemUI:
+    :path: "../node_modules/expo-system-ui/ios"
   fast_float:
     :podspec: "../node_modules/react-native/third-party-podspecs/fast_float.podspec"
   FBLazyVector:
@@ -2312,6 +2322,7 @@ SPEC CHECKSUMS:
   ExpoCrypto: e97e864c8d7b9ce4a000bca45dddb93544a1b2b4
   ExpoDevice: d36ab4186b6799a28fd449bb9a1c77455f23fd1a
   ExpoFileSystem: 42d363d3b96f9afab980dcef60d5657a4443c655
+  ExpoFont: f354e926f8feae5e831ec8087f36652b44a0b188
   ExpoHead: df924203fbf8e0913fc38b0f6aec71f9a9115482
   ExpoImagePicker: 24e5ba8da111f74519b1e6dc556e0b438b2b8464
   ExpoKeepAwake: b0171a73665bfcefcfcc311742a72a956e6aa680
@@ -2323,6 +2334,7 @@ SPEC CHECKSUMS:
   ExpoPrint: 13208d67f48c190ccfeb9b97aa3394ff31ec606b
   ExpoSecureStore: 9a3665d7161dd1031be386e278bffd623658f316
   ExpoSharing: 849a5ce9985c22598c16ec027e32969be8062e8e
+  ExpoSystemUI: b82a45cf0f6a4fa18d07c46deba8725dd27688b4
   fast_float: 06eeec4fe712a76acc9376682e4808b05ce978b6
   FBLazyVector: 7605ea4810e0e10ae4815292433c09bf4324ba45
   fmt: 01b82d4ca6470831d1cc0852a1af644be019e8f6

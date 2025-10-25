@@ -419,10 +419,11 @@ router.post('/detect', authenticateToken, detectLimiter, async (req, res, next) 
       }
     };
     
-    const pythonProcess = spawn('python', [pythonPath], {
-      cwd: pythonDir,
-      timeout: 30000
-    });
+    const pythonExecutable = path.join(__dirname, '..', 'anomaly-detection', 'venv', 'bin', 'python');
+      const pythonProcess = spawn(pythonExecutable, [pythonPath], {
+        cwd: pythonDir,
+        timeout: 30000
+      });
     
     let output = '';
     let error = '';
@@ -976,10 +977,11 @@ router.post('/check-device/:deviceId', authenticateToken, manualCheckLimiter, as
       }
     };
     
-    const pythonProcess = spawn('python', [pythonPath], {
-      cwd: pythonDir,
-      timeout: 30000
-    });
+    const pythonExecutable = path.join(__dirname, '..', 'anomaly-detection', 'venv', 'bin', 'python');
+      const pythonProcess = spawn(pythonExecutable, [pythonPath], {
+        cwd: pythonDir,
+        timeout: 30000
+      });
     
     let output = '';
     let error = '';
