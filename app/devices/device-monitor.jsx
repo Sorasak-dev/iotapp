@@ -37,20 +37,22 @@ export default function DeviceMonitor() {
   const [deviceId, setDeviceId] = useState(null);
 
   useEffect(() => {
+    let parsedDevice = null;
+    
+    // Parse device data first
     if (route.params?.device) {
       try {
-        let device;
         if (typeof route.params.device === 'string') {
-          device = JSON.parse(route.params.device);
+          parsedDevice = JSON.parse(route.params.device);
         } else {
-          device = route.params.device;
+          parsedDevice = route.params.device;
         }
         
-        if (device && device.name) {
-          setDeviceName(device.name);
+        if (parsedDevice && parsedDevice.name) {
+          setDeviceName(parsedDevice.name);
         }
-        if (device && device._id) {
-          setDeviceId(device._id);
+        if (parsedDevice && parsedDevice._id) {
+          setDeviceId(parsedDevice._id);
         }
       } catch (error) {
         console.error("Error parsing device data:", error);
@@ -67,9 +69,13 @@ export default function DeviceMonitor() {
       try {
         const token = await getAuthToken();
         
+        // ใช้ parsedDevice._id แทน deviceId state
         let apiUrl = API_ENDPOINTS.SENSOR_DATA;
-        if (deviceId) {
-          apiUrl = `${API_ENDPOINTS.DEVICES}/${deviceId}/data?limit=20`;
+        if (parsedDevice && parsedDevice._id) {
+          apiUrl = `${API_ENDPOINTS.DEVICES}/${parsedDevice._id}/data?limit=20`;
+          console.log(`✅ Fetching data for device: ${parsedDevice.name} (ID: ${parsedDevice._id})`);
+        } else {
+          console.warn("⚠️ No device ID found, using default sensor data endpoint");
         }
 
         const response = await fetch(apiUrl, {
@@ -85,7 +91,8 @@ export default function DeviceMonitor() {
         const result = await response.json();
         let data;
 
-        if (deviceId && result.data) {
+        // ใช้ parsedDevice._id สำหรับตรวจสอบ
+        if (parsedDevice && parsedDevice._id && result.data) {
           data = { data: result.data };
         } else {
           data = result;
@@ -109,7 +116,14 @@ export default function DeviceMonitor() {
 
         if (validData.length > 0) {
           const latestEntry = validData[0];
-          console.log("Latest Data:", latestEntry);
+          console.log(`📊 Latest Data for ${parsedDevice?.name || 'device'}:`, {
+            temperature: latestEntry.temperature,
+            humidity: latestEntry.humidity,
+            dewPoint: latestEntry.dew_point,
+            vpd: latestEntry.vpd,
+            timestamp: latestEntry.timestamp
+          });
+          
           setLatestData({
             temperature: latestEntry.temperature,
             humidity: latestEntry.humidity,
@@ -148,7 +162,7 @@ export default function DeviceMonitor() {
           setErrorMessage("No active sensors");
         }
       } catch (error) {
-        console.error("Error fetching sensor data:", error);
+        console.error("❌ Error fetching sensor data:", error);
         setErrorMessage(error.message || "Failed to load sensor data");
         setSensorData({
           temperature: { labels: [], values: [] },
@@ -163,7 +177,7 @@ export default function DeviceMonitor() {
     fetchSensorData();
     const interval = setInterval(fetchSensorData, DATA_REFRESH_INTERVAL); 
     return () => clearInterval(interval);
-  }, [deviceId]);
+  }, [route.params?.device]); // เปลี่ยนจาก deviceId เป็น route.params?.device
 
   const renderChart = (data, color, type) => {
     if (!data || !data.labels.length) {

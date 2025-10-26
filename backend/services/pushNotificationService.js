@@ -136,51 +136,57 @@ class PushNotificationService {
   }
 
   async sendAnomalyAlert(anomaly) {
-    try {
-      const { userId, deviceId, anomalyType, alertLevel, message } = anomaly;
-      
-      const tokens = await PushToken.findActiveTokensForUser(userId);
-      if (tokens.length === 0) {
-        console.log(`No active push tokens found for user ${userId}`);
-        return { success: false, reason: 'No active tokens' };
-      }
-
-      const userPrefs = tokens[0].preferences;
-      if (!userPrefs.anomalyAlerts) {
-        console.log(`User ${userId} has disabled anomaly alerts`);
-        return { success: false, reason: 'Anomaly alerts disabled' };
-      }
-
-      if (userPrefs.criticalOnly && alertLevel !== 'critical') {
-        console.log(`User ${userId} only wants critical alerts, but this is ${alertLevel}`);
-        return { success: false, reason: 'Non-critical alert filtered' };
-      }
-
-      if (this.isQuietHours(userPrefs) && alertLevel !== 'critical') {
-        console.log(`Quiet hours active for user ${userId}, suppressing ${alertLevel} alert`);
-        return { success: false, reason: 'Quiet hours active' };
-      }
-
-      const title = this.getAnomalyTitle(anomalyType, alertLevel);
-      const priority = alertLevel === 'critical' ? 'critical' : 'high';
-
-      return this.sendToUser(userId, title, message, {
-        type: 'anomaly',
-        anomalyId: anomaly._id,
-        deviceId,
-        alertLevel,
-        anomalyType
-      }, {
-        type: 'anomaly_alert',
-        priority,
-        isSystemGenerated: true
-      });
-
-    } catch (error) {
-      console.error('Error sending anomaly alert:', error);
-      throw error;
+  try {
+    const { userId, deviceId, anomalyType, alertLevel, message } = anomaly;
+    
+    const Device = require('../models/Device');
+    const device = await Device.findById(deviceId);
+    const deviceName = device ? device.name : 'Unknown Device';
+    
+    const tokens = await PushToken.findActiveTokensForUser(userId);
+    if (tokens.length === 0) {
+      console.log(`No active push tokens found for user ${userId}`);
+      return { success: false, reason: 'No active tokens' };
     }
+
+    const userPrefs = tokens[0].preferences;
+    if (!userPrefs.anomalyAlerts) {
+      console.log(`User ${userId} has disabled anomaly alerts`);
+      return { success: false, reason: 'Anomaly alerts disabled' };
+    }
+
+    if (userPrefs.criticalOnly && alertLevel !== 'critical') {
+      console.log(`User ${userId} only wants critical alerts, but this is ${alertLevel}`);
+      return { success: false, reason: 'Non-critical alert filtered' };
+    }
+
+    if (this.isQuietHours(userPrefs) && alertLevel !== 'critical') {
+      console.log(`Quiet hours active for user ${userId}, suppressing ${alertLevel} alert`);
+      return { success: false, reason: 'Quiet hours active' };
+    }
+
+    const title = this.getAnomalyTitle(anomalyType, alertLevel);
+    const priority = alertLevel === 'critical' ? 'critical' : 'high';
+    const body = `${deviceName}: ${message}`;  
+
+    return this.sendToUser(userId, title, body, {
+      type: 'anomaly',
+      anomalyId: anomaly._id,
+      deviceId,
+      device_name: deviceName,  
+      alertLevel,
+      anomalyType
+    }, {
+      type: 'anomaly_alert',
+      priority,
+      isSystemGenerated: true
+    });
+
+  } catch (error) {
+    console.error('Error sending anomaly alert:', error);
+    throw error;
   }
+}
 
   async sendDeviceAlert(userId, deviceId, deviceName, status, message) {
     try {

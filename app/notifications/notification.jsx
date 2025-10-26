@@ -5,8 +5,6 @@ import {
   FlatList,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
-  Platform,
   Modal,
   Alert,
   RefreshControl
@@ -15,7 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getAuthHeaders, ANOMALY_ENDPOINTS, API_ENDPOINTS } from '../utils/config/api';
+import { getAuthHeaders, ANOMALY_ENDPOINTS, API_ENDPOINTS, AnomalyService } from '../utils/config/api';
 import notificationService from '../utils/NotificationService';
 import NotificationSettings from '../components/NotificationSettings';
 
@@ -36,98 +34,6 @@ const getAuthToken = async () => {
   } catch (error) {
     console.error('Error retrieving token:', error);
     throw error;
-  }
-};
-
-const AnomalyService = {
-  getHistory: async (token, filters = {}) => {
-    try {
-      console.log('[Notification] Fetching anomaly history with filters:', filters);
-      
-      const queryParams = new URLSearchParams();
-      if (filters.deviceId) queryParams.append('deviceId', filters.deviceId);
-      if (filters.resolved !== undefined) queryParams.append('resolved', filters.resolved);
-      if (filters.limit) queryParams.append('limit', filters.limit);
-      if (filters.page) queryParams.append('page', filters.page);
-      if (filters.alertLevel) queryParams.append('alertLevel', filters.alertLevel);
-      if (filters.sort) queryParams.append('sort', filters.sort);
-      
-      const url = `${ANOMALY_ENDPOINTS.HISTORY}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-      
-      const response = await fetch(url, {
-        headers: getAuthHeaders(token),
-        timeout: 10000
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      console.log('[Notification] Anomaly history response:', result?.data?.anomalies?.length || 0, 'items');
-      return result;
-      
-    } catch (error) {
-      console.error('[Notification] Error fetching anomaly history:', error);
-      return {
-        success: true,
-        data: {
-          anomalies: [],
-          pagination: { page: 1, limit: 20, total: 0 }
-        }
-      };
-    }
-  },
-
-  getStats: async (token, days = 30) => {
-    try {
-      const url = `${ANOMALY_ENDPOINTS.STATS}?days=${days}`;
-      const response = await fetch(url, {
-        headers: getAuthHeaders(token),
-        timeout: 10000
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      return result;
-      
-    } catch (error) {
-      console.error('[Notification] Error fetching stats:', error);
-      return {
-        success: true,
-        data: {
-          total_anomalies: 0,
-          resolved_count: 0,
-          unresolved_count: 0,
-          alertStats: []
-        }
-      };
-    }
-  },
-
-  resolveAnomaly: async (token, anomalyId, notes = '') => {
-    try {
-      const response = await fetch(ANOMALY_ENDPOINTS.RESOLVE(anomalyId), {
-        method: 'PUT',
-        headers: getAuthHeaders(token),
-        body: JSON.stringify({ notes }),
-        timeout: 10000
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      return result;
-      
-    } catch (error) {
-      console.error('[Notification] Error resolving anomaly:', error);
-      throw error;
-    }
   }
 };
 
@@ -184,20 +90,22 @@ export default function NotificationScreen() {
       setIsLoading(true);
       const token = await getAuthToken();
       
+      console.log('[Notification] 🔍 Fetching anomalies from API...');
+      
       const response = await AnomalyService.getHistory(token, {
         limit: 100,
-        sort: '-timestamp'
+        page: 1
       });
       
-      console.log('[Notification] Processing response...');
+      console.log('[Notification] 📦 API Response:', JSON.stringify(response, null, 2));
       
       if (response.success && response.data?.anomalies) {
         const anomaliesArray = response.data.anomalies;
         
-        console.log(`[Notification] Found ${anomaliesArray.length} anomalies`);
+        console.log(`[Notification] ✅ Found ${anomaliesArray.length} anomalies`);
         
         if (anomaliesArray.length > 0) {
-          console.log(`[Notification] First anomaly:`, JSON.stringify(anomaliesArray[0], null, 2));
+          console.log(`[Notification] 📄 First anomaly sample:`, JSON.stringify(anomaliesArray[0], null, 2));
         }
         
         const formattedNotifications = anomaliesArray.map((anomaly, index) => {
@@ -236,13 +144,15 @@ export default function NotificationScreen() {
           }
           
           if (index < 3) {
-            console.log(`[Notification] Anomaly ${index}:`, {
+            console.log(`[Notification] 🔸 Anomaly ${index}:`, {
+              id: anomaly._id,
               anomalyType: anomaly?.anomalyType,
               detectionMethod,
               isML,
               alertLevel,
+              deviceId: anomaly?.deviceId,
               hasSensorData: !!sensorData,
-              message: message.substring(0, 50)
+              message: message.substring(0, 50) + '...'
             });
           }
           
@@ -250,7 +160,7 @@ export default function NotificationScreen() {
             id: anomaly._id,
             title: getAnomalyTitle(anomaly.anomalyType || anomaly.type),
             message: message,
-            location: anomaly.deviceId || "Unknown Device",
+            location: anomaly.device_name || anomaly.deviceId || "Unknown Device",  
             type: getSeverityType(alertLevel),
             time: formatTime(anomaly.timestamp),
             date: formatDate(anomaly.timestamp),
@@ -270,29 +180,35 @@ export default function NotificationScreen() {
           };
         });
 
-        console.log(`[Notification] Formatted ${formattedNotifications.length} notifications`);
-        console.log(`[Notification] ML anomalies: ${formattedNotifications.filter(n => n.isML).length}`);
-        console.log(`[Notification] With sensor data: ${formattedNotifications.filter(n => n.anomaly_data).length}`);
+        console.log(`[Notification] ✨ Formatted ${formattedNotifications.length} notifications`);
+        console.log(`[Notification] 🤖 ML anomalies: ${formattedNotifications.filter(n => n.isML).length}`);
+        console.log(`[Notification] 📊 With sensor data: ${formattedNotifications.filter(n => n.anomaly_data).length}`);
+
+        const sortedNotifications = formattedNotifications.sort((a, b) => 
+          new Date(b.timestamp) - new Date(a.timestamp)
+        );
 
         const localNotifications = await getLocalNotifications();
-        const allNotifications = [...formattedNotifications, ...localNotifications]
+        const allNotifications = [...sortedNotifications, ...localNotifications]
           .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         
+        console.log(`[Notification] 🎉 Total notifications: ${allNotifications.length}`);
         setNotifications(allNotifications);
       } else {
-        console.warn('[Notification] No anomalies in response');
+        console.warn('[Notification] ⚠️ No anomalies in response or invalid structure');
+        console.log('[Notification] Response structure:', JSON.stringify(response, null, 2));
         const localNotifications = await getLocalNotifications();
         setNotifications(localNotifications);
       }
     } catch (error) {
-      console.error('[Notification] Error loading notifications:', error);
+      console.error('[Notification] ❌ Error loading notifications:', error);
       Alert.alert('Error', 'Failed to load notifications');
       
       try {
         const localNotifications = await getLocalNotifications();
         setNotifications(localNotifications);
       } catch (localError) {
-        console.error('[Notification] Error loading local notifications:', localError);
+        console.error('[Notification] ❌ Error loading local notifications:', localError);
       }
     } finally {
       setIsLoading(false);
@@ -365,14 +281,16 @@ export default function NotificationScreen() {
     const time = new Date(timestamp);
     const diffInMinutes = Math.floor((now - time) / (1000 * 60));
     
-    if (diffInMinutes < 60) {
+    if (diffInMinutes < 1) {
+      return 'Just now';
+    } else if (diffInMinutes < 60) {
       return `${diffInMinutes} minutes ago`;
     } else if (diffInMinutes < 1440) {
       const hours = Math.floor(diffInMinutes / 60);
-      return `${hours} hours ago`;
+      return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
     } else {
       const days = Math.floor(diffInMinutes / 1440);
-      return `${days} days ago`;
+      return `${days} ${days === 1 ? 'day' : 'days'} ago`;
     }
   };
 
@@ -408,29 +326,46 @@ export default function NotificationScreen() {
     
     switch (type) {
       case "critical":
-        return "#FFEBEE";
+        return "#FFF5F5";
       case "warning":
-        return "#FFF3E0";
+        return "#FFFBF0";
       case "info":
-        return "#E3F2FD";
+        return "#F0F9FF";
       default:
         return "#FFFFFF";
     }
   };
 
   const getIcon = (title, type) => {
-    if (title.includes("WiFi") || title.includes("Connection")) {
-      return <Ionicons name="wifi" size={24} color="#FF5722" />;
+    if (title.includes("Temperature")) {
+      return <Ionicons name="alert" size={24} color="#FFFFFF" />;
     } else if (title.includes("Battery")) {
-      return <Ionicons name="battery-half" size={24} color="#FF9800" />;
-    } else if (title.includes("Backup")) {
-      return <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />;
-    } else if (title.includes("Data") || title.includes("Error")) {
-      return <Ionicons name="close-circle" size={24} color="#2196F3" />;
+      return <Ionicons name="battery-half" size={24} color="#FFFFFF" />;
     } else if (title.includes("Unusual Pattern") || title.includes("AI")) {
-      return <Ionicons name="analytics" size={24} color="#FF9800" />; 
+      return <Ionicons name="analytics" size={24} color="#FFFFFF" />;
+    } else if (title.includes("VPD")) {
+      return <Ionicons name="alert" size={24} color="#FFFFFF" />;
+    } else if (title.includes("Sensor")) {
+      return <Ionicons name="alert" size={24} color="#FFFFFF" />;
+    } else if (title.includes("Humidity")) {
+      return <Ionicons name="water" size={24} color="#FFFFFF" />;
+    } else if (title.includes("Voltage")) {
+      return <Ionicons name="flash" size={24} color="#FFFFFF" />;
     } else {
-      return <Ionicons name="warning" size={24} color="#FF5722" />;
+      return <Ionicons name="warning" size={24} color="#FFFFFF" />;
+    }
+  };
+
+  const getIconBackground = (type) => {
+    switch (type) {
+      case "critical":
+        return "#EF4444";
+      case "warning":
+        return "#F59E0B";
+      case "info":
+        return "#3B82F6";
+      default:
+        return "#9CA3AF";
     }
   };
 
@@ -599,72 +534,90 @@ export default function NotificationScreen() {
     <TouchableOpacity 
       onPress={() => handleNotificationPress(item)}
       style={[
-        styles.notificationContainer,
-        { backgroundColor: getBackgroundColor(item.type, item.isRead) },
-        item.isML && styles.mlNotification, 
+        styles.notificationCard,
+        { backgroundColor: getBackgroundColor(item.type, item.isRead) }
       ]}
     >
-      <View style={styles.notificationIcon}>
+      {/* Icon ด้านซ้าย */}
+      <View style={[
+        styles.iconContainer,
+        { backgroundColor: getIconBackground(item.type) }
+      ]}>
         {getIcon(item.title, item.type)}
       </View>
-      <View style={styles.notificationText}>
-        <Text style={styles.notificationTitle} numberOfLines={1} ellipsizeMode="tail">
-          {item.title}
-        </Text>
-        <Text style={styles.notificationMessage} numberOfLines={2} ellipsizeMode="tail">
+
+      {/* Content */}
+      <View style={styles.contentContainer}>
+        {/* Header */}
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle} numberOfLines={1}>
+            {item.title}
+          </Text>
+          <View style={styles.timeContainer}>
+            <Text style={styles.cardTime}>{item.time}</Text>
+            {!item.isRead && item.status !== 'resolved' && (
+              <View style={styles.unreadDot} />
+            )}
+          </View>
+        </View>
+
+        {/* Message */}
+        <Text style={styles.cardMessage} numberOfLines={2}>
           {item.message || item.body}
         </Text>
-        
+
+        {/* Sensor Data - แสดงแบบเรียบง่าย */}
         {item.anomaly_data && Object.keys(item.anomaly_data).some(key => 
           item.anomaly_data[key] !== null && item.anomaly_data[key] !== undefined
         ) && (
-          <View style={styles.sensorDataPreview}>
+          <View style={styles.sensorRow}>
             {item.anomaly_data.temperature !== undefined && item.anomaly_data.temperature !== null && (
               <Text style={styles.sensorText}>
-                🌡️ {item.anomaly_data.temperature.toFixed(1)}°C
+                {item.anomaly_data.temperature.toFixed(1)}°C
               </Text>
             )}
             {item.anomaly_data.humidity !== undefined && item.anomaly_data.humidity !== null && (
               <Text style={styles.sensorText}>
-                💧 {item.anomaly_data.humidity.toFixed(1)}%
+                {item.anomaly_data.humidity.toFixed(1)}%
               </Text>
             )}
             {item.anomaly_data.vpd !== undefined && item.anomaly_data.vpd !== null && (
               <Text style={styles.sensorText}>
-                📊 {item.anomaly_data.vpd.toFixed(2)} kPa
+                {item.anomaly_data.vpd.toFixed(2)} kPa
               </Text>
             )}
           </View>
         )}
-        
-        <View style={styles.notificationFooter}>
-          <Ionicons name="location-outline" size={12} color="gray" />
-          <Text style={styles.notificationLocation} numberOfLines={1} ellipsizeMode="tail">
+
+        {/* Footer */}
+        <View style={styles.cardFooter}>
+         <Text style={styles.deviceText} numberOfLines={1}>
             {item.location}
           </Text>
+          {item.isML && (
+            <View style={styles.mlBadge}>
+              <Text style={styles.mlBadgeText}>AI</Text>
+            </View>
+          )}
         </View>
       </View>
-      
-      <View style={styles.rightSection}>
-        <Text style={styles.notificationTime}>{item.time}</Text>
-        {!item.isRead && item.status !== 'resolved' && <View style={styles.unreadDot} />}
-      </View>
-      
+
+      {/* Edit Mode Actions */}
       {editMode && (
-        <View style={styles.actionButtons}>
+        <View style={styles.editActions}>
           {(!item.isRead && item.status !== 'resolved') && (
             <TouchableOpacity 
-              style={styles.resolveButton}
+              style={styles.editButton}
               onPress={() => handleResolveNotification(item.id, item.isPushNotification)}
             >
-              <Ionicons name="checkmark-circle-outline" size={24} color="green" />
+              <Text style={styles.resolveButtonText}>Resolve</Text>
             </TouchableOpacity>
           )}
           <TouchableOpacity 
-            style={styles.deleteButton}
+            style={[styles.editButton, styles.deleteButton]}
             onPress={() => handleDeleteNotification(item.id, item.isPushNotification)}
           >
-            <Ionicons name="trash-outline" size={24} color="red" />
+            <Text style={styles.deleteButtonText}>Delete</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -677,11 +630,11 @@ export default function NotificationScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="black" />
+            <Ionicons name="arrow-back" size={24} color="#000" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Notification</Text>
-          <TouchableOpacity style={styles.moreOptions} onPress={() => setMenuVisible(true)}>
-            <MaterialIcons name="more-horiz" size={24} color="black" />
+          <TouchableOpacity style={styles.moreButton} onPress={() => setMenuVisible(true)}>
+            <MaterialIcons name="more-horiz" size={24} color="#000" />
           </TouchableOpacity>
         </View>
 
@@ -705,10 +658,8 @@ export default function NotificationScreen() {
               <Text
                 style={[
                   styles.filterText,
-                  selectedFilter === filter.id && { color: "white" },
+                  selectedFilter === filter.id && styles.selectedFilterText,
                 ]}
-                numberOfLines={1}
-                ellipsizeMode="tail"
               >
                 {filter.label}
               </Text>
@@ -718,8 +669,7 @@ export default function NotificationScreen() {
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <Ionicons name="hourglass-outline" size={48} color="#666" />
-            <Text style={styles.loadingText}>Loading notifications...</Text>
+            <Text style={styles.loadingText}>Loading...</Text>
           </View>
         ) : (
           <FlatList
@@ -733,21 +683,14 @@ export default function NotificationScreen() {
             }
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
-                <Ionicons name="notifications-off-outline" size={48} color="#999" />
-                <Text style={styles.emptyText}>
+                <Text style={styles.emptyIcon}>📭</Text>
+                <Text style={styles.emptyText}>No notifications</Text>
+                <Text style={styles.emptySubtext}>
                   {selectedFilter === "all" 
-                    ? "No notifications available" 
+                    ? "You're all caught up!" 
                     : `No ${selectedFilter} notifications`
                   }
                 </Text>
-                <TouchableOpacity 
-                  style={styles.enableNotificationsButton}
-                  onPress={() => setSettingsVisible(true)}
-                >
-                  <Text style={styles.enableNotificationsText}>
-                    Configure Notifications
-                  </Text>
-                </TouchableOpacity>
               </View>
             }
           />
@@ -770,7 +713,6 @@ export default function NotificationScreen() {
                 style={styles.menuItem}
                 onPress={toggleEditMode}
               >
-                <Ionicons name={editMode ? "close-outline" : "create-outline"} size={20} color="black" />
                 <Text style={styles.menuItemText}>{editMode ? "Done" : "Edit"}</Text>
               </TouchableOpacity>
               
@@ -781,7 +723,6 @@ export default function NotificationScreen() {
                   setSettingsVisible(true);
                 }}
               >
-                <Ionicons name="settings-outline" size={20} color="black" />
                 <Text style={styles.menuItemText}>Settings</Text>
               </TouchableOpacity>
               
@@ -789,24 +730,7 @@ export default function NotificationScreen() {
                 style={styles.menuItem}
                 onPress={markAllAsRead}
               >
-                <Ionicons name="checkmark-circle-outline" size={20} color="black" />
                 <Text style={styles.menuItemText}>Mark All as Read</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={sendTestPushNotification}
-              >
-                <Ionicons name="send-outline" size={20} color="blue" />
-                <Text style={[styles.menuItemText, { color: "blue" }]}>Send Test</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={deleteAllNotifications}
-              >
-                <Ionicons name="trash-outline" size={20} color="red" />
-                <Text style={[styles.menuItemText, { color: "red" }]}>Delete All</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
@@ -816,8 +740,16 @@ export default function NotificationScreen() {
                   onRefresh();
                 }}
               >
-                <Ionicons name="refresh-outline" size={20} color="black" />
                 <Text style={styles.menuItemText}>Refresh</Text>
+              </TouchableOpacity>
+              
+              <View style={styles.menuDivider} />
+              
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={deleteAllNotifications}
+              >
+                <Text style={[styles.menuItemText, styles.dangerText]}>Delete All</Text>
               </TouchableOpacity>
             </View>
           </TouchableOpacity>
@@ -840,265 +772,252 @@ export default function NotificationScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#F9F9F9",
+    backgroundColor: "#FFFFFF",
   },
   container: { 
     flex: 1, 
-    backgroundColor: "#F9F9F9", 
-    paddingHorizontal: 16,
+    backgroundColor: "#FFFFFF",
   },
-
   header: { 
     flexDirection: "row", 
     alignItems: "center", 
     justifyContent: "space-between", 
-    marginVertical: 16, 
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
   },
-
   backButton: {
-    padding: 8,
+    padding: 4,
   },
-
-  moreOptions: {
-    padding: 8,
+  moreButton: {
+    padding: 4,
   },
-
   headerTitle: { 
-    fontSize: 24, 
+    fontSize: 20, 
     fontWeight: "600",
     flex: 1,
-    marginLeft: 8,
-    color: "#000",
+    marginLeft: 12,
+    color: "#111827",
   },
-
-  filterScroll: {
-    flexGrow: 0,
-  },
-  
   filterContainer: {
     flexDirection: "row",
-    paddingBottom: 16,
-    marginBottom: 16,
-    justifyContent: "space-between",
-    paddingHorizontal: 2,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
   },
-
   filterButton: { 
-    flexDirection: "row", 
-    alignItems: "center", 
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16, 
-    backgroundColor: "#F0F0F0",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: "#F9FAFB",
     borderWidth: 1,
-    borderColor: "#E0E0E0",
-    minWidth: 70,
-    maxWidth: 85,
-    justifyContent: "center",
-    flex: 1,
-    marginHorizontal: 2,
+    borderColor: "#E5E7EB",
+    gap: 6,
   },
-
   selectedFilter: { 
-    backgroundColor: "#007BFF",
-    borderColor: "#007BFF",
+    backgroundColor: "#3B82F6",
+    borderColor: "#3B82F6",
   },
-  
   filterText: { 
-    marginLeft: 4, 
-    fontSize: 12,
-    color: "#666",
+    fontSize: 14,
+    color: "#6B7280",
     fontWeight: "500",
-    textAlign: "center",
-    numberOfLines: 1,
   },
-  
+  selectedFilterText: {
+    color: "#FFFFFF",
+  },
   listContent: {
-    paddingBottom: 20,
+    padding: 16,
   },
-
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 50,
   },
-
   loadingText: {
-    marginTop: 16,
     fontSize: 16,
-    color: '#666',
+    color: '#9CA3AF',
   },
-
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 50,
+    paddingTop: 100,
   },
-
+  emptyIcon: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
   emptyText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#999',
-    textAlign: 'center',
-  },
-
-  enableNotificationsButton: {
-    marginTop: 20,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    backgroundColor: '#007BFF',
-    borderRadius: 8,
-  },
-
-  enableNotificationsText: {
-    color: '#FFF',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#9CA3AF',
   },
   
-  notificationContainer: { 
-    flexDirection: "row", 
-    padding: 16, 
-    borderRadius: 12, 
-    marginBottom: 8, 
-    alignItems: "flex-start",
-    backgroundColor: "#FFFFFF",
+  // Card Styles
+  notificationCard: {
+    flexDirection: 'row',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    shadowRadius: 3,
+    elevation: 2,
   },
-
-  mlNotification: {
-    borderLeftWidth: 4,
-    borderLeftColor: "#FF9800",
-  },
-  
-  notificationIcon: { 
-    marginRight: 12,
-    width: 40,
-    height: 40,
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: "#F5F5F5",
-    borderRadius: 20,
-  },
-
-  notificationText: { 
-    flex: 1,
-    paddingRight: 8,
-  },
-
-  notificationTitle: { 
-    fontWeight: "600", 
-    fontSize: 16,
-    color: "#000",
-    marginBottom: 4,
-  },
-
-  notificationMessage: { 
-    fontSize: 14, 
-    color: "#666",
-    marginBottom: 8,
-    lineHeight: 18,
-  },
-
-  sensorDataPreview: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 8,
-    backgroundColor: '#F0F4FF',
-    padding: 8,
-    borderRadius: 6,
-  },
-
-  sensorText: {
-    fontSize: 12,
-    color: '#333',
     marginRight: 12,
-    fontWeight: '500',
   },
-
-  notificationFooter: { 
-    flexDirection: "row", 
-    alignItems: "center",
-  },
-
-  notificationLocation: { 
-    marginLeft: 4, 
-    fontSize: 12, 
-    color: "#888", 
+  contentContainer: {
     flex: 1,
   },
-
-  rightSection: {
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-    minHeight: 60,
-  },
-
-  notificationTime: { 
-    fontSize: 12, 
-    color: "#999",
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 4,
   },
-
-  unreadDot: { 
-    width: 8, 
-    height: 8, 
-    borderRadius: 4, 
-    backgroundColor: "#007BFF",
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    flex: 1,
+    marginRight: 8,
   },
-
-  actionButtons: {
+  timeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 8,
+    gap: 8,
   },
-
-  resolveButton: {
-    padding: 8,
-    marginRight: 4,
+  cardTime: {
+    fontSize: 13,
+    color: '#9CA3AF',
   },
-
-  deleteButton: {
-    padding: 8,
+  unreadDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#3B82F6',
+  },
+  cardMessage: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  sensorRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 8,
+  },
+  sensorText: {
+    fontSize: 13,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  deviceText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    flex: 1,
+  },
+  mlBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  mlBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#D97706',
+    letterSpacing: 0.5,
   },
   
+  // Edit Mode Styles
+  editActions: {
+    flexDirection: 'column',
+    gap: 8,
+    marginLeft: 8,
+    justifyContent: 'center',
+  },
+  editButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    backgroundColor: '#10B981',
+    alignItems: 'center',
+    minWidth: 80,
+  },
+  deleteButton: {
+    backgroundColor: '#EF4444',
+  },
+  resolveButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  deleteButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  
+  // Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
   },
-
   menuContainer: {
-    position: 'absolute',
-    right: 16,
-    top: 60,
+    marginTop: 60,
+    marginRight: 16,
     width: 200,
-    backgroundColor: 'white',
-    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
     paddingVertical: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
   },
-
   menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
   },
-
   menuItemText: {
-    marginLeft: 12,
-    fontSize: 16,
+    fontSize: 15,
+    color: '#111827',
+  },
+  menuDivider: {
+    height: 1,
+    backgroundColor: '#F3F4F6',
+    marginVertical: 4,
+  },
+  dangerText: {
+    color: '#EF4444',
   },
 });

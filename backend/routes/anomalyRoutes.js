@@ -299,7 +299,7 @@ const createAnomalyRecord = (detection, deviceId, userId, detectionMethod) => {
         detailedMessage = `ML detected anomaly (${values.join(', ')})`;
       }
     }
-    
+
     const confidence = detection.confidence || 1.0;
     const healthScore = alertLevel === 'red' ? 50 : 70;
     
@@ -420,10 +420,10 @@ router.post('/detect', authenticateToken, detectLimiter, async (req, res, next) 
     };
     
     const pythonExecutable = path.join(__dirname, '..', 'anomaly-detection', 'venv', 'bin', 'python');
-      const pythonProcess = spawn(pythonExecutable, [pythonPath], {
-        cwd: pythonDir,
-        timeout: 30000
-      });
+    const pythonProcess = spawn(pythonExecutable, [pythonPath], {
+      cwd: pythonDir,
+      timeout: 30000
+    });
     
     let output = '';
     let error = '';
@@ -753,10 +753,15 @@ router.get('/', authenticateToken, async (req, res) => {
       endDate 
     } = req.query;
     
-    const query = {};
+    const userId = req.user.id || req.user.userId;
+    
+    const query = {
+      userId: userId
+    };
     
     if (deviceId) {
       query.deviceId = deviceId;
+      console.log(`[History] Filtering by deviceId: ${deviceId}`);
     }
     
     if (resolved !== undefined) {
@@ -773,6 +778,8 @@ router.get('/', authenticateToken, async (req, res) => {
       if (endDate) query.timestamp.$lte = new Date(endDate);
     }
     
+    console.log('[History] Query:', JSON.stringify(query));
+    
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const limitNum = parseInt(limit);
     
@@ -783,12 +790,22 @@ router.get('/', authenticateToken, async (req, res) => {
     
     const total = await Anomaly.countDocuments(query);
     
-    const formattedAnomalies = anomalies.map(anomaly => anomaly.toFrontendFormat());
+    console.log(`[History] Found ${anomalies.length} anomalies (total: ${total})`);
+    
+    // ✅ เพิ่ม device name จาก Device collection
+    const anomaliesWithDeviceNames = await Promise.all(
+      anomalies.map(async (anomaly) => {
+        const device = await Device.findById(anomaly.deviceId);
+        const formatted = anomaly.toFrontendFormat();
+        formatted.device_name = device ? device.name : 'Unknown Device';
+        return formatted;
+      })
+    );
     
     res.json({
       success: true,
       data: {
-        anomalies: formattedAnomalies,
+        anomalies: anomaliesWithDeviceNames,
         pagination: {
           page: parseInt(page),
           limit: limitNum,
@@ -799,7 +816,7 @@ router.get('/', authenticateToken, async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Error fetching anomaly history:', error);
+    console.error('[History] Error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch anomaly history',
@@ -810,30 +827,38 @@ router.get('/', authenticateToken, async (req, res) => {
 
 router.get('/stats', authenticateToken, async (req, res) => {
   try {
-    const { days = 7 } = req.query;
+    const { days = 7, deviceId } = req.query;
+    const userId = req.user.id || req.user.userId;
+    
+    console.log('[Stats] Request:', { days, deviceId, userId });
+    
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - parseInt(days));
     
-    const totalAnomalies = await Anomaly.countDocuments({
+    const query = {
+      userId: userId,
       timestamp: { $gte: startDate }
-    });
+    };
+    
+    if (deviceId) {
+      query.deviceId = deviceId;
+      console.log(`[Stats] Filtering by deviceId: ${deviceId}`);
+    }
+    
+    const totalAnomalies = await Anomaly.countDocuments(query);
 
     const resolvedCount = await Anomaly.countDocuments({
-      timestamp: { $gte: startDate },
+      ...query,
       resolved: true
     });
     
     const unresolvedCount = await Anomaly.countDocuments({
-      timestamp: { $gte: startDate },
+      ...query,
       resolved: false
     });
     
     const alertStats = await Anomaly.aggregate([
-      {
-        $match: {
-          timestamp: { $gte: startDate }
-        }
-      },
+      { $match: query },
       {
         $group: {
           _id: '$summary.alertLevel',
@@ -843,11 +868,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
     ]);
     
     const detectionMethodStats = await Anomaly.aggregate([
-      {
-        $match: {
-          timestamp: { $gte: startDate }
-        }
-      },
+      { $match: query },
       {
         $group: {
           _id: {
@@ -866,22 +887,27 @@ router.get('/stats', authenticateToken, async (req, res) => {
       ? (resolvedCount / totalAnomalies) * 100 
       : 0;
     
+    const stats = {
+      total_anomalies: totalAnomalies,
+      resolved_count: resolvedCount,
+      unresolved_count: unresolvedCount,
+      resolution_rate: resolutionRate.toFixed(1),
+      accuracy_rate: 95.2,
+      alertStats,
+      detectionMethodStats,
+      period_days: parseInt(days),
+      device_id: deviceId || 'all'
+    };
+    
+    console.log('[Stats] Result:', stats);
+    
     res.json({
       success: true,
-      data: {
-        total_anomalies: totalAnomalies,
-        resolved_count: resolvedCount,
-        unresolved_count: unresolvedCount,
-        resolution_rate: resolutionRate.toFixed(1),
-        accuracy_rate: 95.2,
-        alertStats,
-        detectionMethodStats,
-        period_days: parseInt(days)
-      }
+      data: stats
     });
     
   } catch (error) {
-    console.error('Error fetching anomaly stats:', error);
+    console.error('[Stats] Error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch anomaly stats',
@@ -978,10 +1004,10 @@ router.post('/check-device/:deviceId', authenticateToken, manualCheckLimiter, as
     };
     
     const pythonExecutable = path.join(__dirname, '..', 'anomaly-detection', 'venv', 'bin', 'python');
-      const pythonProcess = spawn(pythonExecutable, [pythonPath], {
-        cwd: pythonDir,
-        timeout: 30000
-      });
+    const pythonProcess = spawn(pythonExecutable, [pythonPath], {
+      cwd: pythonDir,
+      timeout: 30000
+    });
     
     let output = '';
     let error = '';

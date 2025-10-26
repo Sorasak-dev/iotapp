@@ -23,6 +23,29 @@ const getAuthToken = async () => {
   }
 };
 
+// ✅ เพิ่มฟังก์ชันดึงชื่อ device
+const fetchDeviceName = async (deviceId) => {
+  if (!deviceId) return null;
+  
+  try {
+    const token = await getAuthToken();
+    const response = await fetch(`${API_ENDPOINTS.DEVICES}/${deviceId}`, {
+      headers: getAuthHeaders(token),
+    });
+    const result = await response.json();
+    
+    if (result.success && result.data && result.data.name) {
+      console.log(`[SensorDetail] Fetched device name: ${result.data.name}`);
+      return result.data.name;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error fetching device name:', error);
+    return null;
+  }
+};
+
 export default function SensorDetail() {
   const route = useRoute();
   const navigation = useNavigation();
@@ -30,7 +53,7 @@ export default function SensorDetail() {
   const parsedSensorData = JSON.parse(sensorData || '[]');
   const parsedLatestData = JSON.parse(latestData || '{}');
   
-  const [deviceName, setDeviceName] = useState("Sensor Device");
+  const [deviceName, setDeviceName] = useState(null);
   const [deviceId, setDeviceId] = useState(null);
   
   const [currentIssues, setCurrentIssues] = useState([]);
@@ -45,36 +68,51 @@ export default function SensorDetail() {
   const router = useRouter();
 
   useEffect(() => {
-    if (device) {
-      try {
-        let deviceData;
-        if (typeof device === 'string') {
-          deviceData = JSON.parse(device);
-        } else {
-          deviceData = device;
-        }
-        
-        if (deviceData && deviceData.name) {
-          setDeviceName(deviceData.name);
-        }
-        if (deviceData && (deviceData._id || deviceData.deviceId)) {
-          const id = deviceData._id || deviceData.deviceId;
-          setDeviceId(id);
+    const initializeDevice = async () => {
+      if (device) {
+        try {
+          let deviceData;
+          if (typeof device === 'string') {
+            deviceData = JSON.parse(device);
+          } else {
+            deviceData = device;
+          }
           
-          setTimeout(() => {
-            fetchSensorData(id);
-            checkAnomalyHealth();
-            loadAnomalyStats(id);
-          }, 100);
+          // ตั้งค่า deviceId ก่อน
+          if (deviceData && (deviceData._id || deviceData.deviceId)) {
+            const id = deviceData._id || deviceData.deviceId;
+            setDeviceId(id);
+            
+            // ถ้ามีชื่อใน device object ให้ใช้เลย
+            if (deviceData.name) {
+              setDeviceName(deviceData.name);
+              console.log(`[SensorDetail] Device name from params: ${deviceData.name}`);
+            } else {
+              // ถ้าไม่มี ให้ดึงจาก API
+              const name = await fetchDeviceName(id);
+              if (name) {
+                setDeviceName(name);
+              }
+            }
+            
+            // โหลดข้อมูลอื่นๆ
+            setTimeout(() => {
+              fetchSensorData(id);
+              checkAnomalyHealth();
+              loadAnomalyStats(id);
+            }, 100);
+          }
+        } catch (error) {
+          console.error("Error parsing device data:", error);
         }
-      } catch (error) {
-        console.error("Error parsing device data:", error);
+      } else {
+        fetchSensorData(null);
+        checkAnomalyHealth();
+        loadAnomalyStats(null);
       }
-    } else {
-      fetchSensorData(null);
-      checkAnomalyHealth();
-      loadAnomalyStats(null);
-    }
+    };
+
+    initializeDevice();
   }, [device]);
 
   const checkAnomalyHealth = async () => {
@@ -106,7 +144,16 @@ export default function SensorDetail() {
     
       const targetDeviceId = currentDeviceId || deviceId;
       
-      const stats = await AnomalyService.getStats(token, 1);
+      const filters = {
+        days: 1
+      };
+      
+      if (targetDeviceId) {
+        filters.deviceId = targetDeviceId;
+        console.log(`[SensorDetail] Loading stats for deviceId: ${targetDeviceId}`);
+      }
+      
+      const stats = await AnomalyService.getStats(token, filters.days, filters.deviceId);
       
       if (stats && stats.data) {
         setAnomalyStats({
@@ -397,12 +444,20 @@ export default function SensorDetail() {
   };
 
   const handleViewErrorHistory = () => {
-  navigation.navigate('error-history', {
-    errorHistory: JSON.stringify(currentIssues),
-    deviceId: deviceId,
-    deviceName: deviceName
-  });
-};
+    const finalDeviceName = deviceName || 'Unknown Device';
+    
+    console.log('[SensorDetail] Navigating to error-history:', {
+      deviceId,
+      deviceName: finalDeviceName,
+      issuesCount: currentIssues.length
+    });
+    
+    navigation.navigate('error-history', {
+      errorHistory: JSON.stringify(currentIssues),
+      deviceId: deviceId,
+      deviceName: finalDeviceName
+    });
+  };
 
   const handleGoBack = () => {
     navigation.goBack();
@@ -462,7 +517,7 @@ export default function SensorDetail() {
           </View>
 
           <View style={styles.sensorContainer}>
-            <Text style={styles.sensorText}>{deviceName}</Text>
+            <Text style={styles.sensorText}>{deviceName || 'Loading...'}</Text>
             {modelStatus && (
               <View style={styles.modelStatus}>
                 <Text style={styles.modelStatusText}>

@@ -73,7 +73,7 @@ const deduplicateErrors = (errors) => {
 export default function ErrorHistory() {
   const route = useRoute();
   const navigation = useNavigation();
-  const { errorHistory } = route.params || {};
+  const { errorHistory, deviceId, deviceName } = route.params || {};
   
   const [currentErrors, setCurrentErrors] = useState([]);
   const [historicalErrors, setHistoricalErrors] = useState([]);
@@ -100,7 +100,7 @@ export default function ErrorHistory() {
     }
 
     fetchData();
-  }, [errorHistory]);
+  }, [errorHistory, deviceId]);
 
   const fetchData = async () => {
     await fetchHistoricalErrors();
@@ -111,10 +111,17 @@ export default function ErrorHistory() {
       setLoading(true);
       const token = await getAuthToken();
 
-      const data = await AnomalyService.getHistory(token, {
+      const filters = {
         limit: 50,
         page: 1
-      });
+      };
+      
+      if (deviceId) {
+        filters.deviceId = deviceId;
+        console.log(`[ErrorHistory] Filtering by deviceId: ${deviceId}`);
+      }
+
+      const data = await AnomalyService.getHistory(token, filters);
 
       console.log('Anomaly history FULL response:', JSON.stringify(data, null, 2));
 
@@ -130,6 +137,14 @@ export default function ErrorHistory() {
       }
 
       console.log(`Total anomalies found: ${anomaliesArray.length}`);
+      
+      if (deviceId && anomaliesArray.length > 0) {
+        anomaliesArray = anomaliesArray.filter(anomaly => 
+          anomaly.deviceId === deviceId || 
+          anomaly.device_id === deviceId
+        );
+        console.log(`After client-side filter: ${anomaliesArray.length} anomalies for device ${deviceId}`);
+      }
 
       const existingKeys = new Set();
 
@@ -241,7 +256,8 @@ export default function ErrorHistory() {
       'temperature_high': 'High Temperature',
       'temperature_low': 'Low Temperature',
       'humidity_high': 'High Humidity',
-      'humidity_low': 'Low Humidity'
+      'humidity_low': 'Low Humidity',
+      'sensor_malfunction': 'Sensor Malfunction'
     };
     return typeMap[type] || 'Sensor Alert';
   };
@@ -288,7 +304,7 @@ export default function ErrorHistory() {
     setRefreshing(true);
     await fetchData();
     setRefreshing(false);
-  }, []);
+  }, [deviceId]);
 
   const handleGoBack = () => {
     navigation.goBack();
@@ -319,7 +335,6 @@ export default function ErrorHistory() {
       renderKey: generateUniqueKey(error, index, 'render', existingKeys)
     }));
   }, [filteredErrors]);
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView 
@@ -421,9 +436,6 @@ export default function ErrorHistory() {
                       />
                       <View style={styles.errorTitleContainer}>
                         <Text style={styles.errorType}>{error.type}</Text>
-                        {error.deviceId && (
-                          <Text style={styles.deviceId}>Device: {error.deviceId}</Text>
-                        )}
                       </View>
                     </View>
                     
@@ -448,7 +460,7 @@ export default function ErrorHistory() {
 
                   {error.sensorData && Object.keys(error.sensorData).some(key => 
                     error.sensorData[key] !== null && error.sensorData[key] !== undefined
-                  ) ? (
+                  ) && (
                     <View style={styles.sensorInfoBox}>
                       {error.sensorData.temperature !== undefined && error.sensorData.temperature !== null && (
                         <View style={styles.sensorInfoRow}>
@@ -491,14 +503,6 @@ export default function ErrorHistory() {
                         </View>
                       )}
                     </View>
-                  ) : (
-                    error.isAnomalyDetection && (
-                      <View style={styles.noSensorDataBox}>
-                        <Text style={styles.noSensorDataText}>
-                          ℹ️ Sensor data not available for this detection
-                        </Text>
-                      </View>
-                    )
                   )}
 
                   {error.notes && (
@@ -651,11 +655,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#333",
   },
-  deviceId: {
-    fontSize: 12,
-    color: "#666",
-    marginTop: 2,
-  },
   errorBadges: {
     alignItems: "flex-end",
   },
@@ -705,18 +704,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#333',
     fontWeight: '500',
-  },
-  noSensorDataBox: {
-    backgroundColor: '#FFF8E1',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 8,
-    marginBottom: 8,
-  },
-  noSensorDataText: {
-    fontSize: 13,
-    color: '#F57C00',
-    fontStyle: 'italic',
   },
   errorNotes: {
     fontSize: 14,
