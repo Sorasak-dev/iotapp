@@ -11,6 +11,25 @@ const Device = require('../models/Device');
 const authenticateToken = require('../middleware/authMiddleware');
 const pushNotificationService = require('../services/pushNotificationService');
 
+// Environment configuration
+const isDevelopment = process.env.NODE_ENV !== 'production';
+const ENABLE_DEBUG_LOGS = process.env.ENABLE_DEBUG_LOGS === 'true' || isDevelopment;
+
+// Conditional logging helper
+const log = {
+  info: (message, ...args) => {
+    console.log(message, ...args);
+  },
+  debug: (message, ...args) => {
+    if (ENABLE_DEBUG_LOGS) {
+      console.log(message, ...args);
+    }
+  },
+  error: (message, ...args) => {
+    console.error(message, ...args);
+  }
+};
+
 const anomalyLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
   max: 50,
@@ -285,7 +304,7 @@ const createAnomalyRecord = (detection, deviceId, userId, detectionMethod) => {
         if (sensorData.battery_level < 15) alertLevel = 'red';
       }
     }
-    
+
     let detailedMessage = 'Machine learning detected unusual pattern';
     if (issues.length > 0) {
       detailedMessage = `ML detected: ${issues.join(', ')}`;
@@ -384,7 +403,7 @@ router.post('/detect', authenticateToken, detectLimiter, async (req, res, next) 
     const userId = req.user.id;
     const sensorData = req.body;
     
-    console.log(`Real-time detection request from user ${userId}`);
+    log.debug(`Real-time detection request from user ${userId}`);
     
     if (!sensorData || typeof sensorData !== 'object') {
       return res.status(400).json({
@@ -460,7 +479,7 @@ router.post('/detect', authenticateToken, detectLimiter, async (req, res, next) 
         try {
           const result = JSON.parse(output);
           
-          console.log(`Detection completed for user ${userId}`);
+          log.debug(`Detection completed for user ${userId}`);
           
           const response = {
             success: true,
@@ -485,7 +504,7 @@ router.post('/detect', authenticateToken, detectLimiter, async (req, res, next) 
           res.status(200).json(response);
           
         } catch (parseError) {
-          console.error('Error parsing Python output:', parseError);
+          log.error('Error parsing Python output:', parseError.message);
           res.status(500).json({
             success: false,
             message: 'Failed to parse detection results',
@@ -494,7 +513,7 @@ router.post('/detect', authenticateToken, detectLimiter, async (req, res, next) 
           });
         }
       } else {
-        console.error(`Python process error:`, error);
+        log.error(`Python process error:`, error);
         res.status(500).json({
           success: false,
           message: 'Detection failed',
@@ -506,7 +525,7 @@ router.post('/detect', authenticateToken, detectLimiter, async (req, res, next) 
     
     pythonProcess.on('error', (err) => {
       clearTimeout(timeoutHandle);
-      console.error(`Python process error:`, err);
+      log.error(`Python process error:`, err.message);
       res.status(500).json({
         success: false,
         message: 'Failed to start detection process',
@@ -516,7 +535,7 @@ router.post('/detect', authenticateToken, detectLimiter, async (req, res, next) 
     });
     
   } catch (err) {
-    console.error('Error in real-time detection:', err);
+    log.error('Error in real-time detection:', err.message);
     next(err);
   }
 });
@@ -551,12 +570,12 @@ const sendAnomalyNotification = async (anomaly) => {
       transformAnomalyForPush(anomaly)
     );
     
-    console.log(`Push notification sent for anomaly ${anomaly._id}:`, 
+    log.debug(`Push notification sent for anomaly ${anomaly._id}:`, 
                pushResult.success ? 'Success' : `Failed - ${pushResult.reason}`);
     
     return pushResult;
   } catch (pushError) {
-    console.error(`Failed to send push notification for anomaly ${anomaly._id}:`, pushError.message);
+    log.error(`Failed to send push notification for anomaly ${anomaly._id}:`, pushError.message);
     return { success: false, error: pushError.message };
   }
 };
@@ -567,11 +586,11 @@ router.post('/anomalies', anomalyLimiter, async (req, res) => {
   try {
     const { deviceId, timestamp, anomalyResults, alertLevel, message } = req.body;
     
-    console.log(`Received anomaly alert for device ${deviceId} at ${timestamp}`);
+    log.debug(`Received anomaly alert for device ${deviceId} at ${timestamp}`);
     
     const device = await Device.findOne({ deviceId }).populate('userId', 'email');
     if (!device) {
-      console.log(`Device ${deviceId} not found in database`);
+      log.debug(`Device ${deviceId} not found in database`);
       return res.status(200).json({ 
         success: true,
         message: 'Device not found but alert acknowledged',
@@ -601,7 +620,7 @@ router.post('/anomalies', anomalyLimiter, async (req, res) => {
             }
             
           } catch (saveError) {
-            console.error(`Error saving rule-based anomaly:`, saveError);
+            log.error(`Error saving rule-based anomaly:`, saveError.message);
           }
         }
       }
@@ -624,14 +643,14 @@ router.post('/anomalies', anomalyLimiter, async (req, res) => {
             }
             
           } catch (saveError) {
-            console.error(`Error saving ML-based anomaly:`, saveError);
+            log.error(`Error saving ML-based anomaly:`, saveError.message);
           }
         }
       }
     }
 
-    console.log(`Processed ${anomalies.length} anomaly alerts for device ${deviceId}`);
-    console.log(`Notifications: ${notificationsSent} sent, ${notificationErrors} failed`);
+    log.debug(`Processed ${anomalies.length} anomaly alerts for device ${deviceId}`);
+    log.debug(`Notifications: ${notificationsSent} sent, ${notificationErrors} failed`);
 
     res.status(200).json({ 
       success: true,
@@ -647,7 +666,7 @@ router.post('/anomalies', anomalyLimiter, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error processing anomaly alert:', error);
+    log.error('Error processing anomaly alert:', error.message);
     res.status(500).json({ 
       success: false,
       message: 'Error processing anomaly alert',
@@ -733,7 +752,7 @@ router.get('/health', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Health check error:', error);
+    log.error('Health check error:', error.message);
     res.status(500).json({
       success: false,
       message: 'Health check failed'
@@ -761,7 +780,7 @@ router.get('/', authenticateToken, async (req, res) => {
     
     if (deviceId) {
       query.deviceId = deviceId;
-      console.log(`[History] Filtering by deviceId: ${deviceId}`);
+      log.debug(`[History] Filtering by deviceId: ${deviceId}`);
     }
     
     if (resolved !== undefined) {
@@ -778,7 +797,7 @@ router.get('/', authenticateToken, async (req, res) => {
       if (endDate) query.timestamp.$lte = new Date(endDate);
     }
     
-    console.log('[History] Query:', JSON.stringify(query));
+    log.debug('[History] Query:', JSON.stringify(query));
     
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const limitNum = parseInt(limit);
@@ -790,9 +809,8 @@ router.get('/', authenticateToken, async (req, res) => {
     
     const total = await Anomaly.countDocuments(query);
     
-    console.log(`[History] Found ${anomalies.length} anomalies (total: ${total})`);
+    log.debug(`[History] Found ${anomalies.length} anomalies (total: ${total})`);
     
-    // ✅ เพิ่ม device name จาก Device collection
     const anomaliesWithDeviceNames = await Promise.all(
       anomalies.map(async (anomaly) => {
         const device = await Device.findById(anomaly.deviceId);
@@ -816,7 +834,7 @@ router.get('/', authenticateToken, async (req, res) => {
     });
     
   } catch (error) {
-    console.error('[History] Error:', error);
+    log.error('[History] Error:', error.message);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch anomaly history',
@@ -830,7 +848,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
     const { days = 7, deviceId } = req.query;
     const userId = req.user.id || req.user.userId;
     
-    console.log('[Stats] Request:', { days, deviceId, userId });
+    log.debug('[Stats] Request:', { days, deviceId, userId });
     
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - parseInt(days));
@@ -842,7 +860,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
     
     if (deviceId) {
       query.deviceId = deviceId;
-      console.log(`[Stats] Filtering by deviceId: ${deviceId}`);
+      log.debug(`[Stats] Filtering by deviceId: ${deviceId}`);
     }
     
     const totalAnomalies = await Anomaly.countDocuments(query);
@@ -899,7 +917,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
       device_id: deviceId || 'all'
     };
     
-    console.log('[Stats] Result:', stats);
+    log.debug('[Stats] Result:', stats);
     
     res.json({
       success: true,
@@ -907,7 +925,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
     });
     
   } catch (error) {
-    console.error('[Stats] Error:', error);
+    log.error('[Stats] Error:', error.message);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch anomaly stats',
@@ -952,7 +970,7 @@ router.put('/:id/resolve', authenticateToken, async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Error resolving anomaly:', error);
+    log.error('Error resolving anomaly:', error.message);
     res.status(500).json({
       success: false,
       message: 'Failed to resolve anomaly',
@@ -1044,6 +1062,7 @@ router.post('/check-device/:deviceId', authenticateToken, manualCheckLimiter, as
           });
           
         } catch (parseError) {
+          log.error('Failed to parse detection results:', parseError.message);
           res.status(500).json({
             success: false,
             message: 'Failed to parse detection results',
@@ -1051,6 +1070,7 @@ router.post('/check-device/:deviceId', authenticateToken, manualCheckLimiter, as
           });
         }
       } else {
+        log.error('Detection failed:', error.trim());
         res.status(500).json({
           success: false,
           message: 'Detection failed',
@@ -1060,7 +1080,7 @@ router.post('/check-device/:deviceId', authenticateToken, manualCheckLimiter, as
     });
     
   } catch (error) {
-    console.error('Error checking device:', error);
+    log.error('Error checking device:', error.message);
     res.status(500).json({
       success: false,
       message: 'Failed to check device',

@@ -61,7 +61,6 @@ export default function NotificationSettings({ onClose }) {
         return false;
       }
 
-      // Get the user ID from the token
       let userId;
       try {
         const userDataStr = await AsyncStorage.getItem('userData');
@@ -74,7 +73,6 @@ export default function NotificationSettings({ onClose }) {
       }
 
       if (!userId) {
-        // Fallback: try to decode JWT token to get user ID
         try {
           const payload = JSON.parse(atob(token.split('.')[1]));
           userId = payload.id;
@@ -84,15 +82,12 @@ export default function NotificationSettings({ onClose }) {
         }
       }
 
-      // 🔥 แก้ไขการ get push token
       let expoPushToken;
       
       if (!Device.isDevice) {
-        // สำหรับ simulator ใช้ mock token ที่ backend รองรับ
         expoPushToken = `ExponentPushToken[SIMULATOR_${Date.now()}]`;
         console.log('📱 Running on simulator - using mock token');
       } else {
-        // สำหรับ real device
         try {
           const tokenData = await Notifications.getExpoPushTokenAsync({
             projectId: Constants.expoConfig?.extra?.eas?.projectId,
@@ -109,7 +104,6 @@ export default function NotificationSettings({ onClose }) {
         return false;
       }
 
-      // Get device info
       const deviceInfo = {
         platform: Device.osName?.toLowerCase() || 'unknown',
         deviceName: Device.deviceName || 'Unknown Device',
@@ -123,7 +117,6 @@ export default function NotificationSettings({ onClose }) {
         expoPushToken: expoPushToken.substring(0, 30) + '...' 
       });
 
-      // Register with server
       const response = await PushNotificationService.registerToken(
         token,
         userId,
@@ -153,7 +146,6 @@ export default function NotificationSettings({ onClose }) {
       
       if (token) {
         console.log('🔄 Loading preferences from server...');
-        // Load from server
         const response = await PushNotificationService.getPreferences(token);
         
         if (response.success && response.data) {
@@ -164,11 +156,9 @@ export default function NotificationSettings({ onClose }) {
           console.log('⚠️ User needs to register push token first');
           setNeedsTokenRegistration(true);
           
-          // Try to auto-register push token
           console.log('🔄 Attempting auto-registration...');
           const registered = await registerPushToken();
           if (registered) {
-            // Try loading preferences again after registration
             console.log('🔄 Retrying to load preferences after registration...');
             const retryResponse = await PushNotificationService.getPreferences(token);
             if (retryResponse.success && retryResponse.data) {
@@ -180,12 +170,10 @@ export default function NotificationSettings({ onClose }) {
         } else {
           console.warn('⚠️ Failed to load server preferences:', response.error);
           setNeedsTokenRegistration(true);
-          // Fall back to local storage
           await loadLocalPreferences();
         }
       } else {
         console.log('⚠️ No auth token found, loading from local storage');
-        // Load from local storage
         await loadLocalPreferences();
       }
     } catch (error) {
@@ -216,12 +204,10 @@ export default function NotificationSettings({ onClose }) {
       setSaving(true);
       const token = await AsyncStorage.getItem('token');
       
-      // Save locally first
       await AsyncStorage.setItem('notificationPreferences', JSON.stringify(newPreferences));
       console.log('✅ Saved preferences locally');
       
       if (token) {
-        // If we need token registration, try it first
         if (needsTokenRegistration) {
           console.log('🔄 Registering push token before saving...');
           const registered = await registerPushToken();
@@ -233,7 +219,6 @@ export default function NotificationSettings({ onClose }) {
           setNeedsTokenRegistration(false);
         }
 
-        // Save to server
         console.log('🔄 Saving preferences to server...');
         const response = await PushNotificationService.updatePreferences(token, newPreferences);
         if (!response.success) {
@@ -250,7 +235,6 @@ export default function NotificationSettings({ onClose }) {
       
     } catch (error) {
       console.error('❌ Error saving preferences:', error);
-      // ไม่แสดง error popup เพราะ save ใน local แล้ว
       console.warn('⚠️ Preferences saved locally only');
     } finally {
       setSaving(false);
@@ -269,11 +253,10 @@ export default function NotificationSettings({ onClose }) {
         Alert.alert('Success', 'Notification permissions granted');
         await checkNotificationStatus();
         
-        // Try to register push token after permission is granted
         if (needsTokenRegistration) {
           const registered = await registerPushToken();
           if (registered) {
-            await loadPreferences(); // Reload preferences after registration
+            await loadPreferences(); 
           }
         }
         return granted;
@@ -302,7 +285,6 @@ export default function NotificationSettings({ onClose }) {
     try {
       const token = await AsyncStorage.getItem('token');
       if (token) {
-        // Register token if needed
         if (needsTokenRegistration) {
           console.log('🔄 Registering token before sending test...');
           const registered = await registerPushToken();
@@ -332,14 +314,12 @@ export default function NotificationSettings({ onClose }) {
   const setupNotifications = async () => {
     try {
       console.log('🔄 Setting up notifications...');
-      // Request permissions first
       const granted = await requestNotificationPermission();
       if (granted) {
-        // Register push token
         const registered = await registerPushToken();
         if (registered) {
           Alert.alert('Success', 'Notifications have been set up successfully!');
-          await loadPreferences(); // Reload preferences after setup
+          await loadPreferences(); 
         } else {
           Alert.alert('Error', 'Failed to set up notifications. Please try again.');
         }

@@ -3,6 +3,22 @@ const router = express.Router();
 const notificationController = require('../controllers/notificationController');
 const authenticateToken = require('../middleware/authMiddleware');
 
+// Environment configuration
+const isDevelopment = process.env.NODE_ENV !== 'production';
+const ENABLE_DEBUG_LOGS = process.env.ENABLE_DEBUG_LOGS === 'true' || isDevelopment;
+
+// Conditional logging helper
+const log = {
+  debug: (message, ...args) => {
+    if (ENABLE_DEBUG_LOGS) {
+      console.log(message, ...args);
+    }
+  },
+  error: (message, ...args) => {
+    console.error(message, ...args);
+  }
+};
+
 const validateTokenRegistration = (req, res, next) => {
   const { expoPushToken, deviceInfo } = req.body;
   

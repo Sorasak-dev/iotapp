@@ -39,7 +39,6 @@ export default function DeviceMonitor() {
   useEffect(() => {
     let parsedDevice = null;
     
-    // Parse device data first
     if (route.params?.device) {
       try {
         if (typeof route.params.device === 'string') {
@@ -69,7 +68,6 @@ export default function DeviceMonitor() {
       try {
         const token = await getAuthToken();
         
-        // ใช้ parsedDevice._id แทน deviceId state
         let apiUrl = API_ENDPOINTS.SENSOR_DATA;
         if (parsedDevice && parsedDevice._id) {
           apiUrl = `${API_ENDPOINTS.DEVICES}/${parsedDevice._id}/data?limit=20`;
@@ -91,7 +89,6 @@ export default function DeviceMonitor() {
         const result = await response.json();
         let data;
 
-        // ใช้ parsedDevice._id สำหรับตรวจสอบ
         if (parsedDevice && parsedDevice._id && result.data) {
           data = { data: result.data };
         } else {
@@ -177,7 +174,7 @@ export default function DeviceMonitor() {
     fetchSensorData();
     const interval = setInterval(fetchSensorData, DATA_REFRESH_INTERVAL); 
     return () => clearInterval(interval);
-  }, [route.params?.device]); // เปลี่ยนจาก deviceId เป็น route.params?.device
+  }, [route.params?.device]); 
 
   const renderChart = (data, color, type) => {
     if (!data || !data.labels.length) {

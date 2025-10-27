@@ -864,7 +864,6 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
   },
   
-  // Card Styles
   notificationCard: {
     flexDirection: 'row',
     borderRadius: 12,
@@ -955,7 +954,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   
-  // Edit Mode Styles
   editActions: {
     flexDirection: 'column',
     gap: 8,
@@ -984,7 +982,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   
-  // Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

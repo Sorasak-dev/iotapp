@@ -3,9 +3,28 @@ const PushToken = require('../models/PushToken');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
 
+// Environment configuration
+const isDevelopment = process.env.NODE_ENV !== 'production';
+const ENABLE_DEBUG_LOGS = process.env.ENABLE_DEBUG_LOGS === 'true' || isDevelopment;
+
+// Conditional logging helper
+const log = {
+  info: (message, ...args) => {
+    console.log(message, ...args);
+  },
+  debug: (message, ...args) => {
+    if (ENABLE_DEBUG_LOGS) {
+      console.log(message, ...args);
+    }
+  },
+  error: (message, ...args) => {
+    console.error(message, ...args);
+  }
+};
+
 exports.registerToken = async (req, res) => {
   try {
-    console.log('Received registration request:', {
+    log.debug('Received registration request:', {
       body: {
         userId: req.body.userId,
         hasExpoPushToken: !!req.body.expoPushToken,
@@ -51,7 +70,7 @@ exports.registerToken = async (req, res) => {
       });
     }
 
-    console.log('Registering push token:', {
+    log.debug('Registering push token:', {
       userId,
       token: expoPushToken.substring(0, 30) + '...',
       platform: deviceInfo?.platform
@@ -63,7 +82,7 @@ exports.registerToken = async (req, res) => {
       deviceInfo || {}
     );
 
-    console.log('Push token registered successfully:', {
+    log.debug('Push token registered successfully:', {
       tokenId: token._id,
       isActive: token.isActive
     });
@@ -79,7 +98,7 @@ exports.registerToken = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error registering push token:', error);
+    log.error('Error registering push token:', error.message);
 
     if (error.message.includes('Invalid Expo push token')) {
       return res.status(400).json({
@@ -91,7 +110,7 @@ exports.registerToken = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to register push token',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: ENABLE_DEBUG_LOGS ? error.message : undefined
     });
   }
 };
@@ -126,7 +145,7 @@ exports.updatePreferences = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error updating preferences:', error);
+    log.error('Error updating preferences:', error.message);
     res.status(500).json({
       success: false,
       message: 'Failed to update preferences',
@@ -153,7 +172,7 @@ exports.getPreferences = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error getting preferences:', error);
+    log.error('Error getting preferences:', error.message);
     res.status(500).json({
       success: false,
       message: 'Failed to get preferences',
@@ -183,7 +202,7 @@ exports.sendTestNotification = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error sending test notification:', error);
+    log.error('Error sending test notification:', error.message);
     res.status(500).json({
       success: false,
       message: 'Failed to send test notification',
@@ -247,7 +266,7 @@ exports.getHistory = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error getting notification history:', error);
+    log.error('Error getting notification history:', error.message);
     res.status(500).json({
       success: false,
       message: 'Failed to get notification history',
@@ -291,7 +310,7 @@ exports.markAsRead = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error marking notifications as read:', error);
+    log.error('Error marking notifications as read:', error.message);
     res.status(500).json({
       success: false,
       message: 'Failed to mark notifications as read',
@@ -338,7 +357,7 @@ exports.sendToUser = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error sending notification to user:', error);
+    log.error('Error sending notification to user:', error.message);
     res.status(500).json({
       success: false,
       message: 'Failed to send notification',
@@ -384,7 +403,7 @@ exports.sendBulkNotifications = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error sending bulk notifications:', error);
+    log.error('Error sending bulk notifications:', error.message);
     res.status(500).json({
       success: false,
       message: 'Failed to send bulk notifications',
@@ -423,7 +442,7 @@ exports.removeToken = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error removing push token:', error);
+    log.error('Error removing push token:', error.message);
     res.status(500).json({
       success: false,
       message: 'Failed to remove push token',
@@ -450,7 +469,7 @@ exports.getStats = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error getting notification stats:', error);
+    log.error('Error getting notification stats:', error.message);
     res.status(500).json({
       success: false,
       message: 'Failed to get notification statistics',
@@ -482,7 +501,7 @@ exports.getActiveTokens = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error getting active tokens:', error);
+    log.error('Error getting active tokens:', error.message);
     res.status(500).json({
       success: false,
       message: 'Failed to get active tokens',
@@ -511,7 +530,7 @@ exports.healthCheck = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error in health check:', error);
+    log.error('Error in health check:', error.message);
     res.status(500).json({
       success: false,
       message: 'Push notification service is unhealthy',

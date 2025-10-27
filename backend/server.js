@@ -31,6 +31,27 @@ const mongoURI = process.env.MONGO_URI || "mongodb://localhost:27017/auth-demo";
 const SECRET_KEY = process.env.SECRET_KEY || "your_secret_key";
 const PORT = process.env.PORT || 3000;
 
+// Environment configuration
+const isDevelopment = process.env.NODE_ENV !== 'production';
+const ENABLE_DEBUG_LOGS = process.env.ENABLE_DEBUG_LOGS === 'true' || isDevelopment;
+
+// Helper function for conditional logging
+const log = {
+  info: (message, ...args) => {
+    console.log(message, ...args);
+  },
+  debug: (message, ...args) => {
+    if (ENABLE_DEBUG_LOGS) {
+      console.log(message, ...args);
+    }
+  },
+  error: (message, ...args) => {
+    console.error(message, ...args);
+  },
+  warn: (message, ...args) => {
+    console.warn(message, ...args);
+  }
+};
 
 class SystemHealthMonitor {
   constructor() {
@@ -53,12 +74,10 @@ class SystemHealthMonitor {
   
   async checkSystemHealth() {
     try {
-      console.log('Performing system health check...');
+      log.debug('Performing system health check...');
       
       const mongoHealth = mongoose.connection.readyState === 1;
-      
       const pythonHealth = await this.checkPythonService();
-      
       const notificationHealth = await this.checkNotificationService();
       
       this.metrics.last_health_check = new Date().toISOString();
@@ -71,7 +90,7 @@ class SystemHealthMonitor {
         this.alerts.consecutive_failures = 0;
       }
       
-      console.log(`Health check completed. Score: ${Math.round(healthScore * 100)}%`);
+      log.debug(`Health check completed. Score: ${Math.round(healthScore * 100)}%`);
       
       return {
         overall_health: healthScore,
@@ -84,7 +103,7 @@ class SystemHealthMonitor {
       };
       
     } catch (error) {
-      console.error('Health check failed:', error);
+      log.error('Health check failed:', error.message);
       this.metrics.error_count++;
       return { error: error.message };
     }
@@ -124,7 +143,7 @@ class SystemHealthMonitor {
     }
     
     if (this.alerts.consecutive_failures >= this.alerts.alert_threshold) {
-      console.error(`ADMIN ALERT: ${message}`);
+      log.error(`ADMIN ALERT: ${message}`);
       
       try {
         const adminUsers = await User.find({ role: 'admin' });
@@ -139,7 +158,7 @@ class SystemHealthMonitor {
         }
         this.alerts.last_alert_sent = new Date().toISOString();
       } catch (error) {
-        console.error('Failed to send admin alert:', error);
+        log.error('Failed to send admin alert:', error.message);
       }
     }
   }
@@ -164,18 +183,18 @@ class PythonProcessManager {
   
   start() {
     if (this.isShuttingDown) {
-      console.log('Process manager is shutting down, not starting new process');
+      log.debug('Process manager is shutting down, not starting new process');
       return;
     }
     
     const pythonPath = path.join(__dirname, 'anomaly-detection/integration_bridge.py');
     const pythonDir = path.join(__dirname, 'anomaly-detection');
     
-    console.log('Starting Anomaly Detection Service...');
+    log.info('Starting Anomaly Detection Service...');
 
     const fs = require('fs');
     if (!fs.existsSync(pythonPath)) {
-      console.log('Anomaly Detection script not found. Skipping...');
+      log.warn('Anomaly Detection script not found. Skipping...');
       return null;
     }
     
@@ -189,10 +208,9 @@ class PythonProcessManager {
     this.restartCount = 0; 
     
     this.setupEventHandlers();
-    
     this.startHealthCheck();
     
-    console.log(`Anomaly Detection Service started (PID: ${this.process.pid})`);
+    log.info(`Anomaly Detection Service started (PID: ${this.process.pid})`);
     return this.process;
   }
   
@@ -201,21 +219,27 @@ class PythonProcessManager {
     
     this.process.stdout.on('data', (data) => {
       const output = data.toString().trim();
-      if (output) {
-        console.log('Anomaly Monitor:', output);
+      if (output && ENABLE_DEBUG_LOGS) {
+        log.debug('Anomaly Monitor:', output);
       }
     });
     
     this.process.stderr.on('data', (data) => {
       const errorMsg = data.toString().trim();
       if (errorMsg && !errorMsg.includes('WARNING') && !errorMsg.includes('INFO')) {
-        console.error('Anomaly Monitor Error:', errorMsg);
+        log.error('Anomaly Monitor Error:', errorMsg);
       }
     });
     
     this.process.on('close', (code) => {
       this.metrics.uptime = Date.now() - this.metrics.startTime;
-      console.log(`Anomaly Monitor stopped with code ${code} (uptime: ${Math.round(this.metrics.uptime/1000)}s)`);
+      const uptimeSeconds = Math.round(this.metrics.uptime/1000);
+      
+      if (code !== 0) {
+        log.error(`Anomaly Monitor stopped with code ${code} (uptime: ${uptimeSeconds}s)`);
+      } else {
+        log.info(`Anomaly Monitor stopped gracefully (uptime: ${uptimeSeconds}s)`);
+      }
       
       this.stopHealthCheck();
       
@@ -225,7 +249,7 @@ class PythonProcessManager {
         this.metrics.lastRestart = Date.now();
 
         const delay = this.restartDelay * Math.pow(2, this.restartCount - 1);
-        console.log(`Restarting Anomaly Monitor in ${delay/1000}s (attempt ${this.restartCount}/${this.maxRestarts})`);
+        log.warn(`Restarting Anomaly Monitor in ${delay/1000}s (attempt ${this.restartCount}/${this.maxRestarts})`);
 
         setTimeout(() => {
           if (!this.isShuttingDown) {
@@ -234,18 +258,18 @@ class PythonProcessManager {
         }, delay);
         
       } else if (this.restartCount >= this.maxRestarts) {
-        console.error('Max restart attempts reached. Manual intervention required.');
+        log.error('Max restart attempts reached. Manual intervention required.');
         systemHealthMonitor.alertAdmins('Anomaly Detection Service failed to start after maximum retries');
       }
     });
     
     this.process.on('error', (error) => {
-      console.error('Anomaly Monitor Process Error:', error.message);
+      log.error('Anomaly Monitor Process Error:', error.message);
       
       if (error.code === 'ENOENT') {
-        console.error('Python executable not found. Please check Python installation.');
+        log.error('Python executable not found. Please check Python installation.');
       } else if (error.code === 'EACCES') {
-        console.error('Permission denied. Check file permissions.');
+        log.error('Permission denied. Check file permissions.');
       }
     });
   }
@@ -266,12 +290,12 @@ class PythonProcessManager {
   }
   
   async gracefulShutdown() {
-    console.log('Shutting down Python Process Manager...');
+    log.info('Shutting down Python Process Manager...');
     this.isShuttingDown = true;
     this.stopHealthCheck();
     
     if (this.process && !this.process.killed) {
-      console.log('Stopping Anomaly Detection Service...');
+      log.info('Stopping Anomaly Detection Service...');
       
       try {
         this.process.kill('SIGTERM');
@@ -279,7 +303,7 @@ class PythonProcessManager {
         await new Promise((resolve) => {
           const timeout = setTimeout(() => {
             if (this.process && !this.process.killed) {
-              console.log('Forcing process termination...');
+              log.warn('Forcing process termination...');
               this.process.kill('SIGKILL');
             }
             resolve();
@@ -295,9 +319,9 @@ class PythonProcessManager {
             resolve();
           }
         });
-        console.log('Anomaly Detection Service stopped');
+        log.info('Anomaly Detection Service stopped');
       } catch (error) {
-        console.error('Error stopping anomaly monitor:', error.message);
+        log.error('Error stopping anomaly monitor:', error.message);
       }
     }
     
@@ -325,8 +349,6 @@ const sensorDataSchema = Joi.object({
 });
 
 const rateLimiter = require('express-rate-limit');
-
-const isDevelopment = process.env.NODE_ENV !== 'production';
 
 const apiLimiter = rateLimiter({
   windowMs: 15 * 60 * 1000, 
@@ -364,12 +386,17 @@ app.use((req, res, next) => {
   next();
 });
 
+// Request logging middleware - only log in development or errors in production
 app.use((req, res, next) => {
   const start = Date.now();
   
   res.on('finish', () => {
     const duration = Date.now() - start;
-    console.log(`${req.method} ${req.originalUrl} - ${res.statusCode} - ${duration}ms`);
+    
+    // Only log errors in production, log everything in development
+    if (isDevelopment || res.statusCode >= 400) {
+      log.info(`${req.method} ${req.originalUrl} - ${res.statusCode} - ${duration}ms`);
+    }
   });
   
   next();
@@ -388,25 +415,25 @@ mongoose
     maxIdleTimeMS: 30000,
   })
   .then(() => {
-    console.log("Connected to MongoDB");
+    log.info("Connected to MongoDB");
     initializePushNotificationCleanup();
     startSystemMonitoring();
   })
   .catch((err) => {
-    console.error("MongoDB connection error:", err);
+    log.error("MongoDB connection error:", err);
     process.exit(1);
   });
 
 mongoose.connection.on('error', (err) => {
-  console.error('MongoDB error:', err);
+  log.error('MongoDB error:', err.message);
 });
 
 mongoose.connection.on('disconnected', () => {
-  console.log('MongoDB disconnected');
+  log.warn('MongoDB disconnected');
 });
 
 mongoose.connection.on('reconnected', () => {
-  console.log('MongoDB reconnected');
+  log.info('MongoDB reconnected');
 });
 
 const generateSensorData = (deviceId) => {
@@ -480,19 +507,19 @@ const sendDeviceStatusNotification = async (device, status, message) => {
       message
     );
     
-    console.log(`Device status notification sent for ${device.name}: ${status}`);
+    log.debug(`Device status notification sent for ${device.name}: ${status}`);
   } catch (error) {
-    console.error(`Failed to send device status notification:`, error);
+    log.error(`Failed to send device status notification:`, error.message);
   }
 };
 
 const simulateSensorDataForAllDevices = async () => {
   try {
-    console.log('Starting sensor data simulation...');
+    log.debug('Starting sensor data simulation...');
     const connectedDevices = await Device.find({ status: 'Connected' });
     
     if (connectedDevices.length === 0) {
-      console.log('No connected devices found for simulation');
+      log.debug('No connected devices found for simulation');
       return;
     }
     
@@ -527,17 +554,17 @@ const simulateSensorDataForAllDevices = async () => {
         
       } catch (deviceError) {
         errorCount++;
-        console.error(`Error generating data for device ${device.deviceId}:`, deviceError.message);
+        log.error(`Error generating data for device ${device.deviceId}:`, deviceError.message);
       }
     }
 
-    console.log(`Sensor data simulation completed: ${successCount} success, ${errorCount} errors`);
+    log.debug(`Sensor data simulation completed: ${successCount} success, ${errorCount} errors`);
 
     systemHealthMonitor.metrics.total_anomalies_processed += successCount;
     systemHealthMonitor.metrics.error_count += errorCount;
     
   } catch (error) {
-    console.error("Error in sensor data simulation:", error);
+    log.error("Error in sensor data simulation:", error.message);
     systemHealthMonitor.metrics.error_count++;
   }
 };
@@ -547,27 +574,27 @@ const startSystemMonitoring = () => {
     systemHealthMonitor.checkSystemHealth();
   }, 5 * 60 * 1000);
 
-  console.log('System health monitoring started');
+  log.info('System health monitoring started');
 };
 
 const initializePushNotificationCleanup = () => {
   cron.schedule('0 2 * * *', async () => {
     try {
-      console.log('Starting daily push token cleanup...');
+      log.info('Starting daily push token cleanup...');
       await pushNotificationService.cleanupOldTokens(30);
-      console.log('Push token cleanup completed');
+      log.info('Push token cleanup completed');
     } catch (error) {
-      console.error('Push token cleanup failed:', error);
+      log.error('Push token cleanup failed:', error.message);
     }
   });
 
   cron.schedule('0 3 * * 0', async () => {
     try {
-      console.log('Starting weekly notification cleanup...');
+      log.info('Starting weekly notification cleanup...');
       await pushNotificationService.cleanupOldNotifications(90);
-      console.log('Notification cleanup completed');
+      log.info('Notification cleanup completed');
     } catch (error) {
-      console.error('Notification cleanup failed:', error);
+      log.error('Notification cleanup failed:', error.message);
     }
   });
 
@@ -575,11 +602,11 @@ const initializePushNotificationCleanup = () => {
     try {
       await pushNotificationService.processDeliveryQueue();
     } catch (error) {
-      console.error('Notification delivery processing failed:', error);
+      log.error('Notification delivery processing failed:', error.message);
     }
   });
 
-  console.log('Push notification cleanup jobs initialized');
+  log.info('Push notification cleanup jobs initialized');
 };
 
 const startSensorSimulation = () => {
@@ -590,23 +617,23 @@ const startSensorSimulation = () => {
     setTimeout(simulateSensorDataForAllDevices, jitter);
   }, 3600000); 
 
-  console.log('Sensor data simulation started');
+  log.info('Sensor data simulation started');
 };
 
 const gracefulShutdown = async () => {
-  console.log('Shutting down server gracefully...');
+  log.info('Shutting down server gracefully...');
   
   try {
     await pythonProcessManager.gracefulShutdown();
     
     await mongoose.connection.close();
-    console.log('MongoDB connection closed');
+    log.info('MongoDB connection closed');
 
-    console.log('Server shutdown complete');
+    log.info('Server shutdown complete');
     process.exit(0);
     
   } catch (error) {
-    console.error('Error during shutdown:', error);
+    log.error('Error during shutdown:', error.message);
     process.exit(1);
   }
 };
@@ -615,13 +642,15 @@ process.on('SIGINT', gracefulShutdown);
 process.on('SIGTERM', gracefulShutdown);
 
 process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
-  console.error('Stack trace:', error.stack);
+  log.error('Uncaught Exception:', error.message);
+  if (ENABLE_DEBUG_LOGS) {
+    log.error('Stack trace:', error.stack);
+  }
   gracefulShutdown();
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  log.error('Unhandled Rejection:', reason);
   gracefulShutdown();
 });
 
@@ -630,6 +659,7 @@ app.get('/', (req, res) => {
     message: 'EMIB Backend Server with Enhanced Anomaly Detection',
     version: '2.0.0',
     status: 'running',
+    environment: isDevelopment ? 'development' : 'production',
     features: [
       'Enhanced Anomaly Detection with ML + Rules',
       'Real-time Push Notifications',
@@ -747,7 +777,7 @@ app.post("/api/signup", strictLimiter, async (req, res, next) => {
     try {
       await newUser.createDefaultZone();
     } catch (zoneError) {
-      console.error('Failed to create default zone:', zoneError);
+      log.error('Failed to create default zone:', zoneError.message);
     }
     
     try {
@@ -767,7 +797,7 @@ app.post("/api/signup", strictLimiter, async (req, res, next) => {
         );
       }, 5000);
     } catch (pushError) {
-      console.error('Failed to send welcome notification:', pushError);
+      log.error('Failed to send welcome notification:', pushError.message);
     }
     
     res.status(201).json({ 
@@ -950,7 +980,11 @@ app.get('/api/user/sensor-data', authenticateToken, async (req, res, next) => {
 });
 
 const enhancedErrorHandler = (err, req, res, next) => {
-  console.error('Error:', err);
+  // Log error details
+  log.error('Error:', err.message);
+  if (ENABLE_DEBUG_LOGS) {
+    log.error('Stack:', err.stack);
+  }
 
   if (err.name === 'ValidationError') {
     const errors = Object.values(err.errors).map(e => e.message);
@@ -985,7 +1019,7 @@ const enhancedErrorHandler = (err, req, res, next) => {
   res.status(err.status || 500).json({
     success: false,
     message: err.message || 'Internal Server Error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    ...(ENABLE_DEBUG_LOGS && { stack: err.stack })
   });
 };
 
@@ -1001,18 +1035,18 @@ const createTestUser = async () => {
         password: await bcrypt.hash("password123", 10),
       });
       await user.save();
-      console.log("Created test user:", testEmail);
+      log.info("Created test user:", testEmail);
     }
     return user._id;
   } catch (error) {
-    console.error("Error creating test user:", error);
+    log.error("Error creating test user:", error.message);
     throw error;
   }
 };
 
 const initializeServer = async () => {
   try {
-    console.log('Initializing Enhanced EMIB Server...');
+    log.info('Initializing Enhanced EMIB Server...');
     
     await createTestUser();
     
@@ -1020,47 +1054,52 @@ const initializeServer = async () => {
     
     setTimeout(() => {
       pythonProcessManager.start();
-      console.log('Python Anomaly Detection Service enabled');
+      log.info('Python Anomaly Detection Service enabled');
     }, 10000);
     
     try {
       const deliveryStats = await pushNotificationService.getDeliveryStats(1);
-      console.log('Push Notification Service initialized');
-      console.log('Last 24h delivery stats:', deliveryStats);
+      log.info('Push Notification Service initialized');
+      if (ENABLE_DEBUG_LOGS) {
+        log.debug('Last 24h delivery stats:', deliveryStats);
+      }
     } catch (error) {
-      console.error('Push Notification Service warning:', error.message);
+      log.warn('Push Notification Service warning:', error.message);
     }
 
-    console.log("All services initialized successfully");
+    log.info("All services initialized successfully");
   } catch (error) {
-    console.error("Server initialization error:", error);
+    log.error("Server initialization error:", error.message);
     process.exit(1);
   }
 };
 
 const startServer = () => {
   const server = app.listen(PORT, () => {
-    console.log(`Enhanced EMIB Server running on http://localhost:${PORT}`);
-    console.log(`Environment: ${isDevelopment ? 'DEVELOPMENT' : 'PRODUCTION'}`);
-    console.log(`Rate Limits: API=${isDevelopment ? '10000' : '200'}/15min, Auth=${isDevelopment ? '1000' : '20'}/15min`);
-    console.log(`Push Notifications: Available`);
-    console.log(`Anomaly Detection: Enhanced ML + Rules`);
-    console.log(`Security: Input validation, Rate limiting, Error handling`);
-    console.log(`Health Monitoring: Active`);
-    console.log(`Available endpoints:`);
-    console.log(`   - GET /api/health - Enhanced system health check`);
-    console.log(`   - GET /api/notifications/health - Push notification health`);
-    console.log(`   - POST /api/notifications/register-token - Register device`);
-    console.log(`   - POST /api/notifications/test - Send test notification`);
-    console.log(`   - GET /api/device-templates - Available device templates`);
+    log.info(`Enhanced EMIB Server running on http://localhost:${PORT}`);
+    log.info(`Environment: ${isDevelopment ? 'DEVELOPMENT' : 'PRODUCTION'}`);
+    log.info(`Rate Limits: API=${isDevelopment ? '10000' : '200'}/15min, Auth=${isDevelopment ? '1000' : '20'}/15min`);
+    log.info(`Push Notifications: Available`);
+    log.info(`Anomaly Detection: Enhanced ML + Rules`);
+    log.info(`Security: Input validation, Rate limiting, Error handling`);
+    log.info(`Health Monitoring: Active`);
+    
+    if (ENABLE_DEBUG_LOGS) {
+      log.debug(`Available endpoints:`);
+      log.debug(`   - GET /api/health - Enhanced system health check`);
+      log.debug(`   - GET /api/notifications/health - Push notification health`);
+      log.debug(`   - POST /api/notifications/register-token - Register device`);
+      log.debug(`   - POST /api/notifications/test - Send test notification`);
+      log.debug(`   - GET /api/device-templates - Available device templates`);
+    }
     
     initializeServer();
   });
 
   server.on('error', (error) => {
-    console.error('Server error:', error);
+    log.error('Server error:', error.message);
     if (error.code === 'EADDRINUSE') {
-      console.error(`Port ${PORT} is already in use`);
+      log.error(`Port ${PORT} is already in use`);
     }
     gracefulShutdown();
   });

@@ -2,6 +2,25 @@ const { Expo } = require('expo-server-sdk');
 const PushToken = require('../models/PushToken');
 const Notification = require('../models/Notification');
 
+// Environment configuration
+const isDevelopment = process.env.NODE_ENV !== 'production';
+const ENABLE_DEBUG_LOGS = process.env.ENABLE_DEBUG_LOGS === 'true' || isDevelopment;
+
+// Conditional logging helper
+const log = {
+  info: (message, ...args) => {
+    console.log(message, ...args);
+  },
+  debug: (message, ...args) => {
+    if (ENABLE_DEBUG_LOGS) {
+      console.log(message, ...args);
+    }
+  },
+  error: (message, ...args) => {
+    console.error(message, ...args);
+  }
+};
+
 class PushNotificationService {
   constructor() {
     this.expo = new Expo();
@@ -24,7 +43,7 @@ class PushNotificationService {
     }
     
     if (isDevToken || isMockToken) {
-      console.log('Using development/mock push token - notifications will only work in development');
+      log.debug('Using development/mock push token - notifications will only work in development');
     }
 
       let existingToken = await PushToken.findOne({ expoPushToken });
@@ -35,7 +54,7 @@ class PushNotificationService {
         existingToken.isActive = true;
         existingToken.lastUsed = new Date();
         await existingToken.save();
-        console.log(`Updated existing push token for user ${userId}`);
+        log.debug(`Updated existing push token for user ${userId}`);
         return existingToken;
       }
 
@@ -59,11 +78,11 @@ class PushNotificationService {
       });
 
       await newToken.save();
-      console.log(`Registered new push token for user ${userId}`);
+      log.debug(`Registered new push token for user ${userId}`);
       return newToken;
 
     } catch (error) {
-      console.error('Error registering push token:', error);
+      log.error('Error registering push token:', error.message);
       throw error;
     }
   }
@@ -76,11 +95,11 @@ class PushNotificationService {
         await token.updatePreferences(preferences);
       }
       
-      console.log(`Updated preferences for user ${userId}`);
+      log.debug(`Updated preferences for user ${userId}`);
       return { success: true, tokensUpdated: tokens.length };
 
     } catch (error) {
-      console.error('Error updating preferences:', error);
+      log.error('Error updating preferences:', error.message);
       throw error;
     }
   }
@@ -90,7 +109,7 @@ class PushNotificationService {
       const token = await PushToken.findOne({ userId, isActive: true });
       return token ? token.preferences : null;
     } catch (error) {
-      console.error('Error getting preferences:', error);
+      log.error('Error getting preferences:', error.message);
       throw error;
     }
   }
@@ -122,11 +141,11 @@ class PushNotificationService {
 
       this.queueNotificationsForDelivery(notifications);
       
-      console.log(`Queued ${notifications.length} notifications for delivery`);
+      log.debug(`Queued ${notifications.length} notifications for delivery`);
       return { success: true, notifications };
 
     } catch (error) {
-      console.error('Error sending notifications:', error);
+      log.error('Error sending notifications:', error.message);
       throw error;
     }
   }
@@ -145,23 +164,23 @@ class PushNotificationService {
     
     const tokens = await PushToken.findActiveTokensForUser(userId);
     if (tokens.length === 0) {
-      console.log(`No active push tokens found for user ${userId}`);
+      log.debug(`No active push tokens found for user ${userId}`);
       return { success: false, reason: 'No active tokens' };
     }
 
     const userPrefs = tokens[0].preferences;
     if (!userPrefs.anomalyAlerts) {
-      console.log(`User ${userId} has disabled anomaly alerts`);
+      log.debug(`User ${userId} has disabled anomaly alerts`);
       return { success: false, reason: 'Anomaly alerts disabled' };
     }
 
     if (userPrefs.criticalOnly && alertLevel !== 'critical') {
-      console.log(`User ${userId} only wants critical alerts, but this is ${alertLevel}`);
+      log.debug(`User ${userId} only wants critical alerts, but this is ${alertLevel}`);
       return { success: false, reason: 'Non-critical alert filtered' };
     }
 
     if (this.isQuietHours(userPrefs) && alertLevel !== 'critical') {
-      console.log(`Quiet hours active for user ${userId}, suppressing ${alertLevel} alert`);
+      log.debug(`Quiet hours active for user ${userId}, suppressing ${alertLevel} alert`);
       return { success: false, reason: 'Quiet hours active' };
     }
 
@@ -183,7 +202,7 @@ class PushNotificationService {
     });
 
   } catch (error) {
-    console.error('Error sending anomaly alert:', error);
+    log.error('Error sending anomaly alert:', error.message);
     throw error;
   }
 }
@@ -213,7 +232,7 @@ class PushNotificationService {
       });
 
     } catch (error) {
-      console.error('Error sending device alert:', error);
+      log.error('Error sending device alert:', error.message);
       throw error;
     }
   }
@@ -232,7 +251,7 @@ class PushNotificationService {
       });
 
     } catch (error) {
-      console.error('Error sending test notification:', error);
+      log.error('Error sending test notification:', error.message);
       throw error;
     }
   }
@@ -245,7 +264,7 @@ class PushNotificationService {
         return { processed: 0 };
       }
 
-      console.log(`Processing ${pendingNotifications.length} pending notifications`);
+      log.debug(`Processing ${pendingNotifications.length} pending notifications`);
 
       let processed = 0;
       const batches = this.chunkArray(pendingNotifications, this.batchSize);
@@ -258,7 +277,7 @@ class PushNotificationService {
       return { processed };
 
     } catch (error) {
-      console.error('Error processing delivery queue:', error);
+      log.error('Error processing delivery queue:', error.message);
       throw error;
     }
   }
@@ -281,7 +300,7 @@ async deliverNotificationBatch(notifications) {
                                   tokenDoc.expoPushToken.includes('FALLBACK_');
 
         if (isDevelopmentToken) {
-          console.log(`Skipping dev token (mock delivery): ${tokenDoc.expoPushToken.substring(0, 40)}...`);
+          log.debug(`Skipping dev token (mock delivery): ${tokenDoc.expoPushToken.substring(0, 40)}...`);
           
           await notification.markAsSent('mock_dev_token', { 
             status: 'ok', 
@@ -289,9 +308,10 @@ async deliverNotificationBatch(notifications) {
           });
           await tokenDoc.markSuccess();
           
-          console.log(`Mock sent notification ${notification._id} to dev token`);
+          log.debug(`Mock sent notification ${notification._id} to dev token`);
           continue;
         }
+
         const message = {
           to: tokenDoc.expoPushToken,
           title: notification.title,
@@ -311,11 +331,11 @@ async deliverNotificationBatch(notifications) {
     }
 
     if (messages.length === 0) {
-      console.log('No real push tokens to send (only dev tokens processed)');
+      log.debug('No real push tokens to send (only dev tokens processed)');
       return;
     }
 
-    console.log(`Sending ${messages.length} real push notifications via Expo`);
+    log.debug(`Sending ${messages.length} real push notifications via Expo`);
 
     const chunks = this.expo.chunkPushNotifications(messages);
     
@@ -331,16 +351,16 @@ async deliverNotificationBatch(notifications) {
           if (ticket.status === 'ok') {
             await notification.markAsSent(ticket.id, ticket);
             await tokenDoc.markSuccess();
-            console.log(`Sent notification ${notification._id} to ${message.to.substring(0, 30)}...`);
+            log.debug(`Sent notification ${notification._id} to ${message.to.substring(0, 30)}...`);
           } else {
             await notification.markAsFailed(ticket.message || 'Unknown error');
             await tokenDoc.markFailure(ticket.message);
-            console.error(`Failed to send notification ${notification._id}:`, ticket.message);
+            log.error(`Failed to send notification ${notification._id}:`, ticket.message);
           }
         }
 
       } catch (error) {
-        console.error('Error sending chunk:', error);
+        log.error('Error sending chunk:', error.message);
         
         for (const message of chunk) {
           const { notification, tokenDoc } = notificationMap.get(message.to);
@@ -351,14 +371,14 @@ async deliverNotificationBatch(notifications) {
     }
 
   } catch (error) {
-    console.error('Error delivering notification batch:', error);
+    log.error('Error delivering notification batch:', error.message);
     throw error;
   }
 }
 
   queueNotificationsForDelivery(notifications) {
     setTimeout(() => {
-      this.processDeliveryQueue().catch(console.error);
+      this.processDeliveryQueue().catch(log.error);
     }, 1000);
   }
 
@@ -450,10 +470,10 @@ async deliverNotificationBatch(notifications) {
   async cleanupOldTokens(days = 30) {
     try {
       const result = await PushToken.deactivateOldTokens(days);
-      console.log(`Deactivated ${result.modifiedCount} old push tokens`);
+      log.info(`Deactivated ${result.modifiedCount} old push tokens`);
       return result;
     } catch (error) {
-      console.error('Error cleaning up old tokens:', error);
+      log.error('Error cleaning up old tokens:', error.message);
       throw error;
     }
   }
@@ -468,10 +488,10 @@ async deliverNotificationBatch(notifications) {
         deliveryStatus: { $in: ['delivered', 'failed', 'read'] }
       });
       
-      console.log(`🧹 Cleaned up ${result.deletedCount} old notifications`);
+      log.info(`Cleaned up ${result.deletedCount} old notifications`);
       return result;
     } catch (error) {
-      console.error('Error cleaning up old notifications:', error);
+      log.error('Error cleaning up old notifications:', error.message);
       throw error;
     }
   }
@@ -501,7 +521,7 @@ async deliverNotificationBatch(notifications) {
       }, {});
 
     } catch (error) {
-      console.error('Error getting delivery stats:', error);
+      log.error('Error getting delivery stats:', error.message);
       throw error;
     }
   }

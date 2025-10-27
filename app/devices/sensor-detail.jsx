@@ -23,7 +23,6 @@ const getAuthToken = async () => {
   }
 };
 
-// ✅ เพิ่มฟังก์ชันดึงชื่อ device
 const fetchDeviceName = async (deviceId) => {
   if (!deviceId) return null;
   
@@ -77,25 +76,21 @@ export default function SensorDetail() {
           } else {
             deviceData = device;
           }
-          
-          // ตั้งค่า deviceId ก่อน
+        
           if (deviceData && (deviceData._id || deviceData.deviceId)) {
             const id = deviceData._id || deviceData.deviceId;
             setDeviceId(id);
             
-            // ถ้ามีชื่อใน device object ให้ใช้เลย
             if (deviceData.name) {
               setDeviceName(deviceData.name);
               console.log(`[SensorDetail] Device name from params: ${deviceData.name}`);
             } else {
-              // ถ้าไม่มี ให้ดึงจาก API
               const name = await fetchDeviceName(id);
               if (name) {
                 setDeviceName(name);
               }
             }
             
-            // โหลดข้อมูลอื่นๆ
             setTimeout(() => {
               fetchSensorData(id);
               checkAnomalyHealth();
