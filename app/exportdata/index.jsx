@@ -17,7 +17,7 @@ import ViewShot from "react-native-view-shot";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import * as MediaLibrary from "expo-media-library";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";  
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -259,69 +259,95 @@ export default function ExportDataScreen() {
     return lines.join("\n");
   };
 
-  const exportCSVorExcel = async (asExcel=false) => {
-    const csv = buildCSV();
-    const baseName = `export_${fmt(startDate)}_${fmt(endDate)}`;
-    if (isWeb) {
-      const base64 = btoa(unescape(encodeURIComponent(csv)));
-      downloadWebBase64(`${baseName}.${asExcel ? "csv" : "csv"}`, "text/csv", base64);
-      return;
+  const exportCSVorExcel = async (asExcel = false) => {
+    try {
+      const csv = buildCSV();
+      const baseName = `export_${fmt(startDate)}_${fmt(endDate)}`;
+      
+      if (isWeb) {
+        const base64 = btoa(unescape(encodeURIComponent(csv)));
+        downloadWebBase64(`${baseName}.csv`, "text/csv", base64);
+        Alert.alert("Success", "File downloaded successfully!");
+        return;
+      }
+      
+      const fileUri = `${FileSystem.cacheDirectory}${baseName}.csv`;
+      
+      // ✅ แก้: ใช้ string 'utf8' แทน FileSystem.EncodingType.UTF8
+      await FileSystem.writeAsStringAsync(fileUri, csv, { 
+        encoding: 'utf8'
+      });
+      
+      await shareOrSaveNative(fileUri, "text/csv");
+      Alert.alert("Success", "File exported successfully!");
+      
+    } catch (error) {
+      console.error("Export CSV error:", error);
+      throw error;
     }
-    const fileUri = `${FileSystem.cacheDirectory}${baseName}.${asExcel ? "csv" : "csv"}`;
-    await FileSystem.writeAsStringAsync(fileUri, csv, { encoding: FileSystem.EncodingType.UTF8 });
-    await shareOrSaveNative(fileUri, "text/csv");
   };
 
   const exportPDFwithChart = async () => {
-    if (!chartData.points) {
-      Alert.alert("No data", "No chart data in the selected range.");
-      return;
-    }
+    try {
+      if (!chartData.points) {
+        Alert.alert("No data", "No chart data in the selected range.");
+        return;
+      }
 
-    const shotOptions = isWeb
-      ? { format: "png", quality: 1, result: "base64" }
-      : { format: "png", quality: 1, result: "tmpfile" };
+      const shotOptions = isWeb
+        ? { format: "png", quality: 1, result: "base64" }
+        : { format: "png", quality: 1, result: "tmpfile" };
 
-    const imageResult = await shotRef.current.capture(shotOptions);
+      const imageResult = await shotRef.current.capture(shotOptions);
 
-    if (isWeb) {
-      const { jsPDF } = await import("jspdf");
-      const pdf = new jsPDF({ unit: "px", format: "a4" });
-      const imgWidth = 500;
-      const imgHeight = 500 * 0.6; 
-      pdf.setFontSize(14);
-      pdf.text("Sensor Chart", 24, 32);
-      pdf.setFontSize(10);
-      pdf.text(`Zones: ${zones.map(z => z.name).join(", ") || "-"}`, 24, 48);
-      pdf.text(`Date Range: ${fmt(startDate)} - ${fmt(endDate)}`, 24, 60);
-      pdf.text(`Selected: ${selectedData.join(", ")}`, 24, 72);
-      pdf.addImage(`data:image/png;base64,${imageResult}`, "PNG", 24, 88, imgWidth, imgHeight);
-      const pdfData = pdf.output("datauristring").split(",")[1]; 
-      downloadWebBase64(`report_${fmt(startDate)}_${fmt(endDate)}.pdf`, "application/pdf", pdfData);
-    } else {
-      const base64 =
-        await FileSystem.readAsStringAsync(imageResult, { encoding: FileSystem.EncodingType.Base64 });
-      const html = `
-        <html><head><meta charset="utf-8" />
-          <style>
-            body { margin: 0; padding: 16px; font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; }
-            h1 { font-size: 18px; margin: 0 0 10px; }
-            .meta { color: #555; font-size: 12px; margin-bottom: 12px; }
-            .wrap { display:flex; justify-content:center; }
-            img { width: 100%; max-width: 1200px; height: auto; border-radius: 12px; }
-          </style>
-        </head>
-        <body>
-          <h1>Sensor Chart</h1>
-          <div class="meta">
-            Zones: ${zones.map(z=>z.name).join(", ") || "-"}<br/>
-            Date Range: ${fmt(startDate)} - ${fmt(endDate)}<br/>
-            Selected: ${selectedData.join(", ")}
-          </div>
-          <div class="wrap"><img src="data:image/png;base64,${base64}" /></div>
-        </body></html>`;
-      const { uri } = await Print.printToFileAsync({ html, base64: false });
-      await shareOrSaveNative(uri, "application/pdf");
+      if (isWeb) {
+        const { jsPDF } = await import("jspdf");
+        const pdf = new jsPDF({ unit: "px", format: "a4" });
+        const imgWidth = 500;
+        const imgHeight = 500 * 0.6; 
+        pdf.setFontSize(14);
+        pdf.text("Sensor Chart", 24, 32);
+        pdf.setFontSize(10);
+        pdf.text(`Zones: ${zones.map(z => z.name).join(", ") || "-"}`, 24, 48);
+        pdf.text(`Date Range: ${fmt(startDate)} - ${fmt(endDate)}`, 24, 60);
+        pdf.text(`Selected: ${selectedData.join(", ")}`, 24, 72);
+        pdf.addImage(`data:image/png;base64,${imageResult}`, "PNG", 24, 88, imgWidth, imgHeight);
+        const pdfData = pdf.output("datauristring").split(",")[1]; 
+        downloadWebBase64(`report_${fmt(startDate)}_${fmt(endDate)}.pdf`, "application/pdf", pdfData);
+        Alert.alert("Success", "PDF downloaded successfully!");
+      } else {
+        // ✅ แก้: ใช้ string 'base64' แทน FileSystem.EncodingType.Base64
+        const base64 = await FileSystem.readAsStringAsync(imageResult, { 
+          encoding: 'base64'
+        });
+        
+        const html = `
+          <html><head><meta charset="utf-8" />
+            <style>
+              body { margin: 0; padding: 16px; font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; }
+              h1 { font-size: 18px; margin: 0 0 10px; }
+              .meta { color: #555; font-size: 12px; margin-bottom: 12px; }
+              .wrap { display:flex; justify-content:center; }
+              img { width: 100%; max-width: 1200px; height: auto; border-radius: 12px; }
+            </style>
+          </head>
+          <body>
+            <h1>Sensor Chart</h1>
+            <div class="meta">
+              Zones: ${zones.map(z=>z.name).join(", ") || "-"}<br/>
+              Date Range: ${fmt(startDate)} - ${fmt(endDate)}<br/>
+              Selected: ${selectedData.join(", ")}
+            </div>
+            <div class="wrap"><img src="data:image/png;base64,${base64}" /></div>
+          </body></html>`;
+        
+        const { uri } = await Print.printToFileAsync({ html, base64: false });
+        await shareOrSaveNative(uri, "application/pdf");
+        Alert.alert("Success", "PDF exported successfully!");
+      }
+    } catch (error) {
+      console.error("Export PDF error:", error);
+      throw error;
     }
   };
 
@@ -330,8 +356,10 @@ export default function ExportDataScreen() {
       Alert.alert("Incomplete", "Please select data types and make sure date range & sensors are set.");
       return;
     }
+    
     try {
       setExporting(true);
+      
       if (selectedFormat === "CSV") {
         await exportCSVorExcel(false);
       } else if (selectedFormat === "Excel") {
@@ -340,7 +368,7 @@ export default function ExportDataScreen() {
         await exportPDFwithChart();
       }
     } catch (e) {
-      console.error(e);
+      console.error("Export error:", e);
       Alert.alert("Export failed", e?.message ?? String(e));
     } finally {
       setExporting(false);

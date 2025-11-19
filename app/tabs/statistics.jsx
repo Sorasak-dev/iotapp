@@ -53,7 +53,7 @@ export default function Statistics() {
   const [zoneSensors, setZoneSensors] = useState([]);
   const [loadingZones, setLoadingZones] = useState(true);
   const [maxDataPoints, setMaxDataPoints] = useState(0);
-
+  
   useFocusEffect(
     useCallback(() => {
       const today = new Date();
@@ -215,32 +215,53 @@ export default function Statistics() {
     }
   };
 
-  const openStartPicker = () => {
-    if (Platform.OS === "web") {
-      Alert.alert("Not supported on Web", "Please run on Android/iOS.");
-      return;
-    }
-    setShowStartPicker(true);
-  };
-  const openEndPicker = () => {
-    if (Platform.OS === "web") {
-      Alert.alert("Not supported on Web", "Please run on Android/iOS.");
-      return;
-    }
-    setShowEndPicker(true);
-  };
+const openStartPicker = () => {
+  if (Platform.OS === "web") {
+    Alert.alert("Not supported on Web", "Please run on Android or iOS.");
+    return;
+  }
+  if (loading) return; // ป้องกันเปิดตอนโหลด
+  setTempStartDate(startDate || new Date());
+  setShowStartPicker(true);
+};
 
-  const onConfirmStart = (date) => {
-    setTempStartDate(date);
+const openEndPicker = () => {
+  if (Platform.OS === "web") {
+    Alert.alert("Not supported on Web", "Please run on Android or iOS.");
+    return;
+  }
+  if (loading) return;
+  setTempEndDate(endDate || new Date());
+  setShowEndPicker(true);
+};
+
+ const onConfirmStart = (date) => {
+  setShowStartPicker(false);
+  setTempStartDate(date);
+
+  // ป้องกันกรณีเลือก start > end
+  if (endDate && date > endDate) {
     setStartDate(date);
-    setShowStartPicker(false);
-    setShowEndPicker(true); 
-  };
-  const onConfirmEnd = (date) => {
-    setTempEndDate(date);
     setEndDate(date);
-    setShowEndPicker(false);
-  };
+    setTempEndDate(date);
+  } else {
+    setStartDate(date);
+  }
+};
+
+const onConfirmEnd = (date) => {
+  setShowEndPicker(false);
+  setTempEndDate(date);
+
+  // ป้องกันกรณีเลือก end < start
+  if (startDate && date < startDate) {
+    setEndDate(date);
+    setStartDate(date);
+    setTempStartDate(date);
+  } else {
+    setEndDate(date);
+  }
+};
 
   const prepareChartData = () => {
     let allTs = [];
@@ -512,20 +533,24 @@ export default function Statistics() {
             </View>
 
             {/* Date pickers */}
-            <DateTimePickerModal
+           <DateTimePickerModal
               isVisible={showStartPicker}
               mode="date"
               date={tempStartDate}
               onConfirm={onConfirmStart}
               onCancel={() => setShowStartPicker(false)}
+              maximumDate={endDate ? new Date(endDate) : undefined}
             />
+
             <DateTimePickerModal
               isVisible={showEndPicker}
               mode="date"
               date={tempEndDate}
               onConfirm={onConfirmEnd}
               onCancel={() => setShowEndPicker(false)}
+              minimumDate={startDate ? new Date(startDate) : undefined}
             />
+
 
             {/* Metric toggles */}
             <View style={styles.metricContainer}>

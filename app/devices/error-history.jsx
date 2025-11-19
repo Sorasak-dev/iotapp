@@ -107,139 +107,140 @@ export default function ErrorHistory() {
   };
 
   const fetchHistoricalErrors = async () => {
-    try {
-      setLoading(true);
-      const token = await getAuthToken();
+  try {
+    setLoading(true);
+    const token = await getAuthToken();
 
-      const filters = {
-        limit: 50,
-        page: 1
-      };
-      
-      if (deviceId) {
-        filters.deviceId = deviceId;
-        console.log(`[ErrorHistory] Filtering by deviceId: ${deviceId}`);
-      }
-
-      const data = await AnomalyService.getHistory(token, filters);
-
-      console.log('Anomaly history FULL response:', JSON.stringify(data, null, 2));
-
-      let anomaliesArray = [];
-      
-      if (data?.success && data?.data?.anomalies && Array.isArray(data.data.anomalies)) {
-        anomaliesArray = data.data.anomalies;
-      } else if (data?.data && Array.isArray(data.data)) {
-        anomaliesArray = data.data;
-      } else {
-        console.warn('Unexpected API response structure:', data);
-        anomaliesArray = [];
-      }
-
-      console.log(`Total anomalies found: ${anomaliesArray.length}`);
-      
-      if (deviceId && anomaliesArray.length > 0) {
-        anomaliesArray = anomaliesArray.filter(anomaly => 
-          anomaly.deviceId === deviceId || 
-          anomaly.device_id === deviceId
-        );
-        console.log(`After client-side filter: ${anomaliesArray.length} anomalies for device ${deviceId}`);
-      }
-
-      const existingKeys = new Set();
-
-      const formattedHistory = anomaliesArray.map((item, index) => {
-        if (index < 3) {
-          console.log(`Anomaly ${index}:`, JSON.stringify(item, null, 2));
-        }
-        
-        const detectionMethod = item?.detectionMethod || 
-                               item?.detection_method || 
-                               'unknown';
-        
-        const isML = detectionMethod === 'ml_based' || 
-                    detectionMethod === 'hybrid' ||
-                    item?.mlResults?.confidence > 0 ||
-                    item?.anomalyType === 'ml_detected' ||
-                    item?.type === 'ml_detected';
-        
-        let message = item?.message || 
-                     item?.alertMessage?.message ||
-                     item?.details ||
-                     'No details available';
-        
-        const alertLevel = item?.alertLevel || 
-                          item?.alert_level ||
-                          item?.summary?.alertLevel || 
-                          'yellow';
-        
-        let sensorData = item?.sensorData || 
-                        item?.sensor_data ||
-                        item?.data ||
-                        null;
-        
-        if (sensorData && typeof sensorData === 'object') {
-          const hasData = Object.values(sensorData).some(val => 
-            val !== null && val !== undefined
-          );
-          if (!hasData) {
-            sensorData = null;
-          }
-        }
-        
-        if (index < 3) {
-          console.log(`Anomaly ${index} processed:`, {
-            detectionMethod,
-            isML,
-            alertLevel,
-            hasSensorData: !!sensorData,
-            sensorData: sensorData,
-            message: message
-          });
-        }
-        
-        return {
-          id: generateUniqueKey(item, index, 'historical', existingKeys),
-          type: formatAnomalyType(item?.anomalyType || item?.type || 'unknown'),
-          timestamp: item?.timestamp || new Date().toISOString(),
-          details: message,
-          alertLevel: alertLevel,
-          detectionMethod: detectionMethod,
-          score: item?.mlResults?.confidence ? item.mlResults.confidence.toFixed(2) : undefined,
-          isAnomalyDetection: isML,
-          resolved: item?.resolved || false,
-          notes: item?.notes || null,
-          deviceId: item?.deviceId || 'Unknown',
-          sensorData: sensorData
-        };
-      });
-
-      const deduplicated = deduplicateErrors(formattedHistory);
-      console.log(`After deduplication: ${deduplicated.length} anomalies`);
-      console.log(`ML anomalies: ${deduplicated.filter(e => e.isAnomalyDetection).length}`);
-      console.log(`With sensor data: ${deduplicated.filter(e => e.sensorData).length}`);
-
-      setHistoricalErrors(deduplicated);
-
-    } catch (error) {
-      console.error("Error fetching historical errors:", error);
-      setHistoricalErrors([]);
-      
-      if (error.message && error.message.includes('401')) {
-        await AsyncStorage.removeItem("token");
-        navigation.replace("/signin");
-        return;
-      }
-      
-      Alert.alert(
-        'Error', 
-        'Failed to fetch error history. Please try again.',
-        [{ text: 'OK' }]
-      );
-    } finally {
-      setLoading(false);
+    const filters = {
+      limit: 50,
+      page: 1
+    };
+    
+    if (deviceId) {
+      filters.deviceId = deviceId;
+      console.log(`[ErrorHistory] Filtering by deviceId: ${deviceId}`);
     }
-  };
+
+    const data = await AnomalyService.getHistory(token, filters);
+
+    console.log('Anomaly history FULL response:', JSON.stringify(data, null, 2));
+
+    let anomaliesArray = [];
+    
+    if (data?.success && data?.data?.anomalies && Array.isArray(data.data.anomalies)) {
+      anomaliesArray = data.data.anomalies;
+    } else if (data?.data && Array.isArray(data.data)) {
+      anomaliesArray = data.data;
+    } else {
+      console.warn('Unexpected API response structure:', data);
+      anomaliesArray = [];
+    }
+
+    console.log(`Total anomalies found: ${anomaliesArray.length}`);
+    
+    if (deviceId && anomaliesArray.length > 0) {
+      anomaliesArray = anomaliesArray.filter(anomaly => 
+        anomaly.deviceId === deviceId || 
+        anomaly.device_id === deviceId
+      );
+      console.log(`After client-side filter: ${anomaliesArray.length} anomalies for device ${deviceId}`);
+    }
+
+    const existingKeys = new Set();
+
+    const formattedHistory = anomaliesArray.map((item, index) => {
+      if (index < 3) {
+        console.log(`Anomaly ${index}:`, JSON.stringify(item, null, 2));
+      }
+      
+      const detectionMethod = item?.detectionMethod || 
+                             item?.detection_method || 
+                             'unknown';
+      
+      const isML = detectionMethod === 'ml_based' || 
+                  detectionMethod === 'hybrid' ||
+                  item?.mlResults?.confidence > 0 ||
+                  item?.anomalyType === 'ml_detected' ||
+                  item?.type === 'ml_detected';
+      
+      let message = item?.message || 
+                   item?.alertMessage?.message ||
+                   item?.details ||
+                   'No details available';
+      
+      const alertLevel = item?.alertLevel || 
+                        item?.alert_level ||
+                        item?.summary?.alertLevel || 
+                        'yellow';
+      
+      let sensorData = item?.sensorData || 
+                      item?.sensor_data ||
+                      item?.data ||
+                      null;
+      
+      if (sensorData && typeof sensorData === 'object') {
+        const hasData = Object.values(sensorData).some(val => 
+          val !== null && val !== undefined
+        );
+        if (!hasData) {
+          sensorData = null;
+        }
+      }
+      
+      if (index < 3) {
+        console.log(`Anomaly ${index} processed:`, {
+          detectionMethod,
+          isML,
+          alertLevel,
+          hasSensorData: !!sensorData,
+          sensorData: sensorData,
+          message: message
+        });
+      }
+      
+      return {
+        _id: item._id || item.id, // ✅ เก็บ MongoDB _id ไว้
+        id: generateUniqueKey(item, index, 'historical', existingKeys), // สำหรับ React key
+        type: formatAnomalyType(item?.anomalyType || item?.type || 'unknown'),
+        timestamp: item?.timestamp || new Date().toISOString(),
+        details: message,
+        alertLevel: alertLevel,
+        detectionMethod: detectionMethod,
+        score: item?.mlResults?.confidence ? item.mlResults.confidence.toFixed(2) : undefined,
+        isAnomalyDetection: isML,
+        resolved: item?.resolved || false,
+        notes: item?.notes || null,
+        deviceId: item?.deviceId || 'Unknown',
+        sensorData: sensorData
+      };
+    });
+
+    const deduplicated = deduplicateErrors(formattedHistory);
+    console.log(`After deduplication: ${deduplicated.length} anomalies`);
+    console.log(`ML anomalies: ${deduplicated.filter(e => e.isAnomalyDetection).length}`);
+    console.log(`With sensor data: ${deduplicated.filter(e => e.sensorData).length}`);
+
+    setHistoricalErrors(deduplicated);
+
+  } catch (error) {
+    console.error("Error fetching historical errors:", error);
+    setHistoricalErrors([]);
+    
+    if (error.message && error.message.includes('401')) {
+      await AsyncStorage.removeItem("token");
+      navigation.replace("/signin");
+      return;
+    }
+    
+    Alert.alert(
+      'Error', 
+      'Failed to fetch error history. Please try again.',
+      [{ text: 'OK' }]
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   const formatAnomalyType = (type) => {
     const typeMap = {
@@ -262,43 +263,66 @@ export default function ErrorHistory() {
     return typeMap[type] || 'Sensor Alert';
   };
 
-  const handleResolveAnomaly = async (anomalyId) => {
-    try {
-      const token = await getAuthToken();
-      
-      Alert.prompt(
-        'Resolve Anomaly',
-        'Add a note about how this issue was resolved:',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Resolve', 
-            onPress: async (notes) => {
-              try {
-                await AnomalyService.resolveAnomaly(token, anomalyId, notes || 'Resolved by user');
-                
+ const handleResolveAnomaly = async (anomalyId) => {
+  try {
+    console.log('🔧 Resolving anomaly with ID:', anomalyId);
+    
+    // ✅ ตรวจสอบว่าเป็น MongoDB ObjectId หรือไม่
+    if (!anomalyId || typeof anomalyId !== 'string' || anomalyId.length !== 24) {
+      console.error('❌ Invalid anomaly ID format:', anomalyId);
+      Alert.alert('Error', 'Invalid anomaly ID');
+      return;
+    }
+    
+    const token = await getAuthToken();
+    
+    Alert.prompt(
+      'Resolve Anomaly',
+      'Add a note about how this issue was resolved:',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Resolve', 
+          onPress: async (notes) => {
+            try {
+              console.log('📤 Sending resolve request:', { anomalyId, notes });
+              
+              const result = await AnomalyService.resolveAnomaly(
+                token, 
+                anomalyId, 
+                notes || 'Resolved by user'
+              );
+              
+              console.log('✅ Resolve result:', result);
+              
+              if (result.success) {
+                // ✅ อัพเดต UI โดยใช้ _id
                 setHistoricalErrors(prev => 
                   prev.map(error => 
-                    error.id === anomalyId 
+                    error._id === anomalyId 
                       ? { ...error, resolved: true, notes: notes || 'Resolved by user' }
                       : error
                   )
                 );
                 
                 Alert.alert('Success', 'Anomaly marked as resolved');
-              } catch (error) {
-                console.error('Error resolving anomaly:', error);
-                Alert.alert('Error', 'Failed to resolve anomaly');
+              } else {
+                Alert.alert('Error', result.message || 'Failed to resolve anomaly');
               }
+            } catch (error) {
+              console.error('❌ Error resolving anomaly:', error);
+              Alert.alert('Error', error.message || 'Failed to resolve anomaly');
             }
           }
-        ],
-        'plain-text'
-      );
-    } catch (error) {
-      console.error('Error in resolve process:', error);
-    }
-  };
+        }
+      ],
+      'plain-text'
+    );
+  } catch (error) {
+    console.error('❌ Error in resolve process:', error);
+    Alert.alert('Error', 'Failed to start resolve process');
+  }
+};
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
@@ -515,10 +539,13 @@ export default function ErrorHistory() {
                     {new Date(error.timestamp).toLocaleString()}
                   </Text>
 
-                  {!error.resolved && error.id && (
+                {!error.resolved && error._id && (
                     <TouchableOpacity 
                       style={styles.actionButton}
-                      onPress={() => handleResolveAnomaly(error.id)}
+                      onPress={() => {
+                        console.log('📱 Mark as Resolved pressed for:', error._id);
+                        handleResolveAnomaly(error._id); // ✅ ส่ง _id แทน id
+                      }}
                     >
                       <Text style={styles.actionButtonText}>
                         Mark as Resolved

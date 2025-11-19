@@ -9,6 +9,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Image,
+  Modal,
 } from "react-native";
 import { Svg, Circle, Path } from "react-native-svg";
 import { useRouter } from "expo-router";
@@ -29,13 +30,25 @@ const EditProfileScreen = () => {
   const [profileImageUri, setProfileImageUri] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showGenderPicker, setShowGenderPicker] = useState(false);
+
+  const genderOptions = [
+    { label: "Male", value: "male" },
+    { label: "Female", value: "female" },
+    { label: "Other", value: "other" },
+    { label: "Prefer not to say", value: "prefer_not_to_say" },
+  ];
 
   const fetchUserProfile = async () => {
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem("token");
       if (!token) {
-        Toast.show({ type: 'error', text1: 'Error', text2: 'No authentication token found.' });
+        Toast.show({ 
+          type: 'error', 
+          text1: 'Error', 
+          text2: 'No authentication token found.' 
+        });
         return;
       }
 
@@ -55,11 +68,19 @@ const EditProfileScreen = () => {
         });
         setProfileImageUri(data.profileImageUrl || null);
       } else {
-        Toast.show({ type: 'error', text1: 'Failed to load profile', text2: data.message || 'An error occurred.' });
+        Toast.show({ 
+          type: 'error', 
+          text1: 'Failed to load profile', 
+          text2: data.message || 'An error occurred.' 
+        });
       }
     } catch (error) {
       console.error("Error fetching profile:", error);
-      Toast.show({ type: 'error', text1: 'Network Error', text2: 'Could not connect to the server.' });
+      Toast.show({ 
+        type: 'error', 
+        text1: 'Network Error', 
+        text2: 'Could not connect to the server.' 
+      });
     } finally {
       setLoading(false);
     }
@@ -76,7 +97,11 @@ const EditProfileScreen = () => {
     if (!result.canceled) {
       const localUri = result.assets[0].uri;
       setProfileImageUri(localUri);
-      Toast.show({ type: 'info', text1: 'Image selected', text2: 'Image is not yet uploaded to the server.' });
+      Toast.show({ 
+        type: 'info', 
+        text1: 'Image selected', 
+        text2: 'Image is not yet uploaded to the server.' 
+      });
     }
   };
 
@@ -87,22 +112,47 @@ const EditProfileScreen = () => {
       const response = await fetch(`${API_ENDPOINTS.USERS}/profile`, {
         method: "PATCH",
         headers: getAuthHeaders(token),
-        body: JSON.stringify({ ...formData, profileImageUrl: profileImageUri }),
+        body: JSON.stringify({ 
+          ...formData, 
+          profileImageUrl: profileImageUri 
+        }),
       });
 
       const data = await response.json();
       if (response.ok) {
-        Toast.show({ type: 'success', text1: 'Profile Saved', text2: 'Your profile has been updated successfully.' });
+        Toast.show({ 
+          type: 'success', 
+          text1: 'Profile Saved', 
+          text2: 'Your profile has been updated successfully.' 
+        });
         router.back();
       } else {
-        Toast.show({ type: 'error', text1: 'Save Failed', text2: data.message || 'An error occurred while saving.' });
+        Toast.show({ 
+          type: 'error', 
+          text1: 'Save Failed', 
+          text2: data.message || 'An error occurred while saving.' 
+        });
       }
     } catch (error) {
       console.error("Error saving profile:", error);
-      Toast.show({ type: 'error', text1: 'Network Error', text2: 'Could not connect to the server.' });
+      Toast.show({ 
+        type: 'error', 
+        text1: 'Network Error', 
+        text2: 'Could not connect to the server.' 
+      });
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleGenderSelect = (value) => {
+    setFormData({ ...formData, gender: value });
+    setShowGenderPicker(false);
+  };
+
+  const getGenderLabel = (value) => {
+    const option = genderOptions.find(opt => opt.value === value);
+    return option ? option.label : 'Select Gender';
   };
 
   useEffect(() => {
@@ -120,6 +170,7 @@ const EditProfileScreen = () => {
       />
     </Svg>
   );
+
   const ProfileAvatar = ({ uri }) => (
     uri ? (
       <Image source={{ uri }} style={styles.profileImage} />
@@ -145,15 +196,18 @@ const EditProfileScreen = () => {
       </Svg>
     )
   );
-  const InputField = ({ label, value, onChangeText, placeholder }) => (
+
+  const InputField = ({ label, value, onChangeText, placeholder, editable = true, keyboardType = "default" }) => (
     <View style={styles.inputContainer}>
       <Text style={styles.label}>{label}</Text>
       <TextInput
-        style={styles.input}
+        style={[styles.input, !editable && styles.inputDisabled]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
         placeholderTextColor="#999"
+        editable={editable}
+        keyboardType={keyboardType}
       />
     </View>
   );
@@ -161,7 +215,7 @@ const EditProfileScreen = () => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0000ff" />
+        <ActivityIndicator size="large" color="#2D7CFF" />
         <Text style={styles.loadingText}>Loading Profile...</Text>
       </View>
     );
@@ -194,9 +248,7 @@ const EditProfileScreen = () => {
           <InputField
             label="Username"
             value={formData.username}
-            onChangeText={(text) =>
-              setFormData({ ...formData, username: text })
-            }
+            onChangeText={(text) => setFormData({ ...formData, username: text })}
             placeholder="Enter username"
           />
           <InputField
@@ -205,17 +257,29 @@ const EditProfileScreen = () => {
             onChangeText={(text) => setFormData({ ...formData, email: text })}
             placeholder="Enter email"
             editable={false}
+            keyboardType="email-address"
           />
           <InputField
             label="Phone Number"
             value={formData.phone}
             onChangeText={(text) => setFormData({ ...formData, phone: text })}
             placeholder="Enter phone number"
+            keyboardType="phone-pad"
           />
+          
+          {/* Gender Selector */}
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Gender</Text>
-            <TouchableOpacity style={styles.genderSelector}>
-              <Text style={styles.genderText}>{formData.gender || 'Select Gender'}</Text>
+            <TouchableOpacity 
+              style={styles.genderSelector}
+              onPress={() => setShowGenderPicker(true)}
+            >
+              <Text style={[
+                styles.genderText,
+                !formData.gender && styles.placeholderText
+              ]}>
+                {getGenderLabel(formData.gender)}
+              </Text>
               <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                 <Path
                   d="M6 9l6 6 6-6"
@@ -229,7 +293,11 @@ const EditProfileScreen = () => {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={saving}>
+        <TouchableOpacity 
+          style={styles.saveButton} 
+          onPress={handleSave} 
+          disabled={saving}
+        >
           {saving ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
@@ -237,6 +305,58 @@ const EditProfileScreen = () => {
           )}
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Gender Picker Modal */}
+      <Modal
+        visible={showGenderPicker}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowGenderPicker(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowGenderPicker(false)}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Gender</Text>
+              <TouchableOpacity onPress={() => setShowGenderPicker(false)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            {genderOptions.map((option) => (
+              <TouchableOpacity
+                key={option.value}
+                style={[
+                  styles.genderOption,
+                  formData.gender === option.value && styles.genderOptionSelected
+                ]}
+                onPress={() => handleGenderSelect(option.value)}
+              >
+                <Text style={[
+                  styles.genderOptionText,
+                  formData.gender === option.value && styles.genderOptionTextSelected
+                ]}>
+                  {option.label}
+                </Text>
+                {formData.gender === option.value && (
+                  <Svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <Path
+                      d="M16.25 5.625L7.5 14.375L3.75 10.625"
+                      stroke="#2D7CFF"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       <Toast />
     </SafeAreaView>
   );
@@ -259,6 +379,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 16,
+    color: '#666',
   },
   header: {
     flexDirection: "row",
@@ -294,12 +415,21 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     color: "#666",
+    fontWeight: "500",
   },
   input: {
     borderBottomWidth: 1,
     borderBottomColor: "#E5E5E5",
     paddingVertical: 8,
     fontSize: 16,
+    color: "#000",
+  },
+  inputDisabled: {
+    color: "#999",
+    backgroundColor: "#F5F5F5",
+  },
+  placeholderText: {
+    color: "#999",
   },
   genderSelector: {
     flexDirection: "row",
@@ -311,6 +441,7 @@ const styles = StyleSheet.create({
   },
   genderText: {
     fontSize: 16,
+    color: "#000",
   },
   saveButton: {
     backgroundColor: "#2D7CFF",
@@ -325,6 +456,56 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: "#fff",
     fontSize: 16,
+    fontWeight: "600",
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 30,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E5E5",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#000",
+  },
+  modalClose: {
+    fontSize: 24,
+    color: "#999",
+    fontWeight: "300",
+  },
+  genderOption: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F5F5F5",
+  },
+  genderOptionSelected: {
+    backgroundColor: "#F0F7FF",
+  },
+  genderOptionText: {
+    fontSize: 16,
+    color: "#000",
+  },
+  genderOptionTextSelected: {
+    color: "#2D7CFF",
     fontWeight: "600",
   },
 });

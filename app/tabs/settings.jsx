@@ -40,6 +40,11 @@ const SettingsScreen = () => {
       });
       if (response.ok) {
         const data = await response.json();
+        console.log('📊 Profile Data:', {
+          name: data.name,
+          username: data.username,
+          email: data.email
+        });
         setProfileData(data);
       } else {
         console.error('Failed to fetch profile data:', response.status);
@@ -171,21 +176,20 @@ const SettingsScreen = () => {
           onPress: () => router.push("/privacy"),
         },
        
-       {
-  icon: (
-    <Svg width="19" height="19" viewBox="0 0 19 19" fill="none">
-      <Path
-        d="M5.22505 6.96657V6.24276C5.22505 3.83695 7.13183 1.8999 9.50005 1.8999C11.8683 1.8999 13.775 3.83695 13.775 6.24276V6.96657M5.22505 6.96657C4.4413 6.96657 3.80005 7.618 3.80005 8.41419V15.6523C3.80005 16.4485 4.4413 17.0999 5.22505 17.0999H13.775C14.5588 17.0999 15.2001 16.4485 15.2001 15.6523V8.41419C15.2001 7.618 14.5588 6.96657 13.775 6.96657M5.22505 6.96657H13.775"
-        stroke="#006EDC"
-        strokeLinecap="round"
-      />
-    </Svg>
-  ),
-  title: t('Password'),
-  hasArrow: true,
-  onPress: () => router.push('/auth/change_password'),
-}
-
+        {
+          icon: (
+            <Svg width="19" height="19" viewBox="0 0 19 19" fill="none">
+              <Path
+                d="M5.22505 6.96657V6.24276C5.22505 3.83695 7.13183 1.8999 9.50005 1.8999C11.8683 1.8999 13.775 3.83695 13.775 6.24276V6.96657M5.22505 6.96657C4.4413 6.96657 3.80005 7.618 3.80005 8.41419V15.6523C3.80005 16.4485 4.4413 17.0999 5.22505 17.0999H13.775C14.5588 17.0999 15.2001 16.4485 15.2001 15.6523V8.41419C15.2001 7.618 14.5588 6.96657 13.775 6.96657M5.22505 6.96657H13.775"
+                stroke="#006EDC"
+                strokeLinecap="round"
+              />
+            </Svg>
+          ),
+          title: t('Password'),
+          hasArrow: true,
+          onPress: () => router.push('/auth/change_password'),
+        }
       ],
     },
     {
@@ -313,8 +317,10 @@ const SettingsScreen = () => {
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>{t('settings')}</Text>
+          <Text style={styles.headerTitle}>{t('Settings')}</Text>
         </View>
+
+        {/* ✅ แก้ Profile Section */}
         <View style={styles.profileSection}>
           <View style={styles.profileImageContainer}>
             {profileData?.profileImageUrl ? (
@@ -324,21 +330,39 @@ const SettingsScreen = () => {
             )}
           </View>
           <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>{profileData?.name || profileData?.username || 'Bok'}</Text>
-            <Text style={styles.profileEmail}>{profileData?.email || 'john.doe@email.com'}</Text>
+            {/* ✅ ตรวจสอบว่ามีชื่อหรือไม่ */}
+            {(profileData?.name || profileData?.username) ? (
+              // มีชื่อ - แสดงชื่อ + email
+              <>
+                <Text style={styles.profileName}>
+                  {profileData?.name || profileData?.username}
+                </Text>
+                <Text style={styles.profileEmail}>
+                  {profileData?.email || ''}
+                </Text>
+              </>
+            ) : (
+              // ไม่มีชื่อ - แสดงแค่ email
+              <Text style={styles.profileName}>
+                {profileData?.email || 'Loading...'}
+              </Text>
+            )}
           </View>
         </View>
+
         {settingsItems.map((section, index) => (
           <View key={index} style={styles.section}>
             <Text style={styles.sectionTitle}>{section.section}</Text>
             {section.items.map((item, itemIndex) => (
-              < SettingsItem key={itemIndex} item={item} />
+              <SettingsItem key={itemIndex} item={item} />
             ))}
           </View>
         ))}
+        
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Text style={styles.logoutText}>{t('logout')}</Text>
         </TouchableOpacity>
+        
         <Text style={styles.version}>Version 1.0.0</Text>
       </ScrollView>
       <Toast />

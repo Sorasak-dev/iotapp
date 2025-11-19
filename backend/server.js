@@ -25,15 +25,24 @@ const notificationRoutes = require('./routes/notificationRoutes');
 
 const pushNotificationService = require('./services/pushNotificationService');
 
+// Environment configuration
+const isDevelopment = process.env.NODE_ENV !== 'production';
+const ENABLE_DEBUG_LOGS = process.env.ENABLE_DEBUG_LOGS === 'true' || isDevelopment;
+
 const app = express();
+
+// Trust proxy configuration - secure for both dev and production
+if (isDevelopment) {
+  // Development: only trust localhost
+  app.set('trust proxy', 'loopback');
+} else {
+  // Production: trust first proxy (load balancer/reverse proxy)
+  app.set('trust proxy', 1);
+}
 
 const mongoURI = process.env.MONGO_URI || "mongodb://localhost:27017/auth-demo";
 const SECRET_KEY = process.env.SECRET_KEY || "your_secret_key";
 const PORT = process.env.PORT || 3000;
-
-// Environment configuration
-const isDevelopment = process.env.NODE_ENV !== 'production';
-const ENABLE_DEBUG_LOGS = process.env.ENABLE_DEBUG_LOGS === 'true' || isDevelopment;
 
 // Helper function for conditional logging
 const log = {
@@ -352,24 +361,29 @@ const rateLimiter = require('express-rate-limit');
 
 const apiLimiter = rateLimiter({
   windowMs: 15 * 60 * 1000, 
-  max: isDevelopment ? 10000 : 200, 
+  max: isDevelopment ? 10000 : 200,
+  // Skip rate limiting in development
+  skip: (req) => isDevelopment,
+  // Use standardized headers
+  standardHeaders: true,
+  legacyHeaders: false,
   message: {
     success: false,
     message: 'Too many requests, please try again later.'
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
+  }
 });
 
 const strictLimiter = rateLimiter({
   windowMs: 15 * 60 * 1000, 
-  max: isDevelopment ? 1000 : 20, 
+  max: isDevelopment ? 1000 : 20,
+  // Skip rate limiting in development
+  skip: (req) => isDevelopment,
+  standardHeaders: true,
+  legacyHeaders: false,
   message: {
     success: false,
     message: 'Rate limit exceeded for this endpoint.'
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
+  }
 });
 
 const systemHealthMonitor = new SystemHealthMonitor();

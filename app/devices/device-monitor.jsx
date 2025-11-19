@@ -177,40 +177,53 @@ export default function DeviceMonitor() {
   }, [route.params?.device]); 
 
   const renderChart = (data, color, type) => {
-    if (!data || !data.labels.length) {
-      return <Text style={styles.noDataText}>No data</Text>;
-    }
+  if (!data || !data.labels.length) {
+    return <Text style={styles.noDataText}>No data</Text>;
+  }
 
-    const chartConfig = {
-      backgroundGradientFrom: '#ffffff',
-      backgroundGradientTo: '#f0f4f8',
-      decimalPlaces: 2,
-      color: () => color,
-      labelColor: () => '#333',
-      strokeWidth: 2,
-      barPercentage: 0.6,
-      propsForBars: { rx: 4, ry: 4 },
-      fillShadowGradient: color,
-      fillShadowGradientOpacity: 0.6,
-    };
-
-    return (
-      <TouchableOpacity onPress={() => navigation.navigate('full-chart', { data: JSON.stringify(data), color, type })}>
-        <View style={styles.chartContainer}>
-          <BarChart
-            data={{ labels: data.labels, datasets: [{ data: data.values }] }}
-            width={screenWidth - 40}
-            height={220}
-            yAxisLabel=""
-            chartConfig={chartConfig}
-            style={styles.chartStyle}
-            verticalLabelRotation={20}
-            fromZero
-          />
-        </View>
-      </TouchableOpacity>
-    );
+  const chartConfig = {
+    backgroundGradientFrom: '#ffffff',
+    backgroundGradientTo: '#f0f4f8',
+    decimalPlaces: 2,
+    color: () => color,
+    labelColor: () => '#333',
+    strokeWidth: 2,
+    barPercentage: 0.6,
+    propsForBars: { rx: 4, ry: 4 },
+    fillShadowGradient: color,
+    fillShadowGradientOpacity: 0.6,
   };
+
+  const handleChartPress = () => {
+    console.log('📊 Opening full chart for device:', deviceId);
+    console.log('Chart type:', type);
+    console.log('Color:', color);
+    
+    navigation.navigate('full-chart', { 
+      deviceId: deviceId,  // ✅ ส่ง deviceId!
+      type: type,
+      color: color,
+      data: JSON.stringify(data), // สำรอง fallback
+    });
+  };
+
+  return (
+    <TouchableOpacity onPress={handleChartPress}>
+      <View style={styles.chartContainer}>
+        <BarChart
+          data={{ labels: data.labels, datasets: [{ data: data.values }] }}
+          width={screenWidth - 40}
+          height={220}
+          yAxisLabel=""
+          chartConfig={chartConfig}
+          style={styles.chartStyle}
+          verticalLabelRotation={20}
+          fromZero
+        />
+      </View>
+    </TouchableOpacity>
+  );
+};
 
   const handleSensorPress = () => {
     navigation.navigate('sensor-detail', { 

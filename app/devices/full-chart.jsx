@@ -32,38 +32,48 @@ const FullChart = () => {
   useEffect(() => {
     const fetchFullSensorData = async () => {
       try {
-        setLoading(true); 
+        setLoading(true);
+        console.log('📊 Fetching chart data for device:', deviceId);
+        
         const token = await AsyncStorage.getItem('token');
         
-        let apiUrl = API_ENDPOINTS.SENSOR_DATA;
-        if (deviceId) {
-          apiUrl = `${API_ENDPOINTS.DEVICES}/${deviceId}/data?limit=1000`;
+        if (!deviceId) {
+          console.error('❌ No deviceId provided');
+          setLoading(false);
+          return;
         }
+
+        // แก้ไข API endpoint
+        const apiUrl = `${API_ENDPOINTS.DEVICES}/${deviceId}/data?limit=1000`;
+        console.log('🔗 API URL:', apiUrl);
 
         const response = await fetch(apiUrl, {
           headers: getAuthHeaders(token),
         });
 
-        const result = await response.json();
-        let data;
+        console.log('📡 Response status:', response.status);
 
-        if (deviceId && result.data) {
-          data = result.data;
-        } else if (result.data && Array.isArray(result.data)) {
-          data = result.data;
-        } else {
-          data = [];
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
         }
 
-        if (data && data.length > 0) {
-          setSensorData(data);
+        const result = await response.json();
+        console.log('✅ Data received:', result.data?.length || 0, 'entries');
+
+        if (result.data && result.data.length > 0) {
+          setSensorData(result.data);
+        } else {
+          console.warn('⚠️ No data available');
+          setSensorData([]);
         }
       } catch (error) {
-        console.error('Error fetching full sensor data:', error);
+        console.error('❌ Error fetching sensor data:', error);
+        setSensorData([]);
       } finally {
-        setLoading(false); 
+        setLoading(false);
       }
     };
+    
     fetchFullSensorData();
   }, [deviceId]);
 
@@ -74,37 +84,51 @@ const FullChart = () => {
     }, 500);
   };
 
-  const parsedData = sensorData || JSON.parse(initialData || '{}');
-  const hasValidData = parsedData && Array.isArray(parsedData);
+  // ใช้ข้อมูลจาก API แทน initialData
+  const parsedData = sensorData || [];
+  const hasValidData = parsedData && Array.isArray(parsedData) && parsedData.length > 0;
+
+  console.log('📈 Chart type:', type);
+  console.log('📅 Selected date:', selectedDate.toLocaleDateString());
+  console.log('💾 Available data points:', parsedData.length);
 
   const filteredData = hasValidData
     ? parsedData
         .filter(entry => {
           const entryDate = new Date(entry.timestamp);
-          return (
+          const isMatch = (
             entryDate.getFullYear() === selectedDate.getFullYear() &&
             entryDate.getMonth() === selectedDate.getMonth() &&
             entryDate.getDate() === selectedDate.getDate()
           );
+          return isMatch;
         })
         .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
     : [];
 
+  console.log('✅ Filtered data points:', filteredData.length);
+
   const chartData = {
-    labels: filteredData.map(entry => {
-      const date = new Date(entry.timestamp);
-      return `${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
-    }),
+    labels: filteredData.length > 0 
+      ? filteredData.map(entry => {
+          const date = new Date(entry.timestamp);
+          return `${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
+        })
+      : ['No Data'],
     datasets: [{
-      data: filteredData.map(entry => {
-        switch (type) {
-          case 'temperature': return entry.temperature || 0;
-          case 'humidity': return entry.humidity || 0;
-          case 'dewPoint': return entry.dew_point || 0;
-          case 'vpd': return entry.vpd || 0;
-          default: return 0;
-        }
-      }),
+      data: filteredData.length > 0
+        ? filteredData.map(entry => {
+            let value;
+            switch (type) {
+              case 'temperature': value = entry.temperature; break;
+              case 'humidity': value = entry.humidity; break;
+              case 'dewPoint': value = entry.dew_point; break;
+              case 'vpd': value = entry.vpd; break;
+              default: value = 0;
+            }
+            return value !== null && value !== undefined ? value : 0;
+          })
+        : [0],
     }],
   };
 
@@ -125,6 +149,9 @@ const FullChart = () => {
     try {
       setExporting(true); 
       
+      const typeLabel = type.charAt(0).toUpperCase() + type.slice(1);
+      const dataField = type === 'dewPoint' ? 'dew_point' : type;
+      
       const htmlContent = `
         <html>
           <head>
@@ -138,21 +165,22 @@ const FullChart = () => {
             </style>
           </head>
           <body>
-            <h1>${type.charAt(0).toUpperCase() + type.slice(1)} Data Report</h1>
-            <p>Date: ${selectedDate.toLocaleDateString('th-TH')}</p>
+            <h1>${typeLabel} Data Report</h1>
+            <p>Date: ${selectedDate.toLocaleDateString('en-US')}</p>
+            <p>Total Data Points: ${filteredData.length}</p>
             <table>
               <tr>
-                <th>Timestamp</th>
-                <th>${type.charAt(0).toUpperCase() + type.slice(1)}</th>
+                <th>Time</th>
+                <th>${typeLabel}</th>
               </tr>
               ${filteredData.map(entry => `
                 <tr>
-                  <td>${new Date(entry.timestamp).toLocaleString('th-TH')}</td>
-                  <td>${entry[type === 'dewPoint' ? 'dew_point' : type] || 'N/A'}</td>
+                  <td>${new Date(entry.timestamp).toLocaleTimeString('en-US')}</td>
+                  <td>${entry[dataField] !== null && entry[dataField] !== undefined ? entry[dataField] : 'N/A'}</td>
                 </tr>
               `).join('')}
             </table>
-            <div class="footer">Generated on ${new Date().toLocaleString('th-TH')}</div>
+            <div class="footer">Generated on ${new Date().toLocaleString('en-US')}</div>
           </body>
         </html>
       `;
@@ -164,7 +192,7 @@ const FullChart = () => {
 
       await Sharing.shareAsync(uri, {
         mimeType: 'application/pdf',
-        dialogTitle: `Share ${type} Data PDF`,
+        dialogTitle: `Share ${typeLabel} Data PDF`,
         UTI: 'com.adobe.pdf',
       });
 
@@ -179,7 +207,7 @@ const FullChart = () => {
   const chartConfig = {
     backgroundGradientFrom: '#ffffff',
     backgroundGradientTo: '#f0f4f8',
-    decimalPlaces: 2,
+    decimalPlaces: 1,
     color: () => color || '#888',
     labelColor: () => '#333',
     strokeWidth: 2,
@@ -189,13 +217,15 @@ const FullChart = () => {
     fillShadowGradientOpacity: 0.6,
   };
 
+  const typeLabel = type.charAt(0).toUpperCase() + type.slice(1);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.headerContainer}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
-        <Text style={styles.header}>{type.charAt(0).toUpperCase() + type.slice(1)} Chart</Text>
+        <Text style={styles.header}>{typeLabel} Chart</Text>
         <View style={styles.headerSpacer} />
       </View>
       
@@ -203,7 +233,13 @@ const FullChart = () => {
         <View style={styles.container}>
           <View style={styles.dateExportContainer}>
             <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.datePickerButton}>
-              <Text style={styles.datePickerText}>Select Date: {selectedDate.toLocaleDateString()}</Text>
+              <Text style={styles.datePickerText}>
+                📅 {selectedDate.toLocaleDateString('en-US', { 
+                  year: 'numeric', 
+                  month: 'short', 
+                  day: 'numeric' 
+                })}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity 
               onPress={handleExportPress} 
@@ -236,22 +272,35 @@ const FullChart = () => {
               <Text style={styles.loadingText}>Loading data...</Text>
             </View>
           ) : filteredData.length > 0 ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={true}>
-              <BarChart
-                data={chartData}
-                width={Math.max(screenWidth, filteredData.length * 60)}
-                height={400}
-                yAxisLabel=""
-                chartConfig={chartConfig}
-                style={styles.chartStyle}
-                verticalLabelRotation={30}
-                fromZero
-              />
-            </ScrollView>
+            <View style={styles.chartContainer}>
+              <View style={styles.dataInfo}>
+                <Text style={styles.dataInfoText}>
+                  {filteredData.length} data points
+                </Text>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+                <BarChart
+                  data={chartData}
+                  width={Math.max(screenWidth, filteredData.length * 50)}
+                  height={400}
+                  yAxisLabel=""
+                  chartConfig={chartConfig}
+                  style={styles.chartStyle}
+                  verticalLabelRotation={30}
+                  fromZero
+                  showValuesOnTopOfBars={filteredData.length <= 24}
+                />
+              </ScrollView>
+            </View>
           ) : (
             <View style={styles.noDataContainer}>
               <FontAwesome5 name="chart-bar" size={50} color="#ccc" />
               <Text style={styles.noDataText}>No data available for this date</Text>
+              <Text style={styles.noDataSubtext}>
+                {parsedData.length > 0 
+                  ? 'Try selecting a different date' 
+                  : 'No sensor data found for this device'}
+              </Text>
             </View>
           )}
         </View>
@@ -273,6 +322,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
+    backgroundColor: '#fff',
   },
   backButton: {
     padding: 8,
@@ -310,7 +360,7 @@ const styles = StyleSheet.create({
   },
   datePickerButton: { 
     flex: 1,
-    padding: 10, 
+    padding: 12, 
     backgroundColor: '#FFF', 
     borderRadius: 8, 
     shadowColor: '#000', 
@@ -321,17 +371,18 @@ const styles = StyleSheet.create({
   },
   datePickerText: { 
     fontSize: 16, 
-    color: '#007AFF' 
+    color: '#007AFF',
+    fontWeight: '500'
   },
   exportButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#28A745',
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
     marginLeft: 10,
-    minWidth: 85,
+    minWidth: 90,
     justifyContent: 'center',
   },
   exportButtonDisabled: {
@@ -344,6 +395,22 @@ const styles = StyleSheet.create({
     color: '#fff', 
     fontSize: 14, 
     fontWeight: '600' 
+  },
+  chartContainer: {
+    width: '100%',
+    marginTop: 10,
+  },
+  dataInfo: {
+    backgroundColor: '#fff',
+    padding: 8,
+    borderRadius: 8,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  dataInfoText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
   },
   chartStyle: { 
     borderRadius: 16, 
@@ -368,8 +435,14 @@ const styles = StyleSheet.create({
   },
   noDataText: { 
     fontSize: 16, 
-    color: 'gray', 
-    marginTop: 16
+    color: '#666', 
+    marginTop: 16,
+    fontWeight: '500'
+  },
+  noDataSubtext: {
+    fontSize: 14,
+    color: '#999',
+    marginTop: 8,
   },
 });
 

@@ -1,7 +1,6 @@
-const IP_ADDRESS = '172.27.138.169';
-const PORT = '3000';
+const API_BASE_URL = 'https://a3a4873396d1.ngrok-free.app';
 
-export const API_BASE_URL = `http://${IP_ADDRESS}:${PORT}`;
+export { API_BASE_URL };
 
 export const API_ENDPOINTS = {
   SENSOR_DATA: `${API_BASE_URL}/api/user/sensor-data`,
