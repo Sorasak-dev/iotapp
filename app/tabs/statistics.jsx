@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -25,9 +25,10 @@ import { API_ENDPOINTS, API_TIMEOUT, getAuthHeaders } from "../utils/config/api"
 const windowWidth = Dimensions.get("window").width;
 const isIOS = Platform.OS === "ios";
 
+// ปรับสีให้ชัดเจนและแตกต่างกันมากขึ้น
 const SENSOR_COLORS = [
-  "#FF6384", "#36A2EB", "#4BC0C0", "#22C55E", "#FFCE56",
-  "#9966FF", "#FF9F40", "#20C997", "#6C757D", "#FD7E14",
+  "#E91E63", "#2196F3", "#00BCD4", "#4CAF50", "#FF9800",
+  "#9C27B0", "#FF5722", "#009688", "#795548", "#F44336",
 ];
 
 export default function Statistics() {
@@ -37,6 +38,7 @@ export default function Statistics() {
   const [selectedMetrics, setSelectedMetrics] = useState(["Temperature", "Humidity", "Dew Point", "VPD"]);
   const [selectedZones, setSelectedZones] = useState([]);
   const [selectedSensors, setSelectedSensors] = useState([]);
+  const [chartMode, setChartMode] = useState("separated"); // "separated" หรือ "combined"
 
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
@@ -220,7 +222,7 @@ const openStartPicker = () => {
     Alert.alert("Not supported on Web", "Please run on Android or iOS.");
     return;
   }
-  if (loading) return; // ป้องกันเปิดตอนโหลด
+  if (loading) return;
   setTempStartDate(startDate || new Date());
   setShowStartPicker(true);
 };
@@ -239,7 +241,6 @@ const openEndPicker = () => {
   setShowStartPicker(false);
   setTempStartDate(date);
 
-  // ป้องกันกรณีเลือก start > end
   if (endDate && date > endDate) {
     setStartDate(date);
     setEndDate(date);
@@ -253,7 +254,6 @@ const onConfirmEnd = (date) => {
   setShowEndPicker(false);
   setTempEndDate(date);
 
-  // ป้องกันกรณีเลือก end < start
   if (startDate && date < startDate) {
     setEndDate(date);
     setStartDate(date);
@@ -263,7 +263,7 @@ const onConfirmEnd = (date) => {
   }
 };
 
-  const prepareChartData = () => {
+  const prepareChartDataByMetric = () => {
     let allTs = [];
     Object.values(data).forEach((s) => s.data.forEach((it) => allTs.push(it.timestamp)));
     allTs = [...new Set(allTs)].sort();
@@ -277,78 +277,129 @@ const onConfirmEnd = (date) => {
         : d.toLocaleDateString("th-TH", { day: "2-digit", month: "2-digit" });
     });
 
+    // สีสำหรับแต่ละ sensor
+    const sensorColors = [
+      "#E91E63", "#2196F3", "#00BCD4", "#4CAF50", "#FF9800",
+      "#9C27B0", "#FF5722", "#009688", "#795548", "#F44336",
+    ];
+
+    // สร้างกราฟแยกตาม metric
+    const chartsByMetric = {};
+
+    selectedMetrics.forEach((metric) => {
+      const datasets = [];
+      let dataKey = '';
+      
+      if (metric === "Temperature") {
+        dataKey = 'temperature';
+      } else if (metric === "Humidity") {
+        dataKey = 'humidity';
+      } else if (metric === "Dew Point") {
+        dataKey = 'dew_point';
+      } else if (metric === "VPD") {
+        dataKey = 'vpd';
+      }
+
+      if (dataKey) {
+        Object.entries(data).forEach(([_, sensorData], sensorIndex) => {
+          const map = sensorData.data.reduce((acc, it) => ((acc[it.timestamp] = it), acc), {});
+          const color = sensorColors[sensorIndex % sensorColors.length];
+          
+          datasets.push({
+            data: allTs.map((ts) => map[ts]?.[dataKey] ?? 0),
+            color: () => color,
+            strokeWidth: 3,
+            withDots: true,
+            sensorName: sensorData.name,
+            metric: metric,
+          });
+        });
+
+        chartsByMetric[metric] = {
+          labels,
+          datasets: datasets.length ? datasets : [{ data: [0, 0, 0], color: () => "transparent" }],
+        };
+      }
+    });
+
+    return chartsByMetric;
+  };
+
+  const prepareCombinedChartData = () => {
+    let allTs = [];
+    Object.values(data).forEach((s) => s.data.forEach((it) => allTs.push(it.timestamp)));
+    allTs = [...new Set(allTs)].sort();
+
+    const labels = allTs.map((ts) => {
+      const d = new Date(ts);
+      const days =
+        Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) + 1;
+      return days <= 2
+        ? d.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })
+        : d.toLocaleDateString("th-TH", { day: "2-digit", month: "2-digit" });
+    });
+
+    const sensorColors = [
+      "#E91E63", "#2196F3", "#00BCD4", "#4CAF50", "#FF9800",
+      "#9C27B0", "#FF5722", "#009688", "#795548", "#F44336",
+    ];
+
+    // สีสำหรับแต่ละ metric
+    const metricColors = {
+      "Temperature": "#E91E63",    // ชมพู
+      "Humidity": "#2196F3",        // น้ำเงิน
+      "Dew Point": "#00BCD4",       // ฟ้า
+      "VPD": "#4CAF50"              // เขียว
+    };
+
     const datasets = [];
+    let datasetIndex = 0;
+
     Object.entries(data).forEach(([_, sensorData], sensorIndex) => {
       const map = sensorData.data.reduce((acc, it) => ((acc[it.timestamp] = it), acc), {});
-      const idx = sensorIndex % SENSOR_COLORS.length;
 
-      const colorPick = (opacity, palette) => {
-        const set = {
-          base: [
-            "rgba(255, 99, 132, OP)", "rgba(54, 162, 235, OP)", "rgba(75, 192, 192, OP)",
-            "rgba(34, 197, 94, OP)", "rgba(255, 206, 86, OP)", "rgba(153, 102, 255, OP)",
-            "rgba(255, 159, 64, OP)", "rgba(32, 201, 151, OP)", "rgba(108, 117, 125, OP)",
-            "rgba(253, 126, 20, OP)",
-          ],
-          dark: [
-            "rgba(215, 59, 92, OP)", "rgba(14, 122, 195, OP)", "rgba(35, 152, 152, OP)",
-            "rgba(0, 157, 54, OP)", "rgba(215, 166, 46, OP)", "rgba(113, 62, 215, OP)",
-            "rgba(215, 119, 24, OP)", "rgba(0, 161, 111, OP)", "rgba(68, 77, 85, OP)",
-            "rgba(213, 86, 0, OP)",
-          ],
-          light: [
-            "rgba(255, 139, 172, OP)", "rgba(94, 202, 255, OP)", "rgba(115, 232, 232, OP)",
-            "rgba(74, 237, 134, OP)", "rgba(255, 246, 126, OP)", "rgba(193, 142, 255, OP)",
-            "rgba(255, 199, 104, OP)", "rgba(72, 241, 191, OP)", "rgba(148, 157, 165, OP)",
-            "rgba(255, 166, 60, OP)",
-          ],
-        };
-        return (set[palette][idx] || set.base[0]).replace("OP", String(opacity ?? 1));
-      };
+      selectedMetrics.forEach((metric) => {
+        let dataKey = '';
+        if (metric === "Temperature") dataKey = 'temperature';
+        else if (metric === "Humidity") dataKey = 'humidity';
+        else if (metric === "Dew Point") dataKey = 'dew_point';
+        else if (metric === "VPD") dataKey = 'vpd';
 
-      if (selectedMetrics.includes("Temperature")) {
-        datasets.push({
-          data: allTs.map((ts) => map[ts]?.temperature ?? 0),
-          color: (o) => colorPick(o, "base"),
-          strokeWidth: 2,
-          withDots: true,
-          sensorName: sensorData.name,
-          metric: "Temperature",
-        });
-      }
-      if (selectedMetrics.includes("Humidity")) {
-        datasets.push({
-          data: allTs.map((ts) => map[ts]?.humidity ?? 0),
-          color: (o) => colorPick(o, "dark"),
-          strokeWidth: 2,
-          withDots: true,
-          dashArray: [5, 5],
-          sensorName: sensorData.name,
-          metric: "Humidity",
-        });
-      }
-      if (selectedMetrics.includes("Dew Point")) {
-        datasets.push({
-          data: allTs.map((ts) => map[ts]?.dew_point ?? 0),
-          color: (o) => colorPick(o, "light"),
-          strokeWidth: 2,
-          withDots: true,
-          dashArray: [2, 2],
-          sensorName: sensorData.name,
-          metric: "Dew Point",
-        });
-      }
-      if (selectedMetrics.includes("VPD")) {
-        datasets.push({
-          data: allTs.map((ts) => map[ts]?.vpd ?? 0),
-          color: (o) => colorPick(o, "dark"),
-          strokeWidth: 2,
-          withDots: true,
-          dashArray: [5, 2, 2, 2],
-          sensorName: sensorData.name,
-          metric: "VPD",
-        });
-      }
+        if (dataKey) {
+          // ใช้สีจาก metricColors แทนสี sensor
+          const baseColor = metricColors[metric];
+          
+          // ถ้ามีหลาย sensor ให้ปรับความเข้มของสี
+          const adjustColor = (hexColor, sensorIdx, totalSensors) => {
+            if (totalSensors === 1) return hexColor;
+            
+            const hex = hexColor.replace('#', '');
+            const r = parseInt(hex.substring(0, 2), 16);
+            const g = parseInt(hex.substring(2, 4), 16);
+            const b = parseInt(hex.substring(4, 6), 16);
+            
+            // ปรับความเข้มของสีตามลำดับ sensor (เข้มขึ้น/อ่อนลง)
+            const factor = 1 - (sensorIdx * 0.2);
+            const newR = Math.round(r * factor);
+            const newG = Math.round(g * factor);
+            const newB = Math.round(b * factor);
+            
+            return `rgb(${newR}, ${newG}, ${newB})`;
+          };
+
+          const color = adjustColor(baseColor, sensorIndex, Object.keys(data).length);
+          
+          datasets.push({
+            data: allTs.map((ts) => map[ts]?.[dataKey] ?? 0),
+            color: () => color,
+            strokeWidth: 3,
+            withDots: true,
+            sensorName: sensorData.name,
+            metric: metric,
+          });
+          datasetIndex++;
+        }
+      });
     });
 
     return {
@@ -357,10 +408,15 @@ const onConfirmEnd = (date) => {
     };
   };
 
-  const chartData =
-    Object.keys(data).length > 0
-      ? prepareChartData()
-      : { labels: ["No Data"], datasets: [{ data: [0, 0, 0], color: () => "transparent" }] };
+  const chartDataByMetric = useMemo(() => {
+    if (Object.keys(data).length === 0) return {};
+    return prepareChartDataByMetric();
+  }, [data, selectedMetrics, startDate, endDate]);
+
+  const combinedChartData = useMemo(() => {
+    if (Object.keys(data).length === 0) return { labels: ["No Data"], datasets: [{ data: [0, 0, 0], color: () => "transparent" }] };
+    return prepareCombinedChartData();
+  }, [data, selectedMetrics, startDate, endDate]);
 
   const formatDate = (date) => {
     if (!date) return "";
@@ -514,7 +570,6 @@ const onConfirmEnd = (date) => {
             <View style={styles.dateExportContainer}>
               <Text style={styles.dateRangeText}>{t("Select Date Range")}</Text>
 
-              {/* ปุ่มไปหน้า Export */}
               <TouchableOpacity style={styles.exportButton} onPress={goToExport}>
                 <FontAwesome5 name="external-link-alt" size={16} color="#fff" style={styles.exportIcon} />
                 <Text style={styles.exportText}>Export Data</Text>
@@ -532,8 +587,7 @@ const onConfirmEnd = (date) => {
               </TouchableOpacity>
             </View>
 
-            {/* Date pickers */}
-           <DateTimePickerModal
+            <DateTimePickerModal
               isVisible={showStartPicker}
               mode="date"
               date={tempStartDate}
@@ -551,7 +605,6 @@ const onConfirmEnd = (date) => {
               minimumDate={startDate ? new Date(startDate) : undefined}
             />
 
-
             {/* Metric toggles */}
             <View style={styles.metricContainer}>
               {["Temperature", "Humidity", "Dew Point", "VPD"].map((metric) => (
@@ -563,12 +616,12 @@ const onConfirmEnd = (date) => {
                     selectedMetrics.includes(metric) && {
                       backgroundColor:
                         metric === "Temperature"
-                          ? "#FF6384"
+                          ? "#E91E63"
                           : metric === "Humidity"
-                          ? "#36A2EB"
+                          ? "#2196F3"
                           : metric === "Dew Point"
-                          ? "#4BC0C0"
-                          : "#22C55E",
+                          ? "#00BCD4"
+                          : "#4CAF50",
                     },
                   ]}
                 >
@@ -591,6 +644,28 @@ const onConfirmEnd = (date) => {
               ))}
             </View>
 
+            {/* Chart Mode Toggle */}
+            <View style={styles.chartModeContainer}>
+              <TouchableOpacity
+                style={[styles.modeButton, chartMode === "separated" && styles.modeButtonActive]}
+                onPress={() => setChartMode("separated")}
+              >
+                <FontAwesome5 name="list" size={14} color={chartMode === "separated" ? "#fff" : "#666"} />
+                <Text style={[styles.modeButtonText, chartMode === "separated" && styles.modeButtonTextActive]}>
+                  Separated
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modeButton, chartMode === "combined" && styles.modeButtonActive]}
+                onPress={() => setChartMode("combined")}
+              >
+                <FontAwesome5 name="chart-line" size={14} color={chartMode === "combined" ? "#fff" : "#666"} />
+                <Text style={[styles.modeButtonText, chartMode === "combined" && styles.modeButtonTextActive]}>
+                  Combined
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             {/* Chart */}
             {loading ? (
               <View style={styles.loadingContainer}>
@@ -603,6 +678,70 @@ const onConfirmEnd = (date) => {
                   ? t("Please Select At Least One Sensor")
                   : t("No Data Available For The Selected Date Range")}
               </Text>
+            ) : chartMode === "separated" ? (
+              <>
+                {selectedMetrics.map((metric) => {
+                  const chartData = chartDataByMetric[metric];
+                  if (!chartData) return null;
+
+                  return (
+                    <View key={metric} style={styles.chartOuterContainer}>
+                      <Text style={styles.chartTitle}>{metric}</Text>
+                      
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.chartScrollContainer}
+                      >
+                        <LineChart
+                          data={chartData}
+                          width={chartWidth}
+                          height={220}
+                          chartConfig={{
+                            backgroundColor: "#ffffff",
+                            backgroundGradientFrom: "#ffffff",
+                            backgroundGradientTo: "#ffffff",
+                            decimalPlaces: 1,
+                            color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                            labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                            style: { borderRadius: 16 },
+                            propsForDots: { r: "4", strokeWidth: "2", stroke: "#fff" },
+                            propsForBackgroundLines: { strokeDasharray: "5, 5", strokeWidth: 1, stroke: "#e0e0e0" },
+                            propsForLabels: { fontSize: 10, fontWeight: "bold" },
+                          }}
+                          bezier
+                          style={styles.chart}
+                          withInnerLines
+                          withOuterLines={false}
+                          withVerticalLines
+                          withHorizontalLines
+                          withDots
+                          withShadow={false}
+                          segments={5}
+                        />
+                      </ScrollView>
+
+                      <View style={styles.legendContainer}>
+                        {chartData.datasets
+                          .filter((d) => d.sensorName)
+                          .map((d, i) => (
+                            <View key={i} style={styles.legendItem}>
+                              <View
+                                style={[
+                                  styles.legendColor,
+                                  { backgroundColor: d.color(1) },
+                                ]}
+                              />
+                              <Text style={styles.legendText}>
+                                {d.sensorName}
+                              </Text>
+                            </View>
+                          ))}
+                      </View>
+                    </View>
+                  );
+                })}
+              </>
             ) : (
               <View style={styles.chartOuterContainer}>
                 <ScrollView
@@ -611,7 +750,7 @@ const onConfirmEnd = (date) => {
                   contentContainerStyle={styles.chartScrollContainer}
                 >
                   <LineChart
-                    data={chartData}
+                    data={combinedChartData}
                     width={chartWidth}
                     height={220}
                     chartConfig={{
@@ -622,7 +761,7 @@ const onConfirmEnd = (date) => {
                       color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
                       labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
                       style: { borderRadius: 16 },
-                      propsForDots: { r: "5", strokeWidth: "2", stroke: "#fff" },
+                      propsForDots: { r: "4", strokeWidth: "2", stroke: "#fff" },
                       propsForBackgroundLines: { strokeDasharray: "5, 5", strokeWidth: 1, stroke: "#e0e0e0" },
                       propsForLabels: { fontSize: 10, fontWeight: "bold" },
                     }}
@@ -638,16 +777,15 @@ const onConfirmEnd = (date) => {
                   />
                 </ScrollView>
 
-                {/* Legend */}
                 <View style={styles.legendContainer}>
-                  {chartData.datasets
+                  {combinedChartData.datasets
                     .filter((d) => d.sensorName)
                     .map((d, i) => (
                       <View key={i} style={styles.legendItem}>
                         <View
                           style={[
                             styles.legendColor,
-                            { backgroundColor: d.color(1), borderStyle: d.dashArray ? "dashed" : "solid" },
+                            { backgroundColor: d.color(1) },
                           ]}
                         />
                         <Text style={styles.legendText}>
@@ -712,7 +850,13 @@ const styles = StyleSheet.create({
   metricButton: { flexDirection: "row", alignItems: "center", paddingVertical: 10, paddingHorizontal: 16, marginHorizontal: 4, marginBottom: 8, borderRadius: 24, backgroundColor: "#E5E7EB" },
   metricIcon: { marginRight: 6 },
   metricText: { color: "#fff", fontWeight: "600", fontSize: 13 },
+  chartModeContainer: { flexDirection: "row", marginBottom: 16, justifyContent: "center", gap: 8 },
+  modeButton: { flexDirection: "row", alignItems: "center", paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: "#f0f0f0", gap: 6 },
+  modeButtonActive: { backgroundColor: "#3B82F6" },
+  modeButtonText: { color: "#666", fontWeight: "500", fontSize: 13 },
+  modeButtonTextActive: { color: "#fff" },
   chartOuterContainer: { backgroundColor: "#fff", borderRadius: 16, padding: 10, marginTop: 16, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 3 },
+  chartTitle: { fontSize: 18, fontWeight: "bold", color: "#333", marginBottom: 8, textAlign: "center" },
   chartScrollContainer: { paddingBottom: 10 },
   chart: { borderRadius: 16, marginTop: 8 },
   legendContainer: { flexDirection: "row", justifyContent: "center", marginTop: 12, marginBottom: 8, flexWrap: "wrap" },

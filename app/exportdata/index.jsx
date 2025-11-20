@@ -105,8 +105,17 @@ export default function ExportDataScreen() {
 
   const [selectedData, setSelectedData] = useState(preMetrics);
   const [selectedFormat, setSelectedFormat] = useState("CSV");
-  const [startDate, setStartDate] = useState(params.startDate ? new Date(params.startDate) : null);
-  const [endDate, setEndDate] = useState(params.endDate ? new Date(params.endDate) : null);
+  const [chartMode, setChartMode] = useState("separated"); // "separated" หรือ "combined"
+  const [startDate, setStartDate] = useState(() => {
+    const date = params.startDate ? new Date(params.startDate) : null;
+    console.log("Initial startDate from params:", params.startDate, "=>", date);
+    return date;
+  });
+  const [endDate, setEndDate] = useState(() => {
+    const date = params.endDate ? new Date(params.endDate) : null;
+    console.log("Initial endDate from params:", params.endDate, "=>", date);
+    return date;
+  });
 
   const [loading, setLoading] = useState(true);
   const [dataset, setDataset] = useState({});
@@ -121,21 +130,29 @@ export default function ExportDataScreen() {
 
   useEffect(() => {
     const run = async () => {
-      if (!sensors.length || !startDate || !endDate) { setLoading(false); return; }
+      if (!sensors.length || !startDate || !endDate) { 
+        console.log("Missing required params:", { sensors: sensors.length, startDate, endDate });
+        setLoading(false); 
+        return; 
+      }
       try {
         setLoading(true);
         const token = await AsyncStorage.getItem("token");
         if (!token) throw new Error("Please log in again.");
         const headers = getAuthHeaders(token);
         const start = fmt(startDate), end = fmt(endDate);
+        
+        console.log("Fetching data:", { start, end, sensorsCount: sensors.length });
 
         const out = {};
         let max = 0;
         for (const s of sensors) {
           try {
             const url = `${API_ENDPOINTS.DEVICES}/${s.id}/data?startDate=${start}&endDate=${end}&limit=10000`;
+            console.log("Fetching sensor:", s.id, url);
             const res = await axios.get(url, { headers, timeout: API_TIMEOUT });
             const rows = Array.isArray(res.data?.data) ? res.data.data : [];
+            console.log(`Sensor ${s.id} got ${rows.length} rows`);
             rows.sort((a,b)=> new Date(a.timestamp)-new Date(b.timestamp));
             out[s.id] = { name: s.name, rows };
             if (rows.length > max) max = rows.length;
@@ -144,10 +161,11 @@ export default function ExportDataScreen() {
             out[s.id] = { name: s.name, rows: [] };
           }
         }
+        console.log("Final dataset:", Object.keys(out).length, "sensors, max points:", max);
         setDataset(out);
         setMaxPoints(max);
       } catch (e) {
-        console.error(e);
+        console.error("fetchSensorData error:", e);
         Alert.alert("Error", e?.message ?? String(e));
       } finally {
         setLoading(false);
@@ -156,10 +174,25 @@ export default function ExportDataScreen() {
     run();
   }, [sensors, startDate, endDate]);
 
-  const buildChartData = () => {
+  const buildChartDataByMetric = () => {
+    // ตรวจสอบว่ามีข้อมูลหรือไม่
+    if (!dataset || Object.keys(dataset).length === 0) {
+      return { chartsByMetric: {}, points: 0 };
+    }
+
     let ts = [];
-    Object.values(dataset).forEach(({ rows }) => rows.forEach(r => ts.push(r.timestamp)));
+    Object.values(dataset).forEach(({ rows }) => {
+      if (rows && Array.isArray(rows)) {
+        rows.forEach(r => ts.push(r.timestamp));
+      }
+    });
+    
     ts = [...new Set(ts)].sort();
+
+    // ถ้าไม่มี timestamp เลย
+    if (ts.length === 0) {
+      return { chartsByMetric: {}, points: 0 };
+    }
 
     const days =
       startDate && endDate
@@ -173,36 +206,178 @@ export default function ExportDataScreen() {
         : d.toLocaleDateString("th-TH", { day: "2-digit", month: "2-digit" });
     });
 
-    const datasets = [];
-    Object.values(dataset).forEach(({ name, rows }, idx) => {
-      const map = rows.reduce((acc, r) => ((acc[r.timestamp] = r), acc), {});
-      const color = (o=1, tone="base") => {
-        const sets = {
-          base: ["255,99,132","54,162,235","75,192,192","34,197,94","255,206,86","153,102,255","255,159,64","32,201,151","108,117,125","253,126,20"],
-          dark: ["215,59,92","14,122,195","35,152,152","0,157,54","215,166,46","113,62,215","215,119,24","0,161,111","68,77,85","213,86,0"],
-          light:["255,139,172","94,202,255","115,232,232","74,237,134","255,246,126","193,142,255","255,199,104","72,241,191","148,157,165","255,166,60"]
-        }["base"];
-        return `rgba(${sets[idx % sets.length]},${o})`;
-      };
+    // สีสำหรับแต่ละ sensor
+    const sensorColors = [
+      "#E91E63", "#2196F3", "#00BCD4", "#4CAF50", "#FF9800",
+      "#9C27B0", "#FF5722", "#009688", "#795548", "#F44336",
+    ];
 
-      if (selectedData.includes("Temperature"))
-        datasets.push({ data: ts.map(t => map[t]?.temperature ?? 0), color: (o)=>color(o,"base"), strokeWidth: 2, withDots: true, sensorName: name, metric: "Temperature" });
-      if (selectedData.includes("Humidity"))
-        datasets.push({ data: ts.map(t => map[t]?.humidity ?? 0), color: (o)=>color(o,"dark"), strokeWidth: 2, withDots: true, dashArray:[5,5], sensorName: name, metric: "Humidity" });
-      if (selectedData.includes("Dew Point"))
-        datasets.push({ data: ts.map(t => map[t]?.dew_point ?? 0), color: (o)=>color(o,"light"), strokeWidth: 2, withDots: true, dashArray:[2,2], sensorName: name, metric: "Dew Point" });
-      if (selectedData.includes("VPD"))
-        datasets.push({ data: ts.map(t => map[t]?.vpd ?? 0), color: (o)=>color(o,"dark"), strokeWidth: 2, withDots: true, dashArray:[5,2,2,2], sensorName: name, metric: "VPD" });
+    // สร้างกราฟแยกตาม metric
+    const chartsByMetric = {};
+    const points = ts.length;
+
+    selectedData.forEach((metric) => {
+      const datasets = [];
+      let dataKey = '';
+      
+      if (metric === "Temperature") {
+        dataKey = 'temperature';
+      } else if (metric === "Humidity") {
+        dataKey = 'humidity';
+      } else if (metric === "Dew Point") {
+        dataKey = 'dew_point';
+      } else if (metric === "VPD") {
+        dataKey = 'vpd';
+      }
+
+      if (dataKey) {
+        Object.values(dataset).forEach(({ name, rows }, sensorIndex) => {
+          if (!rows || !Array.isArray(rows)) return;
+          
+          const map = rows.reduce((acc, r) => {
+            if (r && r.timestamp) {
+              acc[r.timestamp] = r;
+            }
+            return acc;
+          }, {});
+          
+          const color = sensorColors[sensorIndex % sensorColors.length];
+          
+          // สร้างข้อมูลสำหรับกราฟ
+          const chartValues = ts.map(t => {
+            const value = map[t]?.[dataKey];
+            // ตรวจสอบว่าเป็นตัวเลขที่ valid
+            return (value !== undefined && value !== null && !isNaN(value)) ? Number(value) : 0;
+          });
+          
+          datasets.push({
+            data: chartValues,
+            color: () => color,
+            strokeWidth: 3,
+            withDots: true,
+            sensorName: name,
+            metric: metric,
+          });
+        });
+
+        chartsByMetric[metric] = {
+          labels,
+          datasets: datasets.length ? datasets : [{ data: [0, 0, 0], color: () => "transparent" }],
+          points,
+        };
+      }
+    });
+
+    return { chartsByMetric, points };
+  };
+
+  const { chartsByMetric, points: totalPoints } = useMemo(() => {
+    if (loading || !dataset || Object.keys(dataset).length === 0) {
+      return { chartsByMetric: {}, points: 0 };
+    }
+    return buildChartDataByMetric();
+  }, [dataset, selectedData, startDate, endDate, loading]);
+
+  const buildCombinedChartData = () => {
+    if (!dataset || Object.keys(dataset).length === 0) {
+      return { labels: ["No Data"], datasets: [{ data: [0, 0, 0], color: () => "transparent" }] };
+    }
+
+    let ts = [];
+    Object.values(dataset).forEach(({ rows }) => {
+      if (rows && Array.isArray(rows)) {
+        rows.forEach(r => ts.push(r.timestamp));
+      }
+    });
+    
+    ts = [...new Set(ts)].sort();
+
+    if (ts.length === 0) {
+      return { labels: ["No Data"], datasets: [{ data: [0, 0, 0], color: () => "transparent" }] };
+    }
+
+    const days =
+      startDate && endDate
+        ? Math.ceil((new Date(endDate) - new Date(startDate)) / (1000*60*60*24)) + 1
+        : 1;
+
+    const labels = ts.map(t => {
+      const d = new Date(t);
+      return days <= 2
+        ? d.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })
+        : d.toLocaleDateString("th-TH", { day: "2-digit", month: "2-digit" });
+    });
+
+    const metricColors = {
+      "Temperature": "#E91E63",
+      "Humidity": "#2196F3",
+      "Dew Point": "#00BCD4",
+      "VPD": "#4CAF50"
+    };
+
+    const datasets = [];
+
+    Object.entries(dataset).forEach(([_, sensorData], sensorIndex) => {
+      if (!sensorData.rows || !Array.isArray(sensorData.rows)) return;
+      
+      const map = sensorData.rows.reduce((acc, r) => {
+        if (r && r.timestamp) {
+          acc[r.timestamp] = r;
+        }
+        return acc;
+      }, {});
+
+      selectedData.forEach((metric) => {
+        let dataKey = '';
+        if (metric === "Temperature") dataKey = 'temperature';
+        else if (metric === "Humidity") dataKey = 'humidity';
+        else if (metric === "Dew Point") dataKey = 'dew_point';
+        else if (metric === "VPD") dataKey = 'vpd';
+
+        if (dataKey) {
+          const baseColor = metricColors[metric];
+          
+          const adjustColor = (hexColor, sensorIdx, totalSensors) => {
+            if (totalSensors === 1) return hexColor;
+            const hex = hexColor.replace('#', '');
+            const r = parseInt(hex.substring(0, 2), 16);
+            const g = parseInt(hex.substring(2, 4), 16);
+            const b = parseInt(hex.substring(4, 6), 16);
+            const factor = 1 - (sensorIdx * 0.2);
+            return `rgb(${Math.round(r * factor)}, ${Math.round(g * factor)}, ${Math.round(b * factor)})`;
+          };
+
+          const color = adjustColor(baseColor, sensorIndex, Object.keys(dataset).length);
+          
+          const chartValues = ts.map(t => {
+            const value = map[t]?.[dataKey];
+            return (value !== undefined && value !== null && !isNaN(value)) ? Number(value) : 0;
+          });
+          
+          datasets.push({
+            data: chartValues,
+            color: () => color,
+            strokeWidth: 3,
+            withDots: true,
+            sensorName: sensorData.name,
+            metric: metric,
+          });
+        }
+      });
     });
 
     return {
-      labels: ts.length ? labels : ["No Data"],
-      datasets: datasets.length ? datasets : [{ data: [0,0,0], color: ()=>"transparent" }],
-      points: ts.length,
+      labels,
+      datasets: datasets.length ? datasets : [{ data: [0, 0, 0], color: () => "transparent" }],
     };
   };
 
-  const chartData = buildChartData();
+  const combinedChartData = useMemo(() => {
+    if (loading || !dataset || Object.keys(dataset).length === 0) {
+      return { labels: ["No Data"], datasets: [{ data: [0, 0, 0], color: () => "transparent" }] };
+    }
+    return buildCombinedChartData();
+  }, [dataset, selectedData, startDate, endDate, loading]);
 
   const toggleDataType = (key) => {
     setSelectedData((prev) => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
@@ -272,12 +447,7 @@ export default function ExportDataScreen() {
       }
       
       const fileUri = `${FileSystem.cacheDirectory}${baseName}.csv`;
-      
-      // ✅ แก้: ใช้ string 'utf8' แทน FileSystem.EncodingType.UTF8
-      await FileSystem.writeAsStringAsync(fileUri, csv, { 
-        encoding: 'utf8'
-      });
-      
+      await FileSystem.writeAsStringAsync(fileUri, csv, { encoding: 'utf8' });
       await shareOrSaveNative(fileUri, "text/csv");
       Alert.alert("Success", "File exported successfully!");
       
@@ -289,7 +459,7 @@ export default function ExportDataScreen() {
 
   const exportPDFwithChart = async () => {
     try {
-      if (!chartData.points) {
+      if (!totalPoints) {
         Alert.alert("No data", "No chart data in the selected range.");
         return;
       }
@@ -306,7 +476,7 @@ export default function ExportDataScreen() {
         const imgWidth = 500;
         const imgHeight = 500 * 0.6; 
         pdf.setFontSize(14);
-        pdf.text("Sensor Chart", 24, 32);
+        pdf.text("Sensor Charts", 24, 32);
         pdf.setFontSize(10);
         pdf.text(`Zones: ${zones.map(z => z.name).join(", ") || "-"}`, 24, 48);
         pdf.text(`Date Range: ${fmt(startDate)} - ${fmt(endDate)}`, 24, 60);
@@ -316,10 +486,7 @@ export default function ExportDataScreen() {
         downloadWebBase64(`report_${fmt(startDate)}_${fmt(endDate)}.pdf`, "application/pdf", pdfData);
         Alert.alert("Success", "PDF downloaded successfully!");
       } else {
-        // ✅ แก้: ใช้ string 'base64' แทน FileSystem.EncodingType.Base64
-        const base64 = await FileSystem.readAsStringAsync(imageResult, { 
-          encoding: 'base64'
-        });
+        const base64 = await FileSystem.readAsStringAsync(imageResult, { encoding: 'base64' });
         
         const html = `
           <html><head><meta charset="utf-8" />
@@ -332,7 +499,7 @@ export default function ExportDataScreen() {
             </style>
           </head>
           <body>
-            <h1>Sensor Chart</h1>
+            <h1>Sensor Charts</h1>
             <div class="meta">
               Zones: ${zones.map(z=>z.name).join(", ") || "-"}<br/>
               Date Range: ${fmt(startDate)} - ${fmt(endDate)}<br/>
@@ -440,6 +607,27 @@ export default function ExportDataScreen() {
           );
         })}
 
+        {/* Chart Mode Toggle */}
+        <Text style={[styles.sectionLabel, { marginTop: 18 }]}>CHART VIEW MODE</Text>
+        <View style={styles.chartModeContainer}>
+          <TouchableOpacity
+            style={[styles.modeButton, chartMode === "separated" && styles.modeButtonActive]}
+            onPress={() => setChartMode("separated")}
+          >
+            <Text style={[styles.modeButtonText, chartMode === "separated" && styles.modeButtonTextActive]}>
+              Separated
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modeButton, chartMode === "combined" && styles.modeButtonActive]}
+            onPress={() => setChartMode("combined")}
+          >
+            <Text style={[styles.modeButtonText, chartMode === "combined" && styles.modeButtonTextActive]}>
+              Combined
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Preview */}
         <View style={styles.previewBox}>
           <Text style={styles.previewTitle}>Export Preview</Text>
@@ -464,39 +652,112 @@ export default function ExportDataScreen() {
             <Text style={styles.previewVal}>{sensors?.length ? sensors.map(s=>s.name).join(", ") : "-"}</Text>
           </View>
 
-          {/* chart preview */}
-          <View style={{ backgroundColor:"#fff", borderRadius:12, padding:10, marginTop:12 }}>
+          {/* แสดงกราฟแยกตาม metric */}
+          <View style={{ marginTop: 12 }}>
             {loading ? (
-              <View style={{ alignItems:"center", paddingVertical:20 }}>
+              <View style={{ alignItems:"center", paddingVertical:20, backgroundColor:"#fff", borderRadius:12, padding:10 }}>
                 <ActivityIndicator />
                 <Text style={{ color:"#666", marginTop:8 }}>Loading data…</Text>
               </View>
+            ) : totalPoints === 0 || Object.keys(chartsByMetric).length === 0 ? (
+              <View style={{ alignItems:"center", paddingVertical:20, backgroundColor:"#fff", borderRadius:12, padding:10 }}>
+                <Text style={{ color:"#666", fontSize: 14 }}>No data available for selected date range</Text>
+                <Text style={{ color:"#999", fontSize: 12, marginTop: 4 }}>Please select a different date range</Text>
+              </View>
+            ) : chartMode === "separated" ? (
+              <>
+                {selectedData.map((metric) => {
+                  const chartData = chartsByMetric[metric];
+                  if (!chartData || !chartData.datasets || chartData.datasets.length === 0) return null;
+
+                  return (
+                    <View key={metric} style={styles.chartContainer}>
+                      <Text style={styles.chartTitle}>{metric}</Text>
+                      <View style={styles.chartWrapper}>
+                        <LineChart
+                          data={chartData}
+                          width={previewWidth - 20}
+                          height={220}
+                          chartConfig={{
+                            backgroundColor: "#ffffff",
+                            backgroundGradientFrom: "#ffffff",
+                            backgroundGradientTo: "#ffffff",
+                            decimalPlaces: 1,
+                            color: (o = 1) => `rgba(0,0,0,${o})`,
+                            labelColor: (o = 1) => `rgba(0,0,0,${o})`,
+                            propsForDots: { r: "4", strokeWidth: "2", stroke: "#fff" },
+                            propsForBackgroundLines: { strokeDasharray: "5, 5", strokeWidth: 1, stroke: "#e0e0e0" },
+                            propsForLabels: { fontSize: 10, fontWeight: "bold" },
+                          }}
+                          bezier
+                          withInnerLines
+                          withOuterLines={false}
+                          withVerticalLines
+                          withHorizontalLines
+                          withDots
+                          withShadow={false}
+                          segments={5}
+                          style={{ borderRadius: 12 }}
+                        />
+                      </View>
+                      
+                      {/* Legend */}
+                      <View style={styles.legendContainer}>
+                        {chartData.datasets
+                          .filter((d) => d.sensorName)
+                          .map((d, i) => (
+                            <View key={i} style={styles.legendItem}>
+                              <View style={[styles.legendDot, { backgroundColor: d.color(1) }]} />
+                              <Text style={styles.legendText}>{d.sensorName}</Text>
+                            </View>
+                          ))}
+                      </View>
+                    </View>
+                  );
+                })}
+              </>
             ) : (
-              <LineChart
-                data={chartData}
-                width={previewWidth}
-                height={220}
-                chartConfig={{
-                  backgroundColor: "#ffffff",
-                  backgroundGradientFrom: "#ffffff",
-                  backgroundGradientTo: "#ffffff",
-                  decimalPlaces: 1,
-                  color: (o = 1) => `rgba(0,0,0,${o})`,
-                  labelColor: (o = 1) => `rgba(0,0,0,${o})`,
-                  propsForDots: { r: "4", strokeWidth: "2", stroke: "#fff" },
-                  propsForBackgroundLines: { strokeDasharray: "5, 5", strokeWidth: 1, stroke: "#e0e0e0" },
-                  propsForLabels: { fontSize: 10, fontWeight: "bold" },
-                }}
-                bezier
-                withInnerLines
-                withOuterLines={false}
-                withVerticalLines
-                withHorizontalLines
-                withDots
-                withShadow={false}
-                segments={5}
-                style={{ borderRadius: 12 }}
-              />
+              <View style={styles.chartContainer}>
+                <View style={styles.chartWrapper}>
+                  <LineChart
+                    data={combinedChartData}
+                    width={previewWidth - 20}
+                    height={220}
+                    chartConfig={{
+                      backgroundColor: "#ffffff",
+                      backgroundGradientFrom: "#ffffff",
+                      backgroundGradientTo: "#ffffff",
+                      decimalPlaces: 1,
+                      color: (o = 1) => `rgba(0,0,0,${o})`,
+                      labelColor: (o = 1) => `rgba(0,0,0,${o})`,
+                      propsForDots: { r: "4", strokeWidth: "2", stroke: "#fff" },
+                      propsForBackgroundLines: { strokeDasharray: "5, 5", strokeWidth: 1, stroke: "#e0e0e0" },
+                      propsForLabels: { fontSize: 10, fontWeight: "bold" },
+                    }}
+                    bezier
+                    withInnerLines
+                    withOuterLines={false}
+                    withVerticalLines
+                    withHorizontalLines
+                    withDots
+                    withShadow={false}
+                    segments={5}
+                    style={{ borderRadius: 12 }}
+                  />
+                </View>
+                
+                {/* Legend */}
+                <View style={styles.legendContainer}>
+                  {combinedChartData.datasets
+                    .filter((d) => d.sensorName)
+                    .map((d, i) => (
+                      <View key={i} style={styles.legendItem}>
+                        <View style={[styles.legendDot, { backgroundColor: d.color(1) }]} />
+                        <Text style={styles.legendText}>{d.sensorName} - {d.metric}</Text>
+                      </View>
+                    ))}
+                </View>
+              </View>
             )}
           </View>
         </View>
@@ -515,40 +776,49 @@ export default function ExportDataScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* hidden WIDE chart for high-res export */}
-      <ViewShot
-        ref={shotRef}
-        style={{ position: "absolute", left: -9999, top: -9999, width: exportWidth, backgroundColor: "#fff", padding: 12, borderRadius: 12 }}
-        options={isWeb ? { format: "png", quality: 1, result: "base64" } : { format: "png", quality: 1, result: "tmpfile" }}
-      >
-        {!loading && (
-          <LineChart
-            data={chartData}
-            width={exportWidth}
-            height={420}
-            chartConfig={{
-              backgroundColor: "#ffffff",
-              backgroundGradientFrom: "#ffffff",
-              backgroundGradientTo: "#ffffff",
-              decimalPlaces: 1,
-              color: (o = 1) => `rgba(0,0,0,${o})`,
-              labelColor: (o = 1) => `rgba(0,0,0,${o})`,
-              propsForDots: { r: "4", strokeWidth: "2", stroke: "#fff" },
-              propsForBackgroundLines: { strokeDasharray: "5, 5", strokeWidth: 1, stroke: "#e0e0e0" },
-              propsForLabels: { fontSize: 10, fontWeight: "bold" },
-            }}
-            bezier
-            withInnerLines
-            withOuterLines={false}
-            withVerticalLines
-            withHorizontalLines
-            withDots
-            withShadow={false}
-            segments={6}
-            style={{ borderRadius: 12 }}
-          />
-        )}
-      </ViewShot>
+      {/* hidden WIDE chart for high-res export - แยกตาม metric */}
+      <View style={{ position: "absolute", left: -9999, top: -9999, width: exportWidth }}>
+        {!loading && selectedData.map((metric) => {
+          const chartData = chartsByMetric[metric];
+          if (!chartData) return null;
+
+          return (
+            <ViewShot
+              key={metric}
+              ref={metric === selectedData[0] ? shotRef : null}
+              style={{ backgroundColor: "#fff", padding: 12, borderRadius: 12, marginBottom: 12 }}
+              options={isWeb ? { format: "png", quality: 1, result: "base64" } : { format: "png", quality: 1, result: "tmpfile" }}
+            >
+              <Text style={{ fontSize: 16, fontWeight: "bold", marginBottom: 8, textAlign: "center" }}>{metric}</Text>
+              <LineChart
+                data={chartData}
+                width={exportWidth}
+                height={420}
+                chartConfig={{
+                  backgroundColor: "#ffffff",
+                  backgroundGradientFrom: "#ffffff",
+                  backgroundGradientTo: "#ffffff",
+                  decimalPlaces: 1,
+                  color: (o = 1) => `rgba(0,0,0,${o})`,
+                  labelColor: (o = 1) => `rgba(0,0,0,${o})`,
+                  propsForDots: { r: "4", strokeWidth: "2", stroke: "#fff" },
+                  propsForBackgroundLines: { strokeDasharray: "5, 5", strokeWidth: 1, stroke: "#e0e0e0" },
+                  propsForLabels: { fontSize: 10, fontWeight: "bold" },
+                }}
+                bezier
+                withInnerLines
+                withOuterLines={false}
+                withVerticalLines
+                withHorizontalLines
+                withDots
+                withShadow={false}
+                segments={6}
+                style={{ borderRadius: 12 }}
+              />
+            </ViewShot>
+          );
+        })}
+      </View>
     </SafeAreaView>
   );
 }
@@ -584,6 +854,57 @@ const styles = StyleSheet.create({
   previewRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
   previewLabel: { color: "#666" },
   previewVal: { color: "#111", flex: 1, textAlign: "right", marginLeft: 12 },
+  chartModeContainer: { flexDirection: "row", gap: 10, marginTop: 8 },
+  modeButton: { 
+    flex: 1, 
+    paddingVertical: 10, 
+    paddingHorizontal: 16, 
+    borderRadius: 8, 
+    backgroundColor: "#f0f0f0", 
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: "#e5e5e5"
+  },
+  modeButtonActive: { backgroundColor: "#3B82F6", borderColor: "#3B82F6" },
+  modeButtonText: { color: "#666", fontWeight: "600", fontSize: 13 },
+  modeButtonTextActive: { color: "#fff" },
+  chartContainer: { 
+    backgroundColor:"#fff", 
+    borderRadius:12, 
+    padding:16, 
+    marginBottom:12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  chartWrapper: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+  },
+  chartTitle: { fontSize: 16, fontWeight: "bold", color: "#333", marginBottom: 12, textAlign: "center" },
+  legendContainer: { 
+    flexDirection: "row", 
+    justifyContent: "center", 
+    marginTop: 12, 
+    flexWrap: "wrap",
+    paddingHorizontal: 8,
+  },
+  legendItem: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    marginHorizontal: 6, 
+    marginBottom: 4 
+  },
+  legendDot: { 
+    width: 10, 
+    height: 10, 
+    borderRadius: 5, 
+    marginRight: 4 
+  },
+  legendText: { fontSize: 10, color: "#444" },
   primaryBtn: {
     backgroundColor: "#3B82F6", padding: 16, borderRadius: 12, alignItems: "center",
     marginTop: 18,

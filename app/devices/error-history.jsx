@@ -54,19 +54,30 @@ const generateUniqueKey = (item, index, prefix = 'item', existingKeys = new Set(
   return uniqueKey;
 };
 
+// ✅ ปรับปรุง deduplication ให้ใช้ _id เป็นหลัก
 const deduplicateErrors = (errors) => {
   const seen = new Map();
   const unique = [];
   
   for (const error of errors) {
-    const dedupKey = `${error.timestamp}-${error.type}-${error.deviceId}-${error.details}`;
+    // ถ้ามี _id ใช้เป็น key หลัก
+    let dedupKey;
+    if (error._id) {
+      dedupKey = error._id;
+    } else {
+      // fallback: ใช้ timestamp + type + deviceId
+      dedupKey = `${error.timestamp}-${error.type}-${error.deviceId}-${error.details}`;
+    }
     
     if (!seen.has(dedupKey)) {
       seen.set(dedupKey, true);
       unique.push(error);
+    } else {
+      console.log(`🔄 Duplicate found: ${dedupKey}`);
     }
   }
   
+  console.log(`Deduplication: ${errors.length} → ${unique.length} items`);
   return unique;
 };
 
@@ -82,6 +93,7 @@ export default function ErrorHistory() {
   const [filter, setFilter] = useState("all");
 
   useEffect(() => {
+    // ✅ โหลด currentErrors จาก params ที่ส่งมาจาก Sensor Detail
     if (errorHistory) {
       try {
         const parsedErrors = JSON.parse(errorHistory);
@@ -89,9 +101,11 @@ export default function ErrorHistory() {
         
         const errorsWithUniqueIds = parsedErrors.map((error, index) => ({
           ...error,
+          _id: error._id || error.id, // เก็บ _id
           id: generateUniqueKey(error, index, 'current', existingKeys)
         }));
         
+        console.log(`📥 Loaded ${errorsWithUniqueIds.length} errors from Sensor Detail`);
         setCurrentErrors(deduplicateErrors(errorsWithUniqueIds));
       } catch (error) {
         console.error("Error parsing error history:", error);
@@ -99,6 +113,7 @@ export default function ErrorHistory() {
       }
     }
 
+    // ✅ แล้วโหลด resolved anomalies จาก API เพิ่มเติม
     fetchData();
   }, [errorHistory, deviceId]);
 
@@ -111,9 +126,11 @@ export default function ErrorHistory() {
     setLoading(true);
     const token = await getAuthToken();
 
+    // ✅ เอาเฉพาะ resolved anomalies เพราะ unresolved มีจาก Sensor Detail แล้ว
     const filters = {
       limit: 50,
-      page: 1
+      page: 1,
+      resolved: true  // ✅ เอาเฉพาะที่ resolved แล้ว
     };
     
     if (deviceId) {
@@ -123,7 +140,7 @@ export default function ErrorHistory() {
 
     const data = await AnomalyService.getHistory(token, filters);
 
-    console.log('Anomaly history FULL response:', JSON.stringify(data, null, 2));
+    console.log('Fetching resolved anomalies from API...');
 
     let anomaliesArray = [];
     
@@ -136,32 +153,28 @@ export default function ErrorHistory() {
       anomaliesArray = [];
     }
 
-    console.log(`Total anomalies found: ${anomaliesArray.length}`);
+    console.log(`Total resolved anomalies found: ${anomaliesArray.length}`);
     
     if (deviceId && anomaliesArray.length > 0) {
       anomaliesArray = anomaliesArray.filter(anomaly => 
         anomaly.deviceId === deviceId || 
         anomaly.device_id === deviceId
       );
-      console.log(`After client-side filter: ${anomaliesArray.length} anomalies for device ${deviceId}`);
+      console.log(`After client-side filter: ${anomaliesArray.length} resolved anomalies for device ${deviceId}`);
     }
 
     const existingKeys = new Set();
 
     const formattedHistory = anomaliesArray.map((item, index) => {
-      if (index < 3) {
-        console.log(`Anomaly ${index}:`, JSON.stringify(item, null, 2));
-      }
-      
       const detectionMethod = item?.detectionMethod || 
                              item?.detection_method || 
                              'unknown';
       
       const isML = detectionMethod === 'ml_based' || 
                   detectionMethod === 'hybrid' ||
-                  item?.mlResults?.confidence > 0 ||
                   item?.anomalyType === 'ml_detected' ||
-                  item?.type === 'ml_detected';
+                  item?.type === 'ml_detected' ||
+                  (item?.mlResults && item.mlResults.confidence > 0.5);
       
       let message = item?.message || 
                    item?.alertMessage?.message ||
@@ -187,20 +200,9 @@ export default function ErrorHistory() {
         }
       }
       
-      if (index < 3) {
-        console.log(`Anomaly ${index} processed:`, {
-          detectionMethod,
-          isML,
-          alertLevel,
-          hasSensorData: !!sensorData,
-          sensorData: sensorData,
-          message: message
-        });
-      }
-      
       return {
-        _id: item._id || item.id, // ✅ เก็บ MongoDB _id ไว้
-        id: generateUniqueKey(item, index, 'historical', existingKeys), // สำหรับ React key
+        _id: item._id || item.id,
+        id: generateUniqueKey(item, index, 'historical', existingKeys),
         type: formatAnomalyType(item?.anomalyType || item?.type || 'unknown'),
         timestamp: item?.timestamp || new Date().toISOString(),
         details: message,
@@ -216,9 +218,7 @@ export default function ErrorHistory() {
     });
 
     const deduplicated = deduplicateErrors(formattedHistory);
-    console.log(`After deduplication: ${deduplicated.length} anomalies`);
-    console.log(`ML anomalies: ${deduplicated.filter(e => e.isAnomalyDetection).length}`);
-    console.log(`With sensor data: ${deduplicated.filter(e => e.sensorData).length}`);
+    console.log(`After deduplication: ${deduplicated.length} resolved anomalies`);
 
     setHistoricalErrors(deduplicated);
 
@@ -251,6 +251,7 @@ export default function ErrorHistory() {
       'low_voltage': 'Low Voltage',
       'high_fluctuation': 'High Fluctuation',
       'vpd_too_low': 'VPD Too Low',
+      'vpd_too_high': 'VPD Too High', // เพิ่ม
       'dew_point_close': 'Dew Point Alert',
       'battery_depleted': 'Battery Depleted',
       'ml_detected': 'Unusual Pattern Detected',
@@ -267,7 +268,6 @@ export default function ErrorHistory() {
   try {
     console.log('🔧 Resolving anomaly with ID:', anomalyId);
     
-    // ✅ ตรวจสอบว่าเป็น MongoDB ObjectId หรือไม่
     if (!anomalyId || typeof anomalyId !== 'string' || anomalyId.length !== 24) {
       console.error('❌ Invalid anomaly ID format:', anomalyId);
       Alert.alert('Error', 'Invalid anomaly ID');
@@ -296,7 +296,6 @@ export default function ErrorHistory() {
               console.log('✅ Resolve result:', result);
               
               if (result.success) {
-                // ✅ อัพเดต UI โดยใช้ _id
                 setHistoricalErrors(prev => 
                   prev.map(error => 
                     error._id === anomalyId 
@@ -334,11 +333,23 @@ export default function ErrorHistory() {
     navigation.goBack();
   };
 
+  // ✅ รวมข้อมูลจาก Sensor Detail + Resolved anomalies
   const allErrors = useMemo(() => {
     const combined = [...currentErrors, ...historicalErrors];
     const deduplicated = deduplicateErrors(combined);
-    return deduplicated.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-  }, [currentErrors, historicalErrors]);
+    const sorted = deduplicated.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    
+    console.log(`\n📊 Error History Summary:`);
+    console.log(`  - From Sensor Detail: ${currentErrors.length} (unresolved)`);
+    console.log(`  - From API (resolved): ${historicalErrors.length}`);
+    console.log(`  - Total after dedup: ${sorted.length}`);
+    console.log(`  - ML: ${sorted.filter(e => e.isAnomalyDetection).length}`);
+    console.log(`  - Rule-based: ${sorted.filter(e => !e.isAnomalyDetection).length}`);
+    console.log(`  - Resolved: ${sorted.filter(e => e.resolved).length}`);
+    console.log(`  - Unresolved: ${sorted.filter(e => !e.resolved).length}\n`);
+    
+    return sorted;
+  }, [historicalErrors, currentErrors]);
 
   const filteredErrors = useMemo(() => {
     const filtered = allErrors.filter((error) => {
@@ -349,6 +360,8 @@ export default function ErrorHistory() {
     });
 
     console.log(`Filter "${filter}": ${filtered.length} errors`);
+    console.log(`  - ML: ${filtered.filter(e => e.isAnomalyDetection).length}`);
+    console.log(`  - Rule-based: ${filtered.filter(e => !e.isAnomalyDetection).length}`);
     return filtered;
   }, [allErrors, filter]);
 
@@ -359,6 +372,7 @@ export default function ErrorHistory() {
       renderKey: generateUniqueKey(error, index, 'render', existingKeys)
     }));
   }, [filteredErrors]);
+  
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView 
@@ -477,6 +491,11 @@ export default function ErrorHistory() {
                           <Text style={styles.resolvedText}>Resolved</Text>
                         </View>
                       )}
+                      {!error._id || error._id.length !== 24 ? (
+                        <View style={styles.systemBadge}>
+                          <Text style={styles.systemText}>System</Text>
+                        </View>
+                      ) : null}
                     </View>
                   </View>
 
@@ -539,12 +558,12 @@ export default function ErrorHistory() {
                     {new Date(error.timestamp).toLocaleString()}
                   </Text>
 
-                {!error.resolved && error._id && (
+                {!error.resolved && error._id && error._id.length === 24 && (
                     <TouchableOpacity 
                       style={styles.actionButton}
                       onPress={() => {
                         console.log('📱 Mark as Resolved pressed for:', error._id);
-                        handleResolveAnomaly(error._id); // ✅ ส่ง _id แทน id
+                        handleResolveAnomaly(error._id);
                       }}
                     >
                       <Text style={styles.actionButtonText}>
@@ -705,6 +724,18 @@ const styles = StyleSheet.create({
   resolvedText: {
     color: "white",
     fontSize: 12,
+  },
+  systemBadge: {
+    backgroundColor: "#9E9E9E",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 4,
+  },
+  systemText: {
+    color: "white",
+    fontSize: 10,
+    fontWeight: "bold",
   },
   errorDetails: {
     fontSize: 14,

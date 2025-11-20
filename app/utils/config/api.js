@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://a3a4873396d1.ngrok-free.app';
+const API_BASE_URL = 'https://3b217e0f8c9a.ngrok-free.app';
 
 export { API_BASE_URL };
 

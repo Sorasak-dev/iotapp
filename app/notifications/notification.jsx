@@ -11,11 +11,13 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getAuthHeaders, ANOMALY_ENDPOINTS, API_ENDPOINTS, AnomalyService } from '../utils/config/api';
 import notificationService from '../utils/NotificationService';
 import NotificationSettings from '../components/NotificationSettings';
+import SwipeableNotification from '../components/SwipeableNotification';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 const filters = [
   { id: "all", label: "All", icon: "layers-outline" },
@@ -63,6 +65,13 @@ export default function NotificationScreen() {
     };
   }, []);
 
+  // ✅ Reload เมื่อกลับมาที่หน้านี้
+  useFocusEffect(
+    useCallback(() => {
+      loadNotifications();
+    }, [])
+  );
+
   const checkPushToken = async () => {
     try {
       const token = await notificationService.getCurrentToken();
@@ -90,11 +99,13 @@ export default function NotificationScreen() {
       setIsLoading(true);
       const token = await getAuthToken();
       
-      console.log('[Notification] 🔍 Fetching anomalies from API...');
+      console.log('[Notification] 🔍 Fetching unresolved anomalies from API...');
       
+      // ✅ เอาเฉพาะ anomalies ที่ยังไม่ resolve
       const response = await AnomalyService.getHistory(token, {
         limit: 100,
-        page: 1
+        page: 1,
+        resolved: false  // ✅ สำคัญมาก!
       });
       
       console.log('[Notification] 📦 API Response:', JSON.stringify(response, null, 2));
@@ -102,7 +113,7 @@ export default function NotificationScreen() {
       if (response.success && response.data?.anomalies) {
         const anomaliesArray = response.data.anomalies;
         
-        console.log(`[Notification] ✅ Found ${anomaliesArray.length} anomalies`);
+        console.log(`[Notification] ✅ Found ${anomaliesArray.length} unresolved anomalies`);
         
         if (anomaliesArray.length > 0) {
           console.log(`[Notification] 📄 First anomaly sample:`, JSON.stringify(anomaliesArray[0], null, 2));
@@ -115,7 +126,7 @@ export default function NotificationScreen() {
           
           const isML = detectionMethod === 'ml_based' || 
                       detectionMethod === 'hybrid' ||
-                      anomaly?.mlResults?.confidence > 0 ||
+                      anomaly?.mlResults?.confidence > 0.5 ||
                       anomaly?.anomalyType === 'ml_detected' ||
                       anomaly?.type === 'ml_detected';
           
@@ -164,19 +175,20 @@ export default function NotificationScreen() {
             type: getSeverityType(alertLevel),
             time: formatTime(anomaly.timestamp),
             date: formatDate(anomaly.timestamp),
-            isRead: anomaly.resolved,
+            isRead: false,  // ✅ unresolved = ยังไม่อ่าน
             severity: alertLevel,
             confidence_score: anomaly.mlResults?.confidence,
-            status: anomaly.resolved ? 'resolved' : 'unresolved',
+            status: 'unresolved',  // ✅ ตั้งค่าตายตัว
             deviceId: anomaly.deviceId,
             anomaly_data: sensorData,
-            resolved_at: anomaly.resolvedAt,
-            resolved_by: anomaly.resolvedBy,
-            resolution_notes: anomaly.notes,
+            resolved_at: null,
+            resolved_by: null,
+            resolution_notes: null,
             timestamp: anomaly.timestamp,
             isPushNotification: false,
             isML: isML,
-            detectionMethod: detectionMethod
+            detectionMethod: detectionMethod,
+            canDelete: false  // ✅ anomalies จาก DB ลบไม่ได้
           };
         });
 
@@ -188,11 +200,15 @@ export default function NotificationScreen() {
           new Date(b.timestamp) - new Date(a.timestamp)
         );
 
+        // ✅ รวมกับ local notifications (push notifications)
         const localNotifications = await getLocalNotifications();
         const allNotifications = [...sortedNotifications, ...localNotifications]
           .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         
         console.log(`[Notification] 🎉 Total notifications: ${allNotifications.length}`);
+        console.log(`[Notification] 📱 Local (push): ${localNotifications.length}`);
+        console.log(`[Notification] 🗄️ Database: ${sortedNotifications.length}`);
+        
         setNotifications(allNotifications);
       } else {
         console.warn('[Notification] ⚠️ No anomalies in response or invalid structure');
@@ -240,7 +256,8 @@ export default function NotificationScreen() {
           time: formatTime(notif.timestamp),
           date: formatDate(notif.timestamp),
           location: notif.data?.device_name || 'Push Notification',
-          isRead: notif.read || false
+          isRead: notif.read || false,
+          canDelete: true  // ✅ local notifications ลบได้
         }));
       }
     } catch (error) {
@@ -256,6 +273,7 @@ export default function NotificationScreen() {
       'constant_value': 'Constant Values',
       'missing_data': 'Missing Data',
       'vpd_too_low': 'VPD Too Low',
+      'vpd_too_high': 'VPD Too High',
       'low_voltage': 'Low Voltage Alert',
       'high_fluctuation': 'High Fluctuation',
       'dew_point_close': 'Dew Point Alert',
@@ -374,22 +392,25 @@ export default function NotificationScreen() {
     setMenuVisible(false);
   };
   
+  // ✅ แก้ไขให้ resolve แล้วหายจากหน้า notification
   const handleResolveNotification = async (id, isPushNotification) => {
     try {
       if (isPushNotification) {
         await markLocalNotificationAsRead(id);
+        // ✅ ลบออกจาก state ทันที
+        setNotifications(notifications.filter(n => n.id !== id));
       } else {
         const token = await getAuthToken();
-        await AnomalyService.resolveAnomaly(token, id, 'Resolved by user');
+        const result = await AnomalyService.resolveAnomaly(token, id, 'Resolved by user');
+        
+        if (result.success) {
+          // ✅ ลบออกจาก state ทันที (เพราะหน้านี้แสดงแค่ unresolved)
+          setNotifications(notifications.filter(n => n.id !== id));
+          Alert.alert('Success', 'Notification marked as resolved');
+        } else {
+          Alert.alert('Error', result.message || 'Failed to resolve notification');
+        }
       }
-
-      setNotifications(notifications.map(notification => 
-        notification.id === id 
-          ? { ...notification, isRead: true, status: 'resolved' }
-          : notification
-      ));
-      
-      Alert.alert('Success', 'Notification marked as resolved');
     } catch (error) {
       console.error('[Notification] Error resolving notification:', error);
       Alert.alert('Error', 'Failed to resolve notification');
@@ -411,7 +432,25 @@ export default function NotificationScreen() {
     }
   };
 
-  const handleDeleteNotification = (id, isPushNotification) => {
+  // ✅ แก้ให้ลบได้เฉพาะ local notifications
+  const handleDeleteNotification = (notification) => {
+    // ❌ Anomalies จาก database ลบไม่ได้
+    if (!notification.canDelete) {
+      Alert.alert(
+        'Cannot Delete',
+        'Anomaly notifications from the database cannot be deleted. You can mark them as resolved instead.',
+        [
+          { text: 'OK', style: 'cancel' },
+          {
+            text: 'Resolve',
+            onPress: () => handleResolveNotification(notification.id, notification.isPushNotification)
+          }
+        ]
+      );
+      return;
+    }
+
+    // ✅ Local notifications ลบได้
     Alert.alert(
       "Delete Notification",
       "Are you sure you want to delete this notification?",
@@ -423,10 +462,8 @@ export default function NotificationScreen() {
         {
           text: "Delete",
           onPress: async () => {
-            if (isPushNotification) {
-              await deleteLocalNotification(id);
-            }
-            setNotifications(notifications.filter(item => item.id !== id));
+            await deleteLocalNotification(notification.id);
+            setNotifications(notifications.filter(item => item.id !== notification.id));
           },
           style: "destructive"
         }
@@ -449,45 +486,69 @@ export default function NotificationScreen() {
 
   const markAllAsRead = async () => {
     try {
-      const storedNotifications = await AsyncStorage.getItem('localNotifications');
-      if (storedNotifications) {
-        const localNotifications = JSON.parse(storedNotifications);
-        const updatedLocalNotifications = localNotifications.map(notif => ({ ...notif, read: true }));
-        await AsyncStorage.setItem('localNotifications', JSON.stringify(updatedLocalNotifications));
-      }
-      
-      setNotifications(
-        notifications.map(notification => ({
-          ...notification,
-          isRead: true
-        }))
+      // ✅ ถาม confirmation ก่อน
+      Alert.alert(
+        'Mark All as Resolved',
+        'This will resolve all anomaly notifications. Continue?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Resolve All',
+            onPress: async () => {
+              // ✅ Resolve ทุก anomaly
+              const token = await getAuthToken();
+              const anomalyNotifs = notifications.filter(n => !n.isPushNotification);
+              
+              for (const notif of anomalyNotifs) {
+                try {
+                  await AnomalyService.resolveAnomaly(token, notif.id, 'Bulk resolved by user');
+                } catch (error) {
+                  console.error(`Failed to resolve ${notif.id}:`, error);
+                }
+              }
+              
+              // ✅ Mark local notifications as read
+              const storedNotifications = await AsyncStorage.getItem('localNotifications');
+              if (storedNotifications) {
+                const localNotifications = JSON.parse(storedNotifications);
+                const updatedLocalNotifications = localNotifications.map(notif => ({ ...notif, read: true }));
+                await AsyncStorage.setItem('localNotifications', JSON.stringify(updatedLocalNotifications));
+              }
+              
+              // ✅ Clear ทั้งหมด
+              setNotifications([]);
+              setMenuVisible(false);
+              Alert.alert('Success', 'All notifications have been resolved');
+            }
+          }
+        ]
       );
-      setMenuVisible(false);
-      Alert.alert('Success', 'All notifications marked as read');
     } catch (error) {
       console.error('[Notification] Error marking all as read:', error);
-      Alert.alert('Error', 'Failed to mark notifications as read');
+      Alert.alert('Error', 'Failed to resolve notifications');
     }
   };
 
   const deleteAllNotifications = () => {
     Alert.alert(
       "Delete All Notifications",
-      "Are you sure you want to delete all notifications?",
+      "This will only delete local push notifications. Anomaly notifications will remain in the database.",
       [
         {
           text: "Cancel",
           style: "cancel"
         },
         {
-          text: "Delete All",
+          text: "Delete Local Only",
           onPress: async () => {
             try {
               await AsyncStorage.setItem('localNotifications', JSON.stringify([]));
-              setNotifications([]);
+              // ✅ ลบเฉพาะ local notifications
+              setNotifications(notifications.filter(n => !n.isPushNotification));
               setMenuVisible(false);
+              Alert.alert('Success', 'Local notifications deleted');
             } catch (error) {
-              console.error('[Notification] Error deleting all notifications:', error);
+              console.error('[Notification] Error deleting notifications:', error);
             }
           },
           style: "destructive"
@@ -496,7 +557,20 @@ export default function NotificationScreen() {
     );
   };
 
-  const handleNotificationPress = (notification) => {
+  const handleNotificationPress = async (notification) => {
+    // ✅ Mark as read when opened
+    if (!notification.isRead) {
+      if (notification.isPushNotification) {
+        await markLocalNotificationAsRead(notification.id);
+      }
+      
+      // ✅ อัพเดท state เพื่อลบไฮไลท์
+      setNotifications(notifications.map(n => 
+        n.id === notification.id ? { ...n, isRead: true } : n
+      ));
+    }
+    
+    // Navigate to detail
     if (notification.isPushNotification) {
       if (notification.data?.anomalyId) {
         router.push({
@@ -506,15 +580,15 @@ export default function NotificationScreen() {
             anomalyId: notification.data.anomalyId
           }
         });
-      } else {
-        handleResolveNotification(notification.id, true);
       }
     } else {
       router.push({
-        pathname: "/sensor-detail",
+        pathname: "/devices/sensor-detail",
         params: {
-          deviceId: notification.deviceId,
-          anomalyId: notification.id
+          device: JSON.stringify({
+            _id: notification.deviceId,
+            name: notification.location
+          })
         }
       });
     }
@@ -531,101 +605,30 @@ export default function NotificationScreen() {
   };
   
   const renderNotificationItem = ({ item }) => (
-    <TouchableOpacity 
-      onPress={() => handleNotificationPress(item)}
-      style={[
-        styles.notificationCard,
-        { backgroundColor: getBackgroundColor(item.type, item.isRead) }
-      ]}
-    >
-      {/* Icon ด้านซ้าย */}
-      <View style={[
-        styles.iconContainer,
-        { backgroundColor: getIconBackground(item.type) }
-      ]}>
-        {getIcon(item.title, item.type)}
-      </View>
-
-      {/* Content */}
-      <View style={styles.contentContainer}>
-        {/* Header */}
-        <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle} numberOfLines={1}>
-            {item.title}
-          </Text>
-          <View style={styles.timeContainer}>
-            <Text style={styles.cardTime}>{item.time}</Text>
-            {!item.isRead && item.status !== 'resolved' && (
-              <View style={styles.unreadDot} />
-            )}
-          </View>
-        </View>
-
-        {/* Message */}
-        <Text style={styles.cardMessage} numberOfLines={2}>
-          {item.message || item.body}
-        </Text>
-
-        {/* Sensor Data - แสดงแบบเรียบง่าย */}
-        {item.anomaly_data && Object.keys(item.anomaly_data).some(key => 
-          item.anomaly_data[key] !== null && item.anomaly_data[key] !== undefined
-        ) && (
-          <View style={styles.sensorRow}>
-            {item.anomaly_data.temperature !== undefined && item.anomaly_data.temperature !== null && (
-              <Text style={styles.sensorText}>
-                {item.anomaly_data.temperature.toFixed(1)}°C
-              </Text>
-            )}
-            {item.anomaly_data.humidity !== undefined && item.anomaly_data.humidity !== null && (
-              <Text style={styles.sensorText}>
-                {item.anomaly_data.humidity.toFixed(1)}%
-              </Text>
-            )}
-            {item.anomaly_data.vpd !== undefined && item.anomaly_data.vpd !== null && (
-              <Text style={styles.sensorText}>
-                {item.anomaly_data.vpd.toFixed(2)} kPa
-              </Text>
-            )}
-          </View>
-        )}
-
-        {/* Footer */}
-        <View style={styles.cardFooter}>
-         <Text style={styles.deviceText} numberOfLines={1}>
-            {item.location}
-          </Text>
-          {item.isML && (
-            <View style={styles.mlBadge}>
-              <Text style={styles.mlBadgeText}>AI</Text>
-            </View>
-          )}
-        </View>
-      </View>
-
-      {/* Edit Mode Actions */}
-      {editMode && (
-        <View style={styles.editActions}>
-          {(!item.isRead && item.status !== 'resolved') && (
-            <TouchableOpacity 
-              style={styles.editButton}
-              onPress={() => handleResolveNotification(item.id, item.isPushNotification)}
-            >
-              <Text style={styles.resolveButtonText}>Resolve</Text>
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity 
-            style={[styles.editButton, styles.deleteButton]}
-            onPress={() => handleDeleteNotification(item.id, item.isPushNotification)}
-          >
-            <Text style={styles.deleteButtonText}>Delete</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </TouchableOpacity>
+    <SwipeableNotification
+      item={item}
+      onPress={handleNotificationPress}
+      onDelete={handleDeleteNotification}
+      onResolve={handleResolveNotification}
+      getBackgroundColor={getBackgroundColor}
+      getIconBackground={getIconBackground}
+      getIcon={getIcon}
+      getSeverityColor={(severity) => {
+        switch (severity) {
+          case 'critical': return '#D32F2F';
+          case 'high': return '#F57C00';
+          case 'medium': return '#FFA000';
+          case 'low': return '#388E3C';
+          default: return '#FF9800';
+        }
+      }}
+      editMode={editMode}
+    />
   );
   
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
@@ -730,7 +733,7 @@ export default function NotificationScreen() {
                 style={styles.menuItem}
                 onPress={markAllAsRead}
               >
-                <Text style={styles.menuItemText}>Mark All as Read</Text>
+                <Text style={styles.menuItemText}>Resolve All</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
@@ -766,6 +769,7 @@ export default function NotificationScreen() {
         </Modal>
       </View>
     </SafeAreaView>
+    </GestureHandlerRootView>
   );
 }
 
@@ -862,124 +866,6 @@ const styles = StyleSheet.create({
   emptySubtext: {
     fontSize: 14,
     color: '#9CA3AF',
-  },
-  
-  notificationCard: {
-    flexDirection: 'row',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  contentContainer: {
-    flex: 1,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 4,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-    flex: 1,
-    marginRight: 8,
-  },
-  timeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  cardTime: {
-    fontSize: 13,
-    color: '#9CA3AF',
-  },
-  unreadDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#3B82F6',
-  },
-  cardMessage: {
-    fontSize: 14,
-    color: '#6B7280',
-    lineHeight: 20,
-    marginBottom: 8,
-  },
-  sensorRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 8,
-  },
-  sensorText: {
-    fontSize: 13,
-    color: '#374151',
-    fontWeight: '500',
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  deviceText: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    flex: 1,
-  },
-  mlBadge: {
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  mlBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#D97706',
-    letterSpacing: 0.5,
-  },
-  
-  editActions: {
-    flexDirection: 'column',
-    gap: 8,
-    marginLeft: 8,
-    justifyContent: 'center',
-  },
-  editButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    backgroundColor: '#10B981',
-    alignItems: 'center',
-    minWidth: 80,
-  },
-  deleteButton: {
-    backgroundColor: '#EF4444',
-  },
-  resolveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  deleteButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
   },
   
   modalOverlay: {

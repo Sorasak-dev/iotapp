@@ -115,17 +115,76 @@ export default function SensorDetail() {
       console.log('Checking anomaly service health...');
       const healthData = await AnomalyService.checkHealth();
       
-      if (healthData && healthData.data) {
-        setModelStatus({
-          model_ready: healthData.data.model_ready,
-          active_model: healthData.data.active_model || 'Gradient Boosting Hybrid',
-          service_status: healthData.data.service_status || healthData.data.status
-        });
+      // Handle nested data structure (data.data or just data)
+      let actualData = healthData?.data;
+      if (actualData?.data) {
+        // If response has nested data.data structure
+        actualData = actualData.data;
       }
+      
+      if (actualData && actualData.model_ready === true) {
+        const status = actualData.service_status || actualData.status || 'online';
+        
+        setModelStatus({
+          model_ready: true,
+          active_model: actualData.active_model || 'Gradient Boosting Hybrid',
+          service_status: status
+        });
+        
+        console.log('✅ Anomaly detection service is active');
+        return;
+      }
+      
+      // Fallback: try to verify service via stats
+      console.log('Health check uncertain, verifying via stats...');
+      try {
+        const token = await getAuthToken();
+        const statsTest = await AnomalyService.getStats(token, 1);
+        
+        if (statsTest && statsTest.success) {
+          console.log('✅ Service is online (confirmed via stats)');
+          setModelStatus({
+            model_ready: true,
+            active_model: 'Gradient Boosting Hybrid',
+            service_status: 'online'
+          });
+          return;
+        }
+      } catch (statsError) {
+        console.error('Stats verification failed:', statsError);
+      }
+      
+      // If all checks failed
+      console.warn('⚠️ Anomaly detection service status uncertain');
+      setModelStatus({
+        model_ready: false,
+        active_model: 'Gradient Boosting Hybrid',
+        service_status: 'offline'
+      });
+      
     } catch (error) {
       console.error('Error in checkAnomalyHealth:', error);
+      
+      // Final fallback: try stats one more time
+      try {
+        const token = await getAuthToken();
+        const statsTest = await AnomalyService.getStats(token, 1);
+        
+        if (statsTest && statsTest.success) {
+          console.log('✅ Service is online (fallback verification)');
+          setModelStatus({
+            model_ready: true,
+            active_model: 'Gradient Boosting Hybrid',
+            service_status: 'online'
+          });
+          return;
+        }
+      } catch (fallbackError) {
+        console.error('All verification attempts failed');
+      }
+      
       setModelStatus({
-        model_ready: true,
+        model_ready: false,
         active_model: 'Gradient Boosting Hybrid',
         service_status: 'offline'
       });
@@ -192,7 +251,7 @@ export default function SensorDetail() {
       const token = await getAuthToken();
       const filters = {
         deviceId: targetDeviceId,
-        limit: 5,
+        limit: 50,  // ✅ เพิ่มจาก 5 เป็น 50
         resolved: false
       };
 
