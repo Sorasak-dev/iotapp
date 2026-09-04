@@ -12,6 +12,7 @@ Real-time agricultural environmental monitoring system with Machine Learning-pow
 - [API Documentation](#api-documentation)
 - [Machine Learning Models](#machine-learning-models)
 - [Troubleshooting](#troubleshooting)
+- [Author](#Author)
 - [License](#license)
 
 ## About the Project
@@ -521,6 +522,13 @@ kill -9 <PID>  # Kill process
 - Check ML models exist in `backend/anomaly-detection/models/` folder
 - If missing, contact project owner
 
+## Author
+ 
+**Sorasak Sanom**
+ 
+- GitHub: [github.com/Sorasak-dev](https://github.com/Sorasak-dev)
+- LinkedIn: [linkedin.com/in/sorasak-sanom](https://www.linkedin.com/in/sorasak-sanom)
+  
 ## License
 
-ISC
+This project was developed for educational and portfolio purposes.
